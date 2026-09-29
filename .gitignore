@@ -16,3 +16,4 @@ coverage/
 .vite/
 .DS_Store
 Thumbs.db
+output/

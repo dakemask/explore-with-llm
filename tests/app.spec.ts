@@ -59,6 +59,16 @@ async function selectText(page: Page, text: string, occurrence = 0) {
     );
   await page.getByRole("button", { name: "创建侧边对话" }).click();
 }
+async function setScrollTop(page: Page, selector: string, top: number) {
+  await page.locator(selector).evaluate(async (el, top) => {
+    if (el.scrollTop === top) return;
+
+    await new Promise<void>((resolve) => {
+      el.addEventListener("scroll", () => resolve(), { once: true });
+      el.scrollTop = top;
+    });
+  }, top);
+}
 test("real flow: render, side context, protected edits, branching, tree and reload", async ({
   page,
 }) => {
@@ -566,7 +576,7 @@ test("long main, sidebar and conversation list stay scrollable with visible comp
     expect(box!.y + box!.height).toBeLessThan(size.height);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator(".main-scroll").evaluate((el) => (el.scrollTop = 0));
+  await setScrollTop(page, ".main-scroll", 0);
   await selectText(page, "第 0 段");
   const side = page.locator(".side-scroll");
   expect(await side.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
@@ -676,7 +686,7 @@ test("selection action dismisses on outside click, collapse, scroll and Escape",
     "可以选中",
   );
   const select = async () => {
-    await page.locator(".main-scroll").evaluate((el) => (el.scrollTop = 0));
+    await setScrollTop(page, ".main-scroll", 0);
     await page
       .locator(".main-panel .message.assistant .markdown")
       .evaluate((root) => {
@@ -1018,55 +1028,78 @@ test("composer grows to a cap and shrinks with the draft", async ({ page }) => {
   await input.fill("一行内容\n".repeat(50));
   const height = (await input.boundingBox())!.height;
   expect(height).toBeLessThanOrEqual(240);
-  expect(await input.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+  expect(await input.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+    true,
+  );
   await input.fill("");
   expect((await input.boundingBox())!.height).toBe(initial);
   const model = page.getByRole("button", { name: "模型与思考档位" });
   await model.click();
   await expect(model).toHaveAttribute("aria-expanded", "true");
   await page.waitForTimeout(200);
-  expect(await model.locator("svg").evaluate(el => getComputedStyle(el).transform)).not.toBe("none");
+  expect(
+    await model.locator("svg").evaluate((el) => getComputedStyle(el).transform),
+  ).not.toBe("none");
 });
 
-test("collapsed reasoning branch snapshot retains its visible position", async ({ page }) => {
-  await page.route("https://api.deepseek.com/**", route => route.fulfill({
-    contentType: "text/event-stream",
-    body: `data: ${JSON.stringify({ choices: [{ delta: { reasoning_content: "思考内容。\n\n".repeat(40), content: "回答正文。" } }] })}\n\ndata: [DONE]\n\n`,
-  }));
+test("collapsed reasoning branch snapshot retains its visible position", async ({
+  page,
+}) => {
+  await page.route("https://api.deepseek.com/**", (route) =>
+    route.fulfill({
+      contentType: "text/event-stream",
+      body: `data: ${JSON.stringify({ choices: [{ delta: { reasoning_content: "思考内容。\n\n".repeat(40), content: "回答正文。" } }] })}\n\ndata: [DONE]\n\n`,
+    }),
+  );
   await setup(page);
   await ask(page);
-  await page.locator(".main-panel .message.assistant").getByLabel("重新生成").click();
+  await page
+    .locator(".main-panel .message.assistant")
+    .getByLabel("重新生成")
+    .click();
   const toggle = page.getByRole("button", { name: "思考过程" });
   await toggle.click();
   await page.waitForTimeout(450);
   await toggle.click();
   await page.waitForTimeout(450);
-  const result = await page.getByLabel("上一个分支").evaluate((button: HTMLButtonElement) => {
-    const source = button.closest(".message")!;
-    const before = source.getBoundingClientRect().top;
-    button.click();
-    const snapshot = document.querySelector(".branch-transition-snapshot .message")!;
-    return {
-      before,
-      after: snapshot.getBoundingClientRect().top,
-      focused: snapshot.classList.contains("focused"),
-    };
-  });
+  const result = await page
+    .getByLabel("上一个分支")
+    .evaluate((button: HTMLButtonElement) => {
+      const source = button.closest(".message")!;
+      const before = source.getBoundingClientRect().top;
+      button.click();
+      const snapshot = document.querySelector(
+        ".branch-transition-snapshot .message",
+      )!;
+      return {
+        before,
+        after: snapshot.getBoundingClientRect().top,
+        focused: snapshot.classList.contains("focused"),
+      };
+    });
   expect(Math.abs(result.after - result.before)).toBeLessThan(1);
   expect(result.focused).toBe(false);
 });
-test("tree context menu follows the pointer and closes with motion", async ({ page }) => {
-  await page.route("https://api.deepseek.com/**", route => route.fulfill({
-    contentType: "text/event-stream", body: sse("树图定位测试"),
-  }));
+test("tree context menu follows the pointer and closes with motion", async ({
+  page,
+}) => {
+  await page.route("https://api.deepseek.com/**", (route) =>
+    route.fulfill({
+      contentType: "text/event-stream",
+      body: sse("树图定位测试"),
+    }),
+  );
   await setup(page);
   await ask(page);
   await page.getByRole("button", { name: "对话脉络", exact: true }).click();
-  const node = page.locator(".react-flow__node").filter({ hasText: "树图定位测试" });
+  const node = page
+    .locator(".react-flow__node")
+    .filter({ hasText: "树图定位测试" });
   await expect(node).toBeVisible();
   await page.waitForTimeout(300);
   const box = (await node.boundingBox())!;
-  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  const x = box.x + box.width / 2,
+    y = box.y + box.height / 2;
   await page.mouse.click(x, y, { button: "right" });
   const menu = page.getByRole("button", { name: "删除节点", exact: true });
   await expect(menu).toBeVisible();
@@ -1074,7 +1107,9 @@ test("tree context menu follows the pointer and closes with motion", async ({ pa
   const menuBox = (await menu.boundingBox())!;
   expect(Math.abs(menuBox.x - x)).toBeLessThan(2);
   expect(Math.abs(menuBox.y - y)).toBeLessThan(2);
-  await page.getByRole("button", { name: "关闭", exact: true }).evaluate((el: HTMLButtonElement) => el.click());
+  await page
+    .getByRole("button", { name: "关闭", exact: true })
+    .evaluate((el: HTMLButtonElement) => el.click());
   await expect(page.locator(".modal[data-state='closed']")).toBeAttached();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

@@ -1,18 +1,26 @@
 # Explore with LLM
 
-宽屏优先的个人 AI 对话工作区：主线分支、选区侧边提问、消息树和本地存储。使用 React、TypeScript、Vite，直接连接 DeepSeek API，无应用后端。
+<!-- 本 `README.md` 提供给使用与二次开发应用的用户阅读，Agent 不应将其当成纯开发文档 -->
 
-## 在线部署（不需要在电脑上构建）
+一个 AI 聊天项目，使用 React、TypeScript、Vite 构建。支持消息分支、侧边提问、在可视化树中预览全部分支。数据与 API Key 存储在浏览器本地。目前支持 DeepSeek API Key。
 
-1. 将本仓库内容放入自己的 GitHub 仓库，默认分支使用 `main` 或 `master`。
-2. 仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
-3. 推送代码，或在 **Actions → Verify and deploy → Run workflow** 手动运行。
-4. 工作流会安装依赖、运行单元与浏览器测试、构建并发布。完成后在工作流的 `github-pages` 部署入口打开网站。
-5. 网页左下角打开 **模型与设置**，填写自己的 DeepSeek API Key 并保存，然后开始聊天。
+## 填入 API Key
 
-不需要 Repository Secrets，不需要将 API Key 写入 GitHub。相对资源路径同时支持 `https://<user>.github.io/` 与 `https://<user>.github.io/<repo>/`。如果使用其他分支，在 `.github/workflows/deploy.yml` 修改 `push.branches`，并允许该分支部署到 `github-pages` 环境。首次部署前需启用 Pages；仓库的账户方案需允许相应可见性的 Pages。
+网页左下角打开 **模型与设置**，填写自己的 DeepSeek API Key 并保存，然后开始聊天。
 
-## 使用
+## 开始使用
+
+在对话中选中文字，可进行侧边提问。
+
+编辑对话中的消息可以新建分支（亦可以选择仅覆盖）。重新生成回复默认会新建分支。
+
+在左上角**对话脉络**中可查看当前全部消息分支。双击消息可跳转到指定位置，右键消息可删除。
+
+在右侧边栏，右键侧边提问标题可以进行删除。
+
+## 开发
+
+### 用户操作逻辑
 
 - 主线：Enter 发送，Shift+Enter 换行。图片可选择、粘贴或拖入输入框。输入框中的模型菜单选择提供商与官方 `none / low / high / max` 思考档位。新建对话先进入空白页，首次发送才保存到列表。
 - 选中主线助手正文后，点击“创建侧边对话”。右侧按当前消息展示提问标签，同一选区可多次提问。
@@ -24,7 +32,7 @@
 - 所有删除需确认；删除整段会话只显示确认标题，递归删除消息或侧边提问时显示后代数量。中止或失败保留已有正文，无正文则回到待生成状态。
 - 系统消息显示在消息流顶部，通过消息的编辑按钮修改提示词，默认 `You are a helpful assistant.`。
 
-## 数据与请求
+### 数据与请求
 
 对话、图片、草稿、分支选择、标签选择以及可选记住的密钥保存在此站点来源下的 IndexedDB。未勾选记住的密钥只保存在当前页面内存。清除浏览器站点数据会删除这些内容；应用没有云端同步、导出或备份。更换域名/浏览器也不会带走历史。
 
@@ -32,7 +40,7 @@
 
 默认模型 `deepseek-flash`。提供商地址、名称、模型 ID 和密钥可自定义，但本版完整适配与验证范围为 DeepSeek 的 Chat Completions 协议。其他服务需要允许浏览器跨域访问并支持相应参数。选用不支持图片的模型时会显示提供商返回的错误。
 
-## 本地开发
+### 相关命令
 
 Node.js 24。
 
@@ -47,7 +55,7 @@ npm run build
 
 `PLAYWRIGHT_EXECUTABLE_PATH` 可指定现有 Chromium 可执行文件。生产构建输出在 `dist/`。
 
-## 实现
+### 实现
 
 - `src/model.ts`：树、上下文、删除和位置保护
 - `src/selection.ts`：渲染文字与源码选区映射
