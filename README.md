@@ -4,11 +4,17 @@
 
 一个 AI 聊天项目，使用 React、TypeScript、Vite 构建。支持消息分支、侧边提问、在可视化树中预览全部分支。数据与 API Key 存储在浏览器本地。目前支持 DeepSeek API Key。
 
-## 填入 API Key
+## 使用
+
+### 地址
+
+[https://dakemask.github.io/explore-with-llm/](https://dakemask.github.io/explore-with-llm/)
+
+### 填入 API Key
 
 网页左下角打开 **模型与设置**，填写自己的 DeepSeek API Key 并保存，然后开始聊天。
 
-## 开始使用
+### 使用技巧
 
 在对话中选中文字，可进行侧边提问。
 
