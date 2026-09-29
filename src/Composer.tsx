@@ -56,6 +56,7 @@ export default function Composer({
   text,
   images,
   onChange,
+  onImagesAdded,
   onSend,
   busy,
   onStop,
@@ -66,6 +67,7 @@ export default function Composer({
   text: string;
   images: Attachment[];
   onChange: (text: string, images: Attachment[]) => void;
+  onImagesAdded: (images: Attachment[]) => void;
   onSend: () => void;
   busy: boolean;
   onStop: () => void;
@@ -104,7 +106,7 @@ export default function Composer({
   async function add(files: FileList | File[]) {
     try {
       const added = await readImages(files);
-      onChange(text, [...images, ...added]);
+      onImagesAdded(added);
       setError("");
     } catch (e) {
       setError(String((e as Error).message));

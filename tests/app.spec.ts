@@ -18,7 +18,7 @@ async function setup(page: Page, mockNaming = true) {
     });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "今天我能提供什么帮助" }),
+    page.getByRole("heading", { name: "今天我能提供什么帮助？" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "模型与设置" }).click();
   await page.getByLabel("API Key").fill("test-key");
@@ -147,7 +147,7 @@ test("real flow: render, side context, protected edits, branching, tree and relo
   await page.getByRole("button", { name: "对话脉络", exact: true }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(5);
   await page.getByRole("button", { name: "关闭", exact: true }).click();
-  await page.screenshot({ path: "docs/workspace.png", fullPage: true });
+  await page.screenshot({ path: "test-results/docs/workspace.png", fullPage: true });
   await page.reload();
   await expect(page.locator(".main-panel .branch-switch")).toContainText(
     "1 / 2",
@@ -185,6 +185,15 @@ test("recursive deletion confirms and removes side descendants", async ({
 test("native image and context failure restore editable draft", async ({
   page,
 }) => {
+  // Finish reading the image only after typing, so stale draft writes are deterministic.
+  await page.addInitScript(() => {
+    const read = FileReader.prototype.readAsDataURL;
+    FileReader.prototype.readAsDataURL = function (blob) {
+      window.addEventListener("test:read-image", () => read.call(this, blob), {
+        once: true,
+      });
+    };
+  });
   let body: any;
   await page.route("https://api.deepseek.com/**", async (route) => {
     body = route.request().postDataJSON();
@@ -205,7 +214,14 @@ test("native image and context failure restore editable draft", async ({
       "base64",
     ),
   });
-  await ask(page, "解释图片");
+  await page
+    .getByRole("textbox", { name: "消息输入", exact: true })
+    .fill("解释图片");
+  await page.evaluate(() => window.dispatchEvent(new Event("test:read-image")));
+  await expect(page.locator(".main-panel .composer .attachment")).toHaveCount(
+    1,
+  );
+  await page.getByRole("button", { name: "发送消息", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("maximum context");
   expect(body.messages.at(-1).content[1].type).toBe("image_url");
   await expect(
@@ -258,7 +274,7 @@ test("overlapping questions and code selections protect positions, tree can navi
   await expect(page.locator("pre .question-highlight")).toHaveText("answer");
   await page.getByRole("button", { name: "对话脉络", exact: true }).click();
   await expect(page.locator(".question-node")).toHaveCount(3);
-  await page.screenshot({ path: "docs/tree.png", fullPage: true });
+  await page.screenshot({ path: "test-results/docs/tree.png", fullPage: true });
   await page.locator(".question-node").last().dblclick();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "提问 3" })).toHaveAttribute(
@@ -372,7 +388,7 @@ test("mouse selection, user branches, system overwrite and conversation manageme
     }),
   );
   await setup(page);
-  await page.screenshot({ path: "docs/empty.png", fullPage: true });
+  await page.screenshot({ path: "test-results/docs/empty.png", fullPage: true });
   await ask(page, "最初的问题");
   await expect(page.locator(".main-panel .message.assistant")).toContainText(
     "鼠标",
@@ -502,7 +518,7 @@ test("draft creation, official effort, metadata, quote lines and task markers", 
   await page.getByRole("button", { name: "删除", exact: true }).click();
   await expect(page.locator(".conversation-item")).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "今天我能提供什么帮助" }),
+    page.getByRole("heading", { name: "今天我能提供什么帮助？" }),
   ).toBeVisible();
 });
 
@@ -593,7 +609,7 @@ test("long main, sidebar and conversation list stay scrollable with visible comp
   await page
     .locator(".main-scroll")
     .evaluate((el) => (el.scrollTop = el.scrollHeight));
-  await page.screenshot({ path: "docs/scroll-check.png" });
+  await page.screenshot({ path: "test-results/docs/scroll-check.png" });
 });
 
 test("continuous editor protects text and undo, tab rename/delete, compact tree jumps to first side message", async ({
@@ -844,7 +860,7 @@ test("compact headers, logo, language, editor parity and sidebar transitions", a
     "10px",
   );
   await expect(page.locator(".cm-scroller")).toHaveCSS("line-height", "21px");
-  await page.screenshot({ path: "docs/editor-detail.png" });
+  await page.screenshot({ path: "test-results/docs/editor-detail.png" });
   await page.getByRole("button", { name: "新建分支", exact: true }).click();
   await expect(page.locator(".continuous-editor")).toHaveCount(1);
   await expect(page.locator(".cm-scroller")).toHaveCSS("line-height", "21px");
@@ -857,7 +873,7 @@ test("compact headers, logo, language, editor parity and sidebar transitions", a
     "transition-property",
     "grid-template-columns",
   );
-  await page.screenshot({ path: "docs/compact-workspace.png" });
+  await page.screenshot({ path: "test-results/docs/compact-workspace.png" });
 });
 
 test("sidebar borders resize, persist and preserve main space", async ({
@@ -924,12 +940,12 @@ test("reasoning aligns with avatar and animates in both directions", async ({
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(collapse).toHaveCSS("opacity", "1");
-  await page.screenshot({ path: "docs/reasoning-open.png" });
+  await page.screenshot({ path: "test-results/docs/reasoning-open.png" });
   await toggle.press("Enter");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(collapse).toHaveCSS("opacity", "0");
   expect((await collapse.boundingBox())!.height).toBeLessThan(1);
-  await page.screenshot({ path: "docs/reasoning-closed.png" });
+  await page.screenshot({ path: "test-results/docs/reasoning-closed.png" });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(collapse).toHaveCSS("transition-duration", "0s");
 });

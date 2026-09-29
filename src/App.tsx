@@ -1127,7 +1127,7 @@ export default function App() {
                   width="72"
                   height="72"
                 />
-                <h1>今天我能提供什么帮助</h1>
+                <h1>今天我能提供什么帮助？</h1>
               </div>
             ) : (
               <>
@@ -1157,6 +1157,11 @@ export default function App() {
                 commit(c.id, (d) => {
                   d.draft = text;
                   d.images = images;
+                })
+              }
+              onImagesAdded={(images) =>
+                commit(c.id, (d) => {
+                  d.images.push(...images);
                 })
               }
               onSend={() => send()}
@@ -1265,6 +1270,12 @@ export default function App() {
                       target.draft = text;
                       target.images = images;
                     }
+                  })
+                }
+                onImagesAdded={(images) =>
+                  commit(c.id, (d) => {
+                    const target = d.questions.find((x) => x.id === q.id);
+                    if (target) target.images.push(...images);
                   })
                 }
                 onSend={() => send(q.id)}
