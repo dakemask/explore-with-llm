@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./style.css";
+import "./modelConfiguration.css";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
 import "@xyflow/react/dist/style.css";

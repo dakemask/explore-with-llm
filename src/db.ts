@@ -7,16 +7,6 @@ export const db = new Dexie("threadline") as Dexie & {
 db.version(1).stores({ conversations: "id, updated", settings: "id" });
 export const defaultSettings: Settings = {
   id: "settings",
-  providers: [
-    {
-      id: "deepseek",
-      name: "DeepSeek",
-      baseUrl: "https://api.deepseek.com",
-      key: "",
-      model: "deepseek-flash",
-      remember: true,
-    },
-  ],
-  selected: "deepseek",
-  effort: "none",
+  providers: [],
+  selected: "",
 };

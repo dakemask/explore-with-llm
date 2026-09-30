@@ -28,7 +28,7 @@ export async function nameConversation(
       },
     ],
     provider,
-    "none",
+    "",
     AbortSignal.timeout(30000),
     (delta) => {
       title += delta;

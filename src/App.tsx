@@ -43,6 +43,19 @@ import { nameConversation } from "./naming";
 import { streamAnswer } from "./api";
 import Markdown from "./Markdown";
 import Reasoning from "./Reasoning";
+import EncryptedReasoningView, {
+  ReasoningControls,
+} from "./EncryptedReasoningView";
+import { canUseAsContext, hasMessageContent } from "./encryptedReasoning";
+import { effortLabel } from "./budget";
+import {
+  blankProvider,
+  normalizeSettings,
+  resolveModel,
+  reconcileState,
+} from "./config";
+import { parameterRequest } from "./parameters";
+import NamingSettings from "./NamingSettings";
 import { useScrollAnchor } from "./useScrollAnchor";
 import { useBranchTransition } from "./useBranchTransition";
 import Composer, { Attachments } from "./Composer";
@@ -70,13 +83,19 @@ export default function App() {
     [ready, setReady] = useState(false);
   const scrollAnchor = useScrollAnchor(active);
   const transitionBranch = useBranchTransition(active);
-  const [settings, setSettings] = useState<Settings>(defaultSettings),
+  const [settings, setSettings] = useState<Settings>(() =>
+      normalizeSettings(defaultSettings),
+    ),
     settingsRef = useRef(settings);
   const [showSettings, setShowSettings] = useState(false),
+    [showBudget, setShowBudget] = useState(false),
     [tree, setTree] = useState(false),
     [left, setLeft] = useState(true),
     [right, setRight] = useState(false),
     [search, setSearch] = useState("");
+  const [parameterDetails, setParameterDetails] = useState<Message | null>(
+    null,
+  );
   const sidebarResize = useSidebarResize(left, right);
   const [editing, setEditing] = useState<string | null>(null),
     [renaming, setRenaming] = useState<string | null>(null),
@@ -145,6 +164,58 @@ export default function App() {
     return next;
   }
   function saveSettings(value: Settings) {
+    const previous = settingsRef.current;
+    const changed =
+      JSON.stringify(previous.providers) !== JSON.stringify(value.providers);
+    if (changed) {
+      for (const conversation of [
+        ...allRef.current,
+        ...(allRef.current.some((c) => c.id === draftRef.current.id)
+          ? []
+          : [draftRef.current]),
+      ]) {
+        if (!conversation.parameterSelections) continue;
+        const selections = structuredClone(conversation.parameterSelections);
+        for (const id of Object.keys(selections)) {
+          const next = resolveModel(value, id);
+          const old = resolveModel(previous, id);
+          if (!next) delete selections[id];
+          else if (
+            old?.customParameters !== next.customParameters ||
+            old?.protocol !== next.protocol ||
+            old?.parameterRevision !== next.parameterRevision
+          )
+            selections[id] = reconcileState(old, next, selections[id]);
+        }
+        if (
+          JSON.stringify(selections) !==
+          JSON.stringify(conversation.parameterSelections)
+        )
+          commit(
+            conversation.id,
+            (d) => {
+              d.parameterSelections = selections;
+            },
+            true,
+          );
+      }
+      if (value.naming) {
+        const next = resolveModel(value, value.naming.model);
+        value = {
+          ...value,
+          naming: next
+            ? {
+                ...value.naming,
+                state: reconcileState(
+                  resolveModel(previous, value.naming.model),
+                  next,
+                  value.naming.state,
+                ),
+              }
+            : undefined,
+        };
+      }
+    }
     settingsRef.current = value;
     setSettings(value);
     void db.settings
@@ -165,7 +236,7 @@ export default function App() {
         for (const c of conversations) {
           for (const n of Object.values(c.nodes))
             if (n.status === "streaming") {
-              if (n.content) {
+              if (hasMessageContent(n)) {
                 n.status = "stopped";
               } else removeNode(c, n.id);
             }
@@ -178,8 +249,16 @@ export default function App() {
           conversations.sort((a, b) => b.updated - a.updated)[0]?.id ?? "",
         );
         if (s) {
-          settingsRef.current = s;
-          setSettings(s);
+          const migrated = normalizeSettings(s);
+          settingsRef.current = migrated;
+          setSettings(migrated);
+          await db.settings.put({
+            ...migrated,
+            providers: migrated.providers.map((p) => ({
+              ...p,
+              key: p.remember ? p.key : "",
+            })),
+          });
         }
         setReady(true);
       })
@@ -287,8 +366,31 @@ export default function App() {
     }
   }, [right, q?.id]);
   const provider =
-    settings.providers.find((p) => p.id === settings.selected) ??
-    settings.providers[0];
+    resolveModel(
+      settings,
+      settings.selected,
+      c.parameterSelections?.[settings.selected],
+    ) ?? blankProvider;
+  const mainHistory = ancestors(c, main.at(-1)?.id ?? c.root);
+  const sideHistory = q ? ancestors(c, side.at(-1)?.id ?? q.owner) : [];
+  function reasoningControls(history: Message[], busy: boolean) {
+    return (
+      <ReasoningControls
+        history={history}
+        provider={provider}
+        preferences={c.reasoningPreferences}
+        busy={busy}
+        onChange={(source, enabled) =>
+          commit(c.id, (d) => {
+            d.reasoningPreferences = {
+              ...d.reasoningPreferences,
+              [source]: enabled,
+            };
+          })
+        }
+      />
+    );
+  }
   function newChat() {
     const next = createConversation();
     draftRef.current = next;
@@ -311,8 +413,13 @@ export default function App() {
     cid: string,
     assistantId: string,
     sideId: string | undefined,
-    provider: Settings["providers"][number],
+    _provider: Settings["providers"][number],
   ) {
+    const namingConfig = settingsRef.current.naming;
+    const namingProvider =
+      namingConfig &&
+      resolveModel(settingsRef.current, namingConfig.model, namingConfig.state);
+    if (!namingProvider) return;
     const current = allRef.current.find((c) => c.id === cid);
     if (!current?.nodes[assistantId]?.content) return;
     const target = sideId
@@ -333,7 +440,7 @@ export default function App() {
     nameVersions.current.set(lane, version);
     setNaming((v) => ({ ...v, [lane]: true }));
     try {
-      const title = await nameConversation(messages, provider);
+      const title = await nameConversation(messages, namingProvider);
       if (nameVersions.current.get(lane) !== version) return;
       commit(
         cid,
@@ -382,9 +489,17 @@ export default function App() {
     const lane = key(cid, sideId);
     if (controllers.current.has(lane)) return;
     const config = structuredClone(settingsRef.current),
+      currentConversation = allRef.current.find((item) => item.id === cid),
       p =
-        config.providers.find((p) => p.id === config.selected) ??
-        config.providers[0];
+        resolveModel(
+          config,
+          config.selected,
+          currentConversation?.parameterSelections?.[config.selected],
+        ) ?? blankProvider;
+    if (!p.model) {
+      setShowSettings(true);
+      return;
+    }
     if (!p.key.trim()) {
       report(cid, sideId, "请先填写 API Key");
       setShowSettings(true);
@@ -410,18 +525,35 @@ export default function App() {
             const n = c.nodes[retryId];
             n.content = "";
             n.reasoning = "";
+            n.encryptedReasoning = [];
             n.status = "streaming";
             n.error = undefined;
             n.edited = false;
             n.model = p.model;
-            n.effort = config.effort ?? (config.thinking ? "high" : "none");
+            n.parameters = parameterRequest(
+              p.customParameters ?? "",
+              p.parameterState,
+            ).summary;
+            n.requestParameters = parameterRequest(
+              p.customParameters ?? "",
+              p.parameterState,
+            ).body;
+            n.effort = undefined;
             n.created = Date.now();
             assistantId = n.id;
           } else {
             const n = append(c, userId, "assistant", "", sideId);
             n.status = "streaming";
             n.model = p.model;
-            n.effort = config.effort ?? (config.thinking ? "high" : "none");
+            n.parameters = parameterRequest(
+              p.customParameters ?? "",
+              p.parameterState,
+            ).summary;
+            n.requestParameters = parameterRequest(
+              p.customParameters ?? "",
+              p.parameterState,
+            ).body;
+            n.effort = undefined;
             n.created = Date.now();
             assistantId = n.id;
           }
@@ -432,17 +564,19 @@ export default function App() {
       await streamAnswer(
         snapshot,
         p,
-        config.effort ?? (config.thinking ? "high" : "none"),
+        "",
         controller.signal,
-        (content, reasoning) => {
+        (content, reasoning, encrypted) => {
           commit(cid, (c) => {
             const n = c.nodes[assistantId];
             if (n) {
               n.content += content;
               n.reasoning = (n.reasoning ?? "") + reasoning;
+              if (encrypted) n.encryptedReasoning = encrypted;
             }
           });
         },
+        before.reasoningPreferences,
       );
       commit(
         cid,
@@ -464,7 +598,7 @@ export default function App() {
         (c) => {
           const n = c.nodes[assistantId];
           if (!n) return;
-          if (!n.content) {
+          if (!hasMessageContent(n)) {
             if (backup) c.nodes[assistantId] = backup;
             else removeNode(c, assistantId);
             if (
@@ -501,7 +635,7 @@ export default function App() {
       const latest = allRef.current.find((c) => c.id === cid);
       if (
         latest?.nodes[assistantId] &&
-        !latest.nodes[assistantId].content &&
+        !hasMessageContent(latest.nodes[assistantId]) &&
         latest.nodes[assistantId].status === "done"
       )
         commit(
@@ -523,8 +657,17 @@ export default function App() {
     const content = s ? s.draft : c.draft,
       images = s ? s.images : c.images;
     if (!content.trim() && !images.length) return;
-    if (!provider.key.trim()) {
+    if (!provider.model || !provider.key.trim()) {
       setShowSettings(true);
+      return;
+    }
+    try {
+      parameterRequest(
+        provider.customParameters ?? "",
+        provider.parameterState,
+      );
+    } catch (e) {
+      report(c.id, sideId, (e as Error).message);
       return;
     }
     if (!allRef.current.some((item) => item.id === c.id)) {
@@ -534,7 +677,8 @@ export default function App() {
     }
     const currentPath = path(c, sideId),
       parent = currentPath.at(-1)?.id ?? s?.owner ?? c.root;
-    if (c.nodes[parent]?.role === "user") return;
+    if (c.nodes[parent]?.role === "user" || !canUseAsContext(c.nodes[parent]))
+      return;
     let id = "";
     commit(
       c.id,
@@ -719,6 +863,21 @@ export default function App() {
             onBeforeToggle={scrollAnchor.capture}
           />
         )}
+        <EncryptedReasoningView
+          message={n}
+          provider={provider}
+          preferences={c.reasoningPreferences}
+          included={(inherited || n.side ? sideHistory : mainHistory).some(
+            (m) => m.id === n.id,
+          )}
+          onBeforeToggle={scrollAnchor.capture}
+        />
+        {n.role === "assistant" &&
+          !n.content.trim() &&
+          !isBusy &&
+          hasMessageContent(n) && (
+            <p className="muted">没有正文，请重新生成后继续对话。</p>
+          )}
         <Attachments images={n.images} />
         <div
           className="markdown"
@@ -774,7 +933,15 @@ export default function App() {
           {n.model && (
             <span>
               {n.model}
-              {n.effort ? ` · ${n.effort}` : ""}
+              {n.effort !== undefined ? ` · ${effortLabel(n.effort)}` : ""}
+              {n.parameters !== undefined && (
+                <button
+                  className="message-parameters"
+                  onClick={() => setParameterDetails(n)}
+                >
+                  参数
+                </button>
+              )}
             </span>
           )}
         </div>
@@ -920,8 +1087,13 @@ export default function App() {
     );
   const mainBusy = !!busy[key(c.id)],
     sideBusy = !!busy[key(c.id, q?.id)],
-    pendingMain = main.at(-1)?.role === "user",
-    pendingSide = side.at(-1)?.role === "user";
+    pendingMain =
+      main.at(-1)?.role === "user" ||
+      (!!main.at(-1) && !canUseAsContext(main.at(-1)!)),
+    pendingSide =
+      side.at(-1)?.role === "user" ||
+      (!!(side.at(-1) ?? (q && c.nodes[q.owner])) &&
+        !canUseAsContext((side.at(-1) ?? c.nodes[q!.owner])!));
   return (
     <div
       className={`app ${!left ? "left-hidden" : ""} ${right ? "right-open" : ""} ${sidebarResize.dragging ? "resizing" : ""}`}
@@ -1070,7 +1242,12 @@ export default function App() {
           </details>
           <button onClick={() => setShowSettings(true)}>
             <Settings2 size={18} />
-            模型与设置
+            模型提供商
+            <ChevronRight size={15} />
+          </button>
+          <button onClick={() => setShowBudget(true)}>
+            <Bot size={18} />
+            命名模型设置
             <ChevronRight size={15} />
           </button>
           <div className="local-note">
@@ -1140,7 +1317,7 @@ export default function App() {
         </div>
         <div className="bottom-area">
           <div className="chat-width">
-            {pendingMain && !mainBusy && (
+            {main.at(-1)?.role === "user" && !mainBusy && (
               <button
                 className="generate-button"
                 onClick={() => void generate(c.id, main.at(-1)!.id)}
@@ -1168,8 +1345,22 @@ export default function App() {
               busy={mainBusy}
               onStop={() => stop(c.id)}
               disabled={pendingMain}
+              reasoningControls={reasoningControls(mainHistory, mainBusy)}
               modelPicker={
-                <ModelPicker settings={settings} onChange={saveSettings} />
+                <ModelPicker
+                  settings={settings}
+                  onChange={saveSettings}
+                  onConfigure={() => setShowSettings(true)}
+                  state={c.parameterSelections?.[settings.selected]}
+                  onParameters={(state) =>
+                    commit(c.id, (d) => {
+                      d.parameterSelections = {
+                        ...d.parameterSelections,
+                        [settings.selected]: state,
+                      };
+                    })
+                  }
+                />
               }
             />
           </div>
@@ -1249,7 +1440,7 @@ export default function App() {
               <div ref={sideEnd} />
             </div>
             <div className="side-bottom">
-              {pendingSide && !sideBusy && (
+              {side.at(-1)?.role === "user" && !sideBusy && (
                 <button
                   className="generate-button"
                   onClick={() => void generate(c.id, side.at(-1)!.id, q.id)}
@@ -1282,8 +1473,22 @@ export default function App() {
                 busy={sideBusy}
                 onStop={() => stop(c.id, q.id)}
                 disabled={pendingSide}
+                reasoningControls={reasoningControls(sideHistory, sideBusy)}
                 modelPicker={
-                  <ModelPicker settings={settings} onChange={saveSettings} />
+                  <ModelPicker
+                    settings={settings}
+                    onChange={saveSettings}
+                    onConfigure={() => setShowSettings(true)}
+                    state={c.parameterSelections?.[settings.selected]}
+                    onParameters={(state) =>
+                      commit(c.id, (d) => {
+                        d.parameterSelections = {
+                          ...d.parameterSelections,
+                          [settings.selected]: state,
+                        };
+                      })
+                    }
+                  />
                 }
               />
             </div>
@@ -1392,6 +1597,32 @@ export default function App() {
           }}
         />
       )}
+      {showBudget && (
+        <NamingSettings
+          settings={settings}
+          onClose={() => setShowBudget(false)}
+          onSave={(value) => {
+            saveSettings(value);
+            setShowBudget(false);
+          }}
+        />
+      )}
+      {parameterDetails && (
+        <Modal title="本次请求参数" onClose={() => setParameterDetails(null)}>
+          {parameterDetails.parameters?.length ? (
+            parameterDetails.parameters.map((p, i) => (
+              <p key={i}>
+                <strong>{p.name}</strong>：{p.value}
+              </p>
+            ))
+          ) : (
+            <p>未指定自定义参数</p>
+          )}
+          <pre className="parameter-snapshot">
+            {JSON.stringify(parameterDetails.requestParameters ?? {}, null, 2)}
+          </pre>
+        </Modal>
+      )}
       {editing && c.nodes[editing] && (
         <Suspense fallback={null}>
           <Editor
@@ -1417,6 +1648,16 @@ export default function App() {
                       );
                       copy.images = images;
                       copy.model = n.model;
+                      copy.effort = n.effort;
+                      copy.parameters = structuredClone(n.parameters);
+                      copy.requestParameters = structuredClone(
+                        n.requestParameters,
+                      );
+                      copy.reasoning = n.reasoning;
+                      copy.encryptedReasoning = structuredClone(
+                        n.encryptedReasoning,
+                      );
+                      copy.status = n.status;
                       copy.edited = true;
                       target = copy.id;
                       navigate(d, target);

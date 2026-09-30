@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, CircleHelp } from "lucide-react";
 import ProtectedEditor from "./ProtectedEditor";
 import { Modal } from "./Modal";
 import { editSegments } from "./model";
@@ -39,6 +39,18 @@ export default function Editor({
       onClose={onClose}
     >
       <div className="editor-body">
+        {!!n.encryptedReasoning?.length && (
+          <div className="encrypted-edit-notice">
+            编辑正文可能导致正文与加密思维链冲突
+            <span
+              tabIndex={0}
+              aria-label="加密思维链编辑说明"
+              title="在模型支持的情况下，加密思维链可能会和正文一起进入模型上下文，大幅度修改正文的观点、结论、态度会导致与加密思维链中的推理产生冲突"
+            >
+              <CircleHelp size={16} />
+            </span>
+          </div>
+        )}
         {!n.side && n.role !== "system" && (
           <div className="segmented">
             <button

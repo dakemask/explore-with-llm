@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { parameterPresets } from "../src/parameterPresets";
 async function setup(page: Page, mockNaming = true) {
   if (mockNaming)
     await page.route("https://api.deepseek.com/**", (route) => {
@@ -20,9 +21,52 @@ async function setup(page: Page, mockNaming = true) {
   await expect(
     page.getByRole("heading", { name: "今天我能提供什么帮助？" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "模型与设置" }).click();
-  await page.getByLabel("API Key").fill("test-key");
-  await page.getByRole("button", { name: "保存设置" }).click();
+  await page.evaluate(
+    async (text) => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const r = indexedDB.open("threadline");
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction("settings", "readwrite");
+        tx.objectStore("settings").put({
+          id: "settings",
+          selected: "test-model",
+          providers: [
+            {
+              id: "test-provider",
+              name: "DeepSeek",
+              baseUrl: "https://api.deepseek.com",
+              key: "test-key",
+              remember: true,
+              protocol: "chat-completions",
+              model: "",
+              models: [
+                {
+                  id: "test-model",
+                  model: "deepseek-flash",
+                  customParameters: text,
+                  supportsEncryptedReasoning: false,
+                },
+              ],
+            },
+          ],
+          naming: { model: "test-model", state: {} },
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    },
+    parameterPresets("chat-completions").find(
+      (p) => p.name === "DeepSeek V4.1 Flash",
+    )!.text,
+  );
+  await page.reload();
+  await expect(page.getByRole("button", { name: "模型与参数" })).toContainText(
+    "deepseek-flash",
+  );
 }
 function sse(content: string) {
   return `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`;
@@ -147,7 +191,10 @@ test("real flow: render, side context, protected edits, branching, tree and relo
   await page.getByRole("button", { name: "对话脉络", exact: true }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(5);
   await page.getByRole("button", { name: "关闭", exact: true }).click();
-  await page.screenshot({ path: "test-results/docs/workspace.png", fullPage: true });
+  await page.screenshot({
+    path: "test-results/docs/workspace.png",
+    fullPage: true,
+  });
   await page.reload();
   await expect(page.locator(".main-panel .branch-switch")).toContainText(
     "1 / 2",
@@ -388,7 +435,10 @@ test("mouse selection, user branches, system overwrite and conversation manageme
     }),
   );
   await setup(page);
-  await page.screenshot({ path: "test-results/docs/empty.png", fullPage: true });
+  await page.screenshot({
+    path: "test-results/docs/empty.png",
+    fullPage: true,
+  });
   await ask(page, "最初的问题");
   await expect(page.locator(".main-panel .message.assistant")).toContainText(
     "鼠标",
@@ -479,14 +529,25 @@ test("draft creation, official effort, metadata, quote lines and task markers", 
   await expect(
     page.getByRole("textbox", { name: "消息输入", exact: true }),
   ).toHaveValue("");
-  await page.getByRole("button", { name: "模型与思考档位" }).click();
+  await page.getByRole("button", { name: "模型与参数" }).click();
   await page.getByRole("button", { name: "max", exact: true }).click();
   await ask(page, "渲染检查");
   await expect(page.locator(".conversation-item")).toHaveCount(1);
   await expect(
     page.locator(".main-panel .message.assistant .message-meta"),
-  ).toContainText("deepseek-flash · max");
+  ).toContainText("deepseek-flash");
   expect(request.reasoning_effort).toBe("max");
+  await page
+    .locator(".main-panel .message.assistant")
+    .getByRole("button", { name: "参数", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "本次请求参数" }),
+  ).toContainText("max");
+  await page
+    .getByRole("dialog", { name: "本次请求参数" })
+    .getByRole("button", { name: "关闭", exact: true })
+    .click();
   await expect(page.locator(".topbar")).toContainText("渲染检查");
   await expect(page.locator(".message.system")).toContainText(
     "You are a helpful assistant.",
@@ -769,7 +830,7 @@ test("automatic titles use non-thinking history windows and respect manual renam
   await ask(page, "首条问题");
   await expect(page.locator(".topbar .title-dots")).toBeVisible();
   await expect(page.locator(".chat-title")).toHaveText("自动标题1");
-  expect(prompts[0].reasoning_effort).toBe("none");
+  expect(prompts[0].reasoning_effort).toBeUndefined();
   expect(prompts[0].messages[0].content).toContain(
     "user: 首条问题\n\nassistant: *中文斜体* 与可选择内容",
   );
@@ -790,7 +851,7 @@ test("automatic titles use non-thinking history windows and respect manual renam
   expect(finalPrompt).toContain(
     "assistant: 回答2\n\nuser: 侧边问题2\n\nassistant: 回答3\n\nuser: 侧边问题3\n\nassistant: 回答4",
   );
-  expect(prompts.every((p) => p.reasoning_effort === "none")).toBe(true);
+  expect(prompts.every((p) => p.reasoning_effort === undefined)).toBe(true);
   await page.getByRole("tab").click({ button: "right" });
   await page.getByRole("menuitem", { name: "重命名" }).click();
   await page.getByRole("textbox", { name: "对话名称" }).fill("手动名称");
@@ -1049,7 +1110,7 @@ test("composer grows to a cap and shrinks with the draft", async ({ page }) => {
   );
   await input.fill("");
   expect((await input.boundingBox())!.height).toBe(initial);
-  const model = page.getByRole("button", { name: "模型与思考档位" });
+  const model = page.getByRole("button", { name: "模型与参数" });
   await model.click();
   await expect(model).toHaveAttribute("aria-expanded", "true");
   await page.waitForTimeout(200);

@@ -901,6 +901,144 @@ textarea::placeholder {
 .settings-fields input {
   font-size: 13px;
 }
+.settings-fields select {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: white;
+  color: #253146;
+}
+.budget-help-button {
+  margin-left: auto;
+  margin-right: 10px;
+}
+.budget-body {
+  padding: 18px 24px;
+  overflow-y: auto;
+}
+.budget-body > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0;
+  color: #6b7a91;
+}
+.budget-body textarea {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  min-height: 150px;
+}
+.budget-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.budget-presets .menu-label {
+  width: 100%;
+  padding-left: 0;
+}
+.budget-presets button {
+  text-align: left;
+  justify-content: flex-start;
+}
+.budget-help {
+  line-height: 1.8;
+}
+.budget-help pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+.encrypted-reasoning {
+  border: 1px solid #dcdfe9;
+  border-radius: 10px;
+  background: #f7f7fb;
+  margin: 0 0 12px;
+  color: #655d83;
+}
+.encrypted-heading {
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  gap: 8px;
+}
+.encrypted-toggle,
+.encrypted-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  min-height: 25px;
+}
+.encrypted-toggle {
+  text-align: left;
+  padding: 0;
+}
+.encrypted-visibility {
+  display: inline-flex;
+  margin-left: auto;
+  cursor: help;
+}
+.encrypted-reasoning.open .encrypted-chevron {
+  transform: rotate(90deg);
+}
+.encrypted-summary {
+  padding: 0 14px 12px;
+  color: #697185;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.encrypted-summary > :last-child {
+  margin-bottom: 0;
+}
+.encrypted-summary pre {
+  overflow-x: auto;
+}
+.encrypted-incomplete {
+  display: block;
+  padding: 0 12px 9px;
+  color: #8b829e;
+  font-size: 11px;
+}
+.encrypted-edit-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #817043;
+  background: #fbf8ed;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.encrypted-edit-notice span {
+  display: inline-flex;
+  cursor: help;
+}
+.reasoning-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px 8px;
+}
+.reasoning-pill {
+  border: 1px solid #e0deea;
+  border-radius: 20px;
+  padding: 6px 9px;
+  font-size: 11px;
+  color: #7a748a;
+}
+.reasoning-pill[aria-pressed="true"] {
+  background: #eeebf8;
+  color: #65508a;
+  border-color: #cfc6e3;
+}
+.effort-options {
+  flex-wrap: wrap;
+}
 .settings-fields label.checkbox {
   flex-direction: row;
   align-items: center;

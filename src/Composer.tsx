@@ -62,6 +62,7 @@ export default function Composer({
   onStop,
   disabled,
   modelPicker,
+  reasoningControls,
   compact = false,
 }: {
   text: string;
@@ -73,6 +74,7 @@ export default function Composer({
   onStop: () => void;
   disabled?: boolean;
   modelPicker: ReactNode;
+  reasoningControls?: ReactNode;
   compact?: boolean;
 }) {
   const file = useRef<HTMLInputElement>(null);
@@ -148,6 +150,7 @@ export default function Composer({
             }
           }}
         />
+        {reasoningControls}
         <div className="composer-actions">
           {modelPicker}
           <span className="flex" />
