@@ -6,19 +6,21 @@ const choice = (
   options: { id: string; request: unknown; label?: string }[],
   extra = "",
 ) =>
-  `@param ${id}\nname = "${name}"\ntype = choice\ndefault = unspecified\n${extra}\n` +
+  `@param ${id}\nname = "${name}"\ntype = choice\ntoggle = true\nenabled = false\ndefault = unspecified\n${extra}\n` +
   [{ id: "unspecified", label: "不指定", request: {} }, ...options]
     .map(
       (o) =>
         `option ${o.id} "${o.label ?? o.id}" => ${JSON.stringify(o.request)}`,
     )
     .join("\n");
-const output = (field: string, max: number) => `@param output_limit
+const output = (
+  field: string,
+  max: number,
+  required = false,
+) => `@param output_limit
 name = "单次输出最大长度"
 type = number
-toggle = true
-enabled = false
-min = 1
+${required ? "" : "toggle = true\nenabled = false\n"}min = 1
 max = ${max}
 step = 1
 default = ${max}
@@ -117,10 +119,10 @@ export function parameterPresets(protocol: Protocol) {
         })),
         always
           ? ""
-          : 'when = {"param":"thinking","value":"on"}\ninactive = {"value":"unspecified"}',
+          : 'when = {"param":"thinking","enabled":true,"value":"on"}\ninactive = {"enabled":false,"value":"unspecified"}',
       ),
     );
-    parts.push(output("max_tokens", 128000));
+    parts.push(output("max_tokens", 128000, true));
     return { name, compatible: protocol === "anthropic", text: join(parts) };
   });
   const deepseek = ["DeepSeek V4.1 Flash", "DeepSeek V4 Pro"].map((name) => ({
@@ -148,9 +150,9 @@ export function parameterPresets(protocol: Protocol) {
                 id,
                 request: { output_config: { effort: id } },
               })),
-              'when = {"param":"thinking","value":"on"}\ninactive = {"value":"unspecified"}',
+              'when = {"param":"thinking","enabled":true,"value":"on"}\ninactive = {"enabled":false,"value":"unspecified"}',
             ),
-            output("max_tokens", 393216),
+            output("max_tokens", 393216, true),
           ]
         : [
             choice(
@@ -171,6 +173,8 @@ export function parameterPresets(protocol: Protocol) {
 export const parameterExample = `@param thinking
 name = "思考模式"
 type = choice
+toggle = true
+enabled = false
 default = unspecified
 option unspecified "不指定" => {}
 option off "关闭思考" => {"thinking":{"type":"disabled"}}
@@ -181,6 +185,8 @@ option on "开启思考" => {"thinking":{"type":"adaptive"}}
 @param effort
 name = "思考档位"
 type = choice
+toggle = true
+enabled = true
 default = high
 when = {"param":"thinking","value":"on"}
 inactive = {"value":"unspecified"}
@@ -193,8 +199,6 @@ option high "高" => {"output_config":{"effort":"high"}}
 @param output_limit
 name = "单次输出最大长度"
 type = number
-toggle = true
-enabled = false
 min = 1
 max = 10000
 step = 1

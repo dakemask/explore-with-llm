@@ -20,12 +20,12 @@ const messages: Message[] = [
 ];
 afterEach(() => vi.unstubAllGlobals());
 it("sends native image input and omits reasoning history", () => {
-  const body = requestBody(messages, p, true);
+  const body = requestBody(messages, p);
   expect(body.messages[0].content).toEqual([
     { type: "text", text: "图片" },
     { type: "image_url", image_url: { url: messages[0].images[0].url } },
   ]);
-  expect(body.reasoning_effort).toBe("high");
+  expect(body).not.toHaveProperty("reasoning_effort");
 });
 it("handles fragmented UTF-8/SSE and returns reasoning separately", async () => {
   const encoded = new TextEncoder().encode(
@@ -46,16 +46,10 @@ it("handles fragmented UTF-8/SSE and returns reasoning separately", async () => 
   );
   let content = "",
     reasoning = "";
-  await streamAnswer(
-    messages,
-    p,
-    false,
-    new AbortController().signal,
-    (a, b) => {
-      content += a;
-      reasoning += b;
-    },
-  );
+  await streamAnswer(messages, p, new AbortController().signal, (a, b) => {
+    content += a;
+    reasoning += b;
+  });
   expect(content).toBe("回答");
   expect(reasoning).toBe("想");
 });
@@ -66,7 +60,7 @@ it("reports a truncated stream instead of silently marking complete", async () =
       new Response('data: {"choices":[{"delta":{"content":"半句"}}]}\n\n'),
   );
   await expect(
-    streamAnswer(messages, p, false, new AbortController().signal, () => {}),
+    streamAnswer(messages, p, new AbortController().signal, () => {}),
   ).rejects.toThrow("连接中断");
 });
 it("preserves provider context-limit errors", async () => {
@@ -78,13 +72,18 @@ it("preserves provider context-limit errors", async () => {
       }),
   );
   await expect(
-    streamAnswer(messages, p, false, new AbortController().signal, () => {}),
+    streamAnswer(messages, p, new AbortController().signal, () => {}),
   ).rejects.toThrow("maximum context");
 });
 
 it.each(["none", "low", "high", "max"] as const)(
-  "sends official effort %s",
+  "sends only custom effort %s",
   (effort) => {
-    expect(requestBody(messages, p, effort).reasoning_effort).toBe(effort);
+    expect(
+      requestBody(messages, {
+        ...p,
+        customParameters: JSON.stringify({ reasoning_effort: effort }),
+      }).reasoning_effort,
+    ).toBe(effort);
   },
 );

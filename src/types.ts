@@ -90,15 +90,12 @@ export interface Provider {
   remember: boolean;
   protocol?: Protocol;
   supportsEncryptedReasoning?: boolean;
-  budget?: BudgetSettings;
 }
 export interface Settings {
   naming?: { model: string; state: ParameterState };
   id: string;
   providers: Provider[];
   selected: string;
-  thinking?: boolean; // Legacy local settings
-  effort?: Effort;
 }
 export type ParameterState = Record<
   string,

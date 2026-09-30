@@ -28,8 +28,11 @@ option low "低" => {"output_config":{"effort":"low"}}
 option high "高" => {"output_config":{"effort":"high"}}`;
 const together = mode + "\n---\n" + dependent;
 describe("通用参数格式", () => {
-  it("示例和全部逐型号预设均可解析，默认不发送", () => {
+  it("预设按协议必填要求设置输出长度开关，可选档位提供开关", () => {
     expect(parseParameters(parameterExample)).toHaveLength(4);
+    expect(parameterRequest(parameterExample).body).toEqual({
+      max_tokens: 10000,
+    });
     for (const protocol of [
       "responses",
       "anthropic",
@@ -37,11 +40,34 @@ describe("通用参数格式", () => {
     ] as const)
       for (const preset of parameterPresets(protocol)) {
         expect(() => parseParameters(preset.text), preset.name).not.toThrow();
-        expect(parameterRequest(preset.text).body).toEqual({});
         const limit = parseParameters(preset.text).find(
           (p) => p.id === "output_limit",
         )!;
         expect(limit.default).toBe(limit.max);
+        const required =
+          preset.name.startsWith("Claude") ||
+          (preset.name.startsWith("DeepSeek") && protocol === "anthropic");
+        for (const p of parseParameters(preset.text).filter(
+          (p) => p.type === "choice",
+        ))
+          expect(p.toggle).toBe(true);
+        expect(limit.toggle).toBe(!required);
+        const expected = Object.fromEntries(
+          Object.keys(limit.request).map((field) => [field, limit.default]),
+        );
+        expect(parameterRequest(preset.text).body).toEqual(
+          required ? expected : {},
+        );
+        expect(
+          parameterRequest(preset.text, {
+            output_limit: { enabled: false, value: limit.default },
+          }).body,
+        ).toEqual(required ? expected : {});
+        expect(
+          parameterRequest(preset.text, {
+            output_limit: { enabled: true, value: limit.default },
+          }).body,
+        ).toEqual(expected);
       }
   });
   it("档位、数值、固定配置和纯 JSON 合并，数字保留类型", () => {
@@ -65,9 +91,9 @@ describe("通用参数格式", () => {
   it("开关关闭不发送，不产生关闭配置", () => {
     expect(
       parameterRequest(parameterExample, {
-        output_limit: { enabled: false, value: 5000 },
+        fixed_setting: { enabled: false, value: "fixed" },
       }).body,
-    ).toEqual({});
+    ).toEqual({ max_tokens: 10000 });
   });
   it("依赖失效忘记选择，恢复从默认开始", () => {
     const parameters = parseParameters(together);
@@ -135,7 +161,7 @@ request = {"temperature":0.2}`;
       parameterRequest(parameterExample, {
         output_limit: { enabled: true, value: 10001 },
       }).body,
-    ).toEqual({});
+    ).toEqual({ max_tokens: 10000 });
   });
   it("拒绝 VALUE 对象键及非数值参数的数值比较", () => {
     expect(() => parseParameters('{"VALUE":1}')).toThrow("对象键");
@@ -154,7 +180,7 @@ request = {"temperature":0.2}`;
         output_limit: { enabled: true, value: 128000 },
       },
     };
-    const body = requestBody([], p, "");
+    const body = requestBody([], p);
     expect(body.reasoning).toEqual({ effort: "high", summary: "auto" });
     expect(body.max_output_tokens).toBe(128000);
     expect(body.store).toBe(false);

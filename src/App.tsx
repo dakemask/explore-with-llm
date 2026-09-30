@@ -564,7 +564,6 @@ export default function App() {
       await streamAnswer(
         snapshot,
         p,
-        "",
         controller.signal,
         (content, reasoning, encrypted) => {
           commit(cid, (c) => {

@@ -1,10 +1,46 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { disappearParameter } from "./parameterDisintegration";
 import type { ParameterState } from "./types";
 import {
   effectiveParameters,
   parseParameters,
   updateParameter,
 } from "./parameters";
+function ParameterDetails({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: ReactNode;
+}) {
+  const [present, setPresent] = useState(enabled);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (enabled) {
+      ref.current?.style.removeProperty("height");
+      setPresent(true);
+      return;
+    }
+    const controller = new AbortController();
+    if (ref.current)
+      void disappearParameter(ref.current, controller.signal).then(() => {
+        if (!controller.signal.aborted) setPresent(false);
+      });
+    return () => controller.abort();
+  }, [enabled]);
+  if (!present) return null;
+  return (
+    <div
+      ref={ref}
+      className="parameter-details"
+      data-visible={enabled}
+      aria-hidden={!enabled}
+      inert={!enabled}
+    >
+      {children}
+    </div>
+  );
+}
 export default function ParameterControls({
   text,
   state = {},
@@ -68,87 +104,92 @@ export default function ParameterControls({
                 )}
               </div>
               {blocked && <small className="muted">依赖条件未满足</small>}
-              {p.type === "choice" && (
-                <div className="parameter-options">
-                  {p.options.map((o) => (
-                    <button
-                      key={o.id}
+              <ParameterDetails enabled={!p.toggle || s.enabled}>
+                {p.type === "choice" && (
+                  <div className="parameter-options">
+                    {p.options.map((o) => (
+                      <button
+                        key={o.id}
+                        disabled={disabled}
+                        aria-pressed={s.value === o.id}
+                        onClick={() => change({ value: o.id })}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {p.type === "number" && (
+                  <div className="parameter-number">
+                    <input
+                      aria-label={p.name + "滑条"}
+                      type="range"
+                      min={p.min}
+                      max={p.max}
+                      step={p.step}
+                      value={Number(s.value)}
                       disabled={disabled}
-                      aria-pressed={s.value === o.id}
-                      onClick={() => change({ value: o.id })}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {p.type === "number" && (
-                <div className="parameter-number">
-                  <input
-                    aria-label={p.name + "滑条"}
-                    type="range"
-                    min={p.min}
-                    max={p.max}
-                    step={p.step}
-                    value={Number(s.value)}
-                    disabled={disabled}
-                    onChange={(e) => {
-                      setDrafts((d) => ({ ...d, [p.id]: e.target.value }));
-                      change({ value: Number(e.target.value), invalid: false });
-                    }}
-                  />
-                  <input
-                    aria-label={p.name}
-                    type="number"
-                    min={p.min}
-                    max={p.max}
-                    step={p.step}
-                    disabled={disabled}
-                    value={
-                      disabled
-                        ? String(s.value)
-                        : (drafts[p.id] ?? String(s.value))
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setDrafts((d) => ({ ...d, [p.id]: raw }));
-                      if (raw !== "" && e.currentTarget.validity.valid)
-                        change({ value: Number(raw), invalid: false });
-                      else change({ invalid: true });
-                    }}
-                    onBlur={(e) => {
-                      if (
-                        !e.currentTarget.validity.valid ||
-                        e.target.value === ""
-                      ) {
-                        e.currentTarget.setCustomValidity(
-                          "请输入范围内且符合步长的数值",
-                        );
-                      } else {
-                        e.currentTarget.setCustomValidity("");
+                      onChange={(e) => {
+                        setDrafts((d) => ({ ...d, [p.id]: e.target.value }));
                         change({
                           value: Number(e.target.value),
                           invalid: false,
                         });
+                      }}
+                    />
+                    <input
+                      aria-label={p.name}
+                      type="number"
+                      min={p.min}
+                      max={p.max}
+                      step={p.step}
+                      disabled={disabled}
+                      value={
+                        disabled
+                          ? String(s.value)
+                          : (drafts[p.id] ?? String(s.value))
                       }
-                    }}
-                    onInput={(e) => e.currentTarget.setCustomValidity("")}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                    }}
-                  />
-                </div>
-              )}
-              {s.invalid && !disabled && (
-                <small className="inline-error">
-                  请输入范围内且符合步长的数值
-                </small>
-              )}
-              {p.type === "fixed" && (
-                <span className="muted">
-                  {s.enabled ? "发送固定配置" : "不发送"}
-                </span>
-              )}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setDrafts((d) => ({ ...d, [p.id]: raw }));
+                        if (raw !== "" && e.currentTarget.validity.valid)
+                          change({ value: Number(raw), invalid: false });
+                        else change({ invalid: true });
+                      }}
+                      onBlur={(e) => {
+                        if (
+                          !e.currentTarget.validity.valid ||
+                          e.target.value === ""
+                        ) {
+                          e.currentTarget.setCustomValidity(
+                            "请输入范围内且符合步长的数值",
+                          );
+                        } else {
+                          e.currentTarget.setCustomValidity("");
+                          change({
+                            value: Number(e.target.value),
+                            invalid: false,
+                          });
+                        }
+                      }}
+                      onInput={(e) => e.currentTarget.setCustomValidity("")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
+                    />
+                  </div>
+                )}
+                {s.invalid && !disabled && (
+                  <small className="inline-error">
+                    请输入范围内且符合步长的数值
+                  </small>
+                )}
+                {p.type === "fixed" && (
+                  <span className="muted">
+                    {s.enabled ? "发送固定配置" : "不发送"}
+                  </span>
+                )}
+              </ParameterDetails>
             </section>
           );
         })}

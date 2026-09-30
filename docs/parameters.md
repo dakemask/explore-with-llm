@@ -20,12 +20,18 @@
 
 开关关闭时不发送任何片段。需要发送关闭配置时，将关闭 JSON 写成一个固定参数或档位选项。无开关参数始终按选值发送；选项片段为空对象时不发送。
 
+预设按模型与请求协议的必填要求设置开关：必填参数不提供开关，始终发送；允许省略的参数提供开关，关闭时不发送。Anthropic Messages 的 `max_tokens` 按必填参数配置（包括 Claude 和 DeepSeek 的 Anthropic 兼容预设）；OpenAI 与 DeepSeek Chat Completions 的输出长度保留可选开关。可选思考模式与档位也提供开关。关闭开关后，具体选项或数值输入化成粒子消失，随后下方参数平滑上移补位；再次开启时淡入显示。
+
+应用不会补充默认输出长度，也不会采用旧版思考配置。已有模型中保存的模板不会自动改写，需要重新应用相应预设。
+
 ## 档位参数
 
 ```text
 @param thinking
 name = "思考模式"
 type = choice
+toggle = true
+enabled = false
 default = unspecified
 option unspecified "不指定" => {}
 option off "关闭思考" => {"thinking":{"type":"disabled"}}
@@ -36,6 +42,8 @@ option on "开启思考" => {"thinking":{"type":"adaptive"}}
 @param effort
 name = "思考档位"
 type = choice
+toggle = true
+enabled = true
 default = high
 when = {"param":"thinking","value":"on"}
 inactive = {"value":"unspecified"}
@@ -52,8 +60,6 @@ option high "高" => {"output_config":{"effort":"high"}}
 @param output_limit
 name = "单次输出最大长度"
 type = number
-toggle = true
-enabled = false
 min = 1
 max = 10000
 step = 1

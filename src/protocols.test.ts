@@ -82,7 +82,6 @@ async function collect(p = provider) {
     await streamAnswer(
       [user],
       p,
-      "",
       new AbortController().signal,
       (text, _, encrypted) => {
         content += text;
@@ -99,7 +98,7 @@ async function collect(p = provider) {
 }
 
 it("replays only the supported source and never uses server-side state", () => {
-  const body = requestBody([user, assistant(), user], provider, "");
+  const body = requestBody([user, assistant(), user], provider);
   expect(body.input.map((item: any) => item.type ?? item.role)).toEqual([
     "user",
     "reasoning",
@@ -113,26 +112,19 @@ it("replays only the supported source and never uses server-side state", () => {
   expect(body).not.toHaveProperty("conversation");
   expect(JSON.stringify(body)).not.toContain("opaque-claude");
   expect(
+    JSON.stringify(requestBody([assistant()], provider, { chatgpt: false })),
+  ).not.toContain("opaque-gpt");
+  expect(
     JSON.stringify(
-      requestBody([assistant()], provider, "", { chatgpt: false }),
+      requestBody([assistant()], {
+        ...provider,
+        supportsEncryptedReasoning: false,
+      }),
     ),
   ).not.toContain("opaque-gpt");
   expect(
     JSON.stringify(
-      requestBody(
-        [assistant()],
-        { ...provider, supportsEncryptedReasoning: false },
-        "",
-      ),
-    ),
-  ).not.toContain("opaque-gpt");
-  expect(
-    JSON.stringify(
-      requestBody(
-        [assistant()],
-        { ...provider, protocol: "chat-completions" },
-        "",
-      ),
+      requestBody([assistant()], { ...provider, protocol: "chat-completions" }),
     ),
   ).not.toContain("opaque");
 });
@@ -143,11 +135,7 @@ it("preserves the ordering of several reasoning items around assistant text", ()
     contentOffset: 2,
     payload: { ...gpt.payload, id: "rs_2" },
   } as EncryptedReasoning;
-  const body = requestBody(
-    [assistant([gpt, second], "甲乙丙丁")],
-    provider,
-    "",
-  );
+  const body = requestBody([assistant([gpt, second], "甲乙丙丁")], provider);
   expect(body.input).toEqual([
     gpt.payload,
     { role: "assistant", content: "甲乙" },
@@ -164,12 +152,8 @@ it("Anthropic separates system and translates images, signed and redacted thinki
   const p = {
     ...provider,
     protocol: "anthropic" as const,
-    budget: {
-      template:
-        '{"thinking":{"type":"adaptive"}}\n---\n{"output_config":{"effort":"EFFORT"}}\n---\n{"max_tokens":16000}',
-      levels: "low high",
-      selected: "high",
-    },
+    customParameters:
+      '{"thinking":{"type":"adaptive"},"output_config":{"effort":"high"},"max_tokens":16000}',
   };
   const body = requestBody(
     [
@@ -181,7 +165,6 @@ it("Anthropic separates system and translates images, signed and redacted thinki
       assistant([claude, redacted]),
     ],
     p,
-    "high",
   );
   expect(body.system).toBe("system");
   expect(body.max_tokens).toBe(16000);
@@ -197,13 +180,29 @@ it("Anthropic separates system and translates images, signed and redacted thinki
     redacted.payload,
     { type: "text", text: "回答" },
   ]);
-  expect(requestBody([user], p, "")).not.toHaveProperty("thinking");
+  expect(
+    requestBody([user], { ...p, customParameters: "" }),
+  ).not.toHaveProperty("thinking");
+});
+it("Anthropic output length comes only from custom parameters", () => {
+  const p = {
+    ...provider,
+    protocol: "anthropic" as const,
+    customParameters: "",
+  };
+  expect(requestBody([user], p)).not.toHaveProperty("max_tokens");
+  expect(
+    requestBody([user], {
+      ...p,
+      customParameters: '{"max_tokens":128000}',
+    }).max_tokens,
+  ).toBe(128000);
 });
 it("filters incomplete ciphertext and no-body assistants without mutating stored messages", () => {
   const partial = { ...gpt, complete: false };
   const messages = [assistant([partial]), assistant([gpt], "")];
   const saved = structuredClone(messages);
-  expect(requestBody(messages, provider, "").input).toHaveLength(1);
+  expect(requestBody(messages, provider).input).toHaveLength(1);
   expect(availableSources(messages)).toEqual([]);
   expect(messages).toEqual(saved);
   expect(hasMessageContent(messages[1])).toBe(true);

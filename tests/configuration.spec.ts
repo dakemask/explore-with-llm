@@ -2,6 +2,81 @@ import { test, expect, type Page } from "@playwright/test";
 import { parameterExample } from "../src/parameterPresets";
 const sse = (text: string) =>
   `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`;
+test("optional parameter particles disappear before following controls move up", async ({
+  page,
+}) => {
+  await createProvider(page);
+  await addModel(
+    page,
+    "particles",
+    `@param length
+name = "可选长度"
+type = number
+toggle = true
+enabled = true
+min = 1
+max = 100
+step = 1
+default = 50
+request = {"max_tokens":"VALUE"}
+---
+@param next
+name = "下一项"
+type = fixed
+request = {"temperature":0.5}`,
+  );
+  await page.getByRole("button", { name: "保存设置" }).click();
+  await choose(page, "particles");
+  await page
+    .locator(".main-panel")
+    .getByRole("button", { name: "模型与参数" })
+    .click();
+  const input = page.getByRole("spinbutton", { name: "可选长度", exact: true });
+  const toggle = page.getByRole("switch", { name: "启用可选长度" });
+  const details = page
+    .locator(".parameter-control")
+    .filter({ has: toggle })
+    .locator(".parameter-details");
+  const next = page.getByText("下一项", { exact: true });
+  const before = (await next.boundingBox())!.y;
+  await expect(input).toBeVisible();
+  await page.evaluate(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (...args) {
+      const animation = animate.apply(this, args);
+      if (this.classList.contains("parameter-details")) {
+        const cancel = animation.cancel.bind(animation);
+        animation.cancel = () => {
+          const before = this.getBoundingClientRect().height;
+          cancel();
+          const after = this.getBoundingClientRect().height;
+          document.documentElement.dataset.parameterHeightChecks =
+            JSON.stringify({ before, after });
+        };
+      }
+      return animation;
+    };
+  });
+  await toggle.click();
+  await expect(page.locator("canvas[data-parameter-particles]")).toHaveCount(1);
+  await expect(details).toHaveAttribute("inert", "");
+  await expect(details).toHaveCount(0);
+  await expect(page.locator("canvas[data-parameter-particles]")).toHaveCount(0);
+  expect((await next.boundingBox())!.y).toBeLessThan(before);
+  const height = await page.evaluate(() =>
+    JSON.parse(document.documentElement.dataset.parameterHeightChecks!),
+  );
+  expect(height.before).toBe(0);
+  expect(height.after).toBe(0);
+  await toggle.click();
+  await expect(input).toBeVisible();
+  await expect(input).toHaveValue("50");
+  await toggle.click();
+  await toggle.click();
+  await expect(input).toBeVisible();
+  await expect(page.locator("canvas[data-parameter-particles]")).toHaveCount(0);
+  await expect(details).toHaveCSS("opacity", "1");
+});
 async function openProvider(page: Page) {
   await page.getByRole("button", { name: "模型提供商", exact: true }).click();
 }
@@ -177,6 +252,7 @@ test("named controls, dependency forgetting, invalid number guard, per-conversat
     .locator(".main-panel")
     .getByRole("button", { name: "模型与参数" });
   await trigger.click();
+  await page.getByRole("switch", { name: "启用思考模式" }).click();
   await expect(
     page.getByRole("button", { name: "高", exact: true }),
   ).toBeDisabled();
@@ -190,7 +266,9 @@ test("named controls, dependency forgetting, invalid number guard, per-conversat
   await expect(
     page.getByRole("button", { name: "高", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("switch", { name: "启用单次输出最大长度" }).click();
+  await expect(
+    page.getByRole("switch", { name: "启用单次输出最大长度" }),
+  ).toHaveCount(0);
   await page
     .getByRole("spinbutton", { name: "单次输出最大长度", exact: true })
     .fill("10001");
@@ -294,7 +372,10 @@ test("named controls, dependency forgetting, invalid number guard, per-conversat
   await trigger.click();
   await expect(
     page.getByRole("switch", { name: "启用单次输出最大长度" }),
-  ).toHaveAttribute("aria-checked", "false");
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("spinbutton", { name: "单次输出最大长度", exact: true }),
+  ).toHaveValue("20000");
   await page.screenshot({ path: "test-results/model-parameters.png" });
 });
 test("model deletion clears selection, undo and supplier protocol clears capabilities", async ({

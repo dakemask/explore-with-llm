@@ -2,11 +2,10 @@ import type {
   EncryptedReasoning,
   Message,
   Provider,
-  Effort,
   ReasoningPreferences,
   ReasoningPayload,
 } from "./types";
-import { budgetParameters, mergeJson, type JsonObject } from "./budget";
+import { mergeJson, type JsonObject } from "./budget";
 import { parameterRequest } from "./parameters";
 import {
   canUseAsContext,
@@ -52,16 +51,12 @@ function orderedContent(
 export function requestBody(
   messages: Message[],
   provider: Provider,
-  thinking: Effort | boolean,
   preferences: ReasoningPreferences = {},
 ) {
-  const effort =
-    typeof thinking === "boolean" ? (thinking ? "high" : "none") : thinking;
-  const parameters =
-    provider.customParameters !== undefined
-      ? parameterRequest(provider.customParameters, provider.parameterState)
-          .body
-      : budgetParameters(provider, effort);
+  const parameters = parameterRequest(
+    provider.customParameters ?? "",
+    provider.parameterState,
+  ).body;
   const history = messages.filter(canUseAsContext);
   const protocol = provider.protocol ?? "chat-completions";
   // The three native request schemas deliberately differ at the transport boundary.
@@ -92,8 +87,6 @@ export function requestBody(
       ];
     });
   } else if (protocol === "anthropic") {
-    body.max_tokens = parameters.max_tokens ?? 8192;
-    delete parameters.max_tokens;
     const system = history
       .filter((m) => m.role === "system")
       .map((m) => m.content)
@@ -167,7 +160,6 @@ export function endpoint(provider: Provider) {
 export async function streamAnswer(
   messages: Message[],
   provider: Provider,
-  thinking: Effort | boolean,
   signal: AbortSignal,
   onDelta: (
     content: string,
@@ -178,9 +170,7 @@ export async function streamAnswer(
 ) {
   if (!provider.key.trim()) throw new Error("请先在模型设置中填写 API Key");
   const protocol = provider.protocol ?? "chat-completions";
-  const body = JSON.stringify(
-    requestBody(messages, provider, thinking, preferences),
-  );
+  const body = JSON.stringify(requestBody(messages, provider, preferences));
   if (new Blob([body]).size > 48 * 1024 * 1024)
     throw new Error("图片和历史超过 48 MiB 请求限制");
   const headers: Record<string, string> = {

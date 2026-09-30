@@ -258,6 +258,26 @@
   left: 0;
   right: auto;
 }
+.parameter-details {
+  opacity: 1;
+  transition: opacity 180ms ease;
+  overflow: hidden;
+}
+.parameter-details[data-visible="false"] {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+@starting-style {
+  .parameter-details[data-visible="true"] {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .parameter-details {
+    transition: none;
+  }
+}
 .parameter-control {
   margin-bottom: 22px;
 }
