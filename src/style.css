@@ -2050,6 +2050,8 @@ button:active:not(:disabled) {
 
 /* Composer grows with its draft; overflow stays inside the field at the cap. */
 .composer textarea {
+  field-sizing: content;
+  overflow-y: auto;
   display: block;
   max-height: min(240px, 30dvh);
   line-height: 1.5;

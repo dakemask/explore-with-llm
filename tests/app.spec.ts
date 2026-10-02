@@ -1096,6 +1096,86 @@ test("collapsing long reasoning holds its toggle and reclaims bottom space", asy
   await page.mouse.wheel(0, 1500);
   expect((await spare.boundingBox())!.height).toBeLessThan(2);
 });
+test("long drafts avoid copying history and reparsing message source maps", async ({
+  page,
+}) => {
+  let sent = "";
+  await page.route("https://api.deepseek.com/**", (route) => {
+    sent = route.request().postDataJSON().messages.at(-1).content;
+    return route.fulfill({
+      contentType: "text/event-stream",
+      body: sse("可选片段。\n\n" + "较长的历史正文。\n\n".repeat(100)),
+    });
+  });
+  await setup(page);
+  await ask(page, "建立历史消息");
+  await expect(
+    page.getByRole("textbox", { name: "消息输入", exact: true }),
+  ).toBeEnabled();
+  await selectText(page, "可选片段");
+  await page.evaluate(() => {
+    const work = { clones: 0, sourceMaps: 0 };
+    (window as any).__inputWork = work;
+    const clone = window.structuredClone;
+    window.structuredClone = (...args) => {
+      work.clones++;
+      return clone(...args);
+    };
+    const stringify = JSON.stringify;
+    JSON.stringify = ((value: any, ...args: any[]) => {
+      if (
+        Array.isArray(value) &&
+        value.length > 2 &&
+        value.every((item) => typeof item === "number")
+      )
+        work.sourceMaps++;
+      return stringify(value, ...args);
+    }) as typeof stringify;
+  });
+  const draft = "长草稿内容。".repeat(5000);
+  const input = page.getByRole("textbox", { name: "消息输入", exact: true });
+  await input.fill(draft);
+  await input.press("End");
+  await input.pressSequentially("abc");
+  const sideInput = page.getByRole("textbox", {
+    name: "侧边提问输入",
+    exact: true,
+  });
+  await sideInput.fill("侧边草稿");
+  await sideInput.pressSequentially("xyz");
+  await expect(input).toHaveValue(draft + "abc");
+  await expect(sideInput).toHaveValue("侧边草稿xyz");
+  expect(await page.evaluate(() => (window as any).__inputWork)).toEqual({
+    clones: 0,
+    sourceMaps: 0,
+  });
+  await expect(page.locator(".main-panel .question-highlight")).toHaveText(
+    "可选片段",
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const db = await new Promise<IDBDatabase>((resolve) => {
+          const request = indexedDB.open("threadline");
+          request.onsuccess = () => resolve(request.result);
+        });
+        const rows = await new Promise<any[]>((resolve) => {
+          const request = db
+            .transaction("conversations")
+            .objectStore("conversations")
+            .getAll();
+          request.onsuccess = () => resolve(request.result);
+        });
+        db.close();
+        return { draft: rows[0]?.draft, side: rows[0]?.questions[0]?.draft };
+      }),
+    )
+    .toEqual({ draft: draft + "abc", side: "侧边草稿xyz" });
+  await page.getByRole("button", { name: "发送消息", exact: true }).click();
+  await expect(input).toHaveValue("");
+  expect(sent).toBe(draft + "abc");
+});
+
 test("composer grows to a cap and shrinks with the draft", async ({ page }) => {
   await setup(page);
   const input = page.getByRole("textbox", { name: "消息输入", exact: true });

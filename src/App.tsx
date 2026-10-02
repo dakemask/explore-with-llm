@@ -151,17 +151,41 @@ export default function App() {
     if (!current) return;
     const next = structuredClone(current);
     fn(next);
+    publish(next, immediate);
+    return next;
+  }
+  function publish(next: Conversation, immediate = false) {
+    const id = next.id;
     next.updated = Date.now();
     if (!allRef.current.some((c) => c.id === id)) {
       draftRef.current = next;
       setDraft(next);
-      return next;
+      return;
     }
     const list = allRef.current.map((c) => (c.id === id ? next : c));
     allRef.current = list;
     setAll(list);
     store(next, immediate);
-    return next;
+  }
+  // Draft edits must not copy the message tree, images, or model metadata.
+  function updateDraft(
+    text: string,
+    images: Conversation["images"],
+    sideId?: string,
+  ) {
+    const current =
+      allRef.current.find((item) => item.id === c.id) ?? draftRef.current;
+    const next = sideId
+      ? {
+          ...current,
+          questions: current.questions.map((question) =>
+            question.id === sideId
+              ? { ...question, draft: text, images }
+              : question,
+          ),
+        }
+      : { ...current, draft: text, images };
+    publish(next);
   }
   function saveSettings(value: Settings) {
     const previous = settingsRef.current;
@@ -1329,12 +1353,7 @@ export default function App() {
             <Composer
               text={c.draft}
               images={c.images}
-              onChange={(text, images) =>
-                commit(c.id, (d) => {
-                  d.draft = text;
-                  d.images = images;
-                })
-              }
+              onChange={(text, images) => updateDraft(text, images)}
               onImagesAdded={(images) =>
                 commit(c.id, (d) => {
                   d.images.push(...images);
@@ -1453,15 +1472,7 @@ export default function App() {
                 compact
                 text={q.draft}
                 images={q.images}
-                onChange={(text, images) =>
-                  commit(c.id, (d) => {
-                    const target = d.questions.find((x) => x.id === q.id);
-                    if (target) {
-                      target.draft = text;
-                      target.images = images;
-                    }
-                  })
-                }
+                onChange={(text, images) => updateDraft(text, images, q.id)}
                 onImagesAdded={(images) =>
                   commit(c.id, (d) => {
                     const target = d.questions.find((x) => x.id === q.id);

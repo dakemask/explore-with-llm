@@ -1,3 +1,4 @@
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -6,7 +7,7 @@ import rehypeHighlight from "rehype-highlight";
 import { sourceAnnotations } from "./selection";
 import type { Question } from "./types";
 import { normalizeMath } from "./math";
-export default function Markdown({
+function Markdown({
   text,
   questions = [],
 }: {
@@ -34,3 +35,22 @@ export default function Markdown({
     </ReactMarkdown>
   );
 }
+
+// Only the quote boundaries affect annotations. Drafts and titles don't change
+// the rendered body, even when callers construct a new questions array.
+export default memo(Markdown, (previous, next) => {
+  const before = previous.questions ?? [],
+    after = next.questions ?? [];
+  return (
+    previous.text === next.text &&
+    before.length === after.length &&
+    before.every((question, index) => {
+      const other = after[index];
+      return (
+        question.id === other.id &&
+        question.start === other.start &&
+        question.end === other.end
+      );
+    })
+  );
+});

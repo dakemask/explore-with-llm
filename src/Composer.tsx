@@ -80,6 +80,8 @@ export default function Composer({
   const file = useRef<HTMLInputElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
+    // Native sizing avoids collapsing and laying out the entire draft per key.
+    if (CSS.supports("field-sizing", "content")) return;
     const el = input.current;
     if (!el) return;
     const resize = () => {
