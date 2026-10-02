@@ -18,11 +18,9 @@
 | inactive    | 依赖不满足时的强制状态，JSON 对象                             |
 | request     | number/fixed 对应的 JSON 请求片段                             |
 
-开关关闭时不发送任何片段。需要发送关闭配置时，将关闭 JSON 写成一个固定参数或档位选项。无开关参数始终按选值发送；选项片段为空对象时不发送。
+开关关闭时不发送任何片段。需要发送关闭配置时，将关闭 JSON 写成一个固定参数或档位选项。无开关参数始终按选值发送。
 
-预设按模型与请求协议的必填要求设置开关：必填参数不提供开关，始终发送；允许省略的参数提供开关，关闭时不发送。Anthropic Messages 的 `max_tokens` 按必填参数配置（包括 Claude 和 DeepSeek 的 Anthropic 兼容预设）；OpenAI 与 DeepSeek Chat Completions 的输出长度保留可选开关。可选思考模式与档位也提供开关。关闭开关后，具体选项或数值输入化成粒子消失，随后下方参数平滑上移补位；再次开启时淡入显示。
-
-应用不会补充默认输出长度，也不会采用旧版思考配置。已有模型中保存的模板不会自动改写，需要重新应用相应预设。
+预设按模型与请求协议的必填要求设置开关：必填参数不提供开关，始终发送；允许省略的参数提供开关，关闭时不发送。
 
 ## 档位参数
 
@@ -33,23 +31,19 @@ type = choice
 toggle = true
 enabled = false
 default = unspecified
-option unspecified "不指定" => {}
-option off "关闭思考" => {"thinking":{"type":"disabled"}}
-option on "开启思考" => {"thinking":{"type":"adaptive"}}
+option off => {"thinking":{"type":"disabled"}}
+option on => {"thinking":{"type":"adaptive"}}
 
 ---
 
 @param effort
-name = "思考档位"
+name = "输出投入"
 type = choice
 toggle = true
 enabled = true
 default = high
-when = {"param":"thinking","value":"on"}
-inactive = {"value":"unspecified"}
-option unspecified "不指定" => {}
-option low "低" => {"output_config":{"effort":"low"}}
-option high "高" => {"output_config":{"effort":"high"}}
+option low => {"output_config":{"effort":"low"}}
+option high => {"output_config":{"effort":"high"}}
 ```
 
 每个 option 的稳定 ID 独立于显示名称。不同选项可以使用完全不同的请求对象，并可写入同一字段。choice 不使用公共 request，所有请求写在选项中。
@@ -118,7 +112,7 @@ inactive 可以声明 `{"enabled":false}`、`{"value":"某选项"}` 或 `{"enabl
 
 不同参数不能写入同一请求字段，也不能一个写父字段、另一个写其子字段；此规则对所有选项生效，即使选项互斥。同一个参数的不同选项不受此限制。
 
-模型、消息历史、流式控制、服务端会话引用、工具控制和加密思维链管理字段由应用控制，不能覆盖。例如 model/messages/input/stream/store/include/previous_response_id/conversation，以及 reasoning.summary/thinking.display 都受保护。禁止原型污染字段。
+模型、消息历史、流式控制、服务端会话引用、工具控制由应用控制，不能覆盖。例如 model/messages/input/stream/store/include/previous_response_id/conversation，都受保护。禁止原型污染字段。
 
 供应商模板按参数 ID 合并。模板覆盖相同 ID 的名称、说明、默认值、开关、依赖和请求配置；choice 合并选项 ID，number 合并区间并使用模板步长；类型不同则整体替换。所有模型通过合并后的校验才应用。如果区间合并使默认值不符合新步长，会报错而不是悄悄改变值。
 
