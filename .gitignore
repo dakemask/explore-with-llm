@@ -18,3 +18,4 @@ coverage/
 Thumbs.db
 output/
 UI示例留档（Agent不从这里获取示例，也不编辑其中内容）/
+temp-docs/
