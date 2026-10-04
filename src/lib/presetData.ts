@@ -10,13 +10,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "DeepSeek",
     "label": "DeepSeek V4.1 Flash",
-    "tags": [
-      "思考",
-      "快速",
-      "便宜",
-      "长上下文",
-      "识图"
-    ],
+    "series": "DeepSeek V4",
     "params": [
       {
         "name": "思考",
@@ -94,11 +88,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "DeepSeek",
     "label": "DeepSeek V4 Pro",
-    "tags": [
-      "思考",
-      "旗舰",
-      "长上下文"
-    ],
+    "series": "DeepSeek V4",
     "params": [
       {
         "name": "思考",
@@ -176,12 +166,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Sol",
-    "tags": [
-      "思考",
-      "旗舰",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-5.6",
     "params": [
       {
         "name": "思考强度",
@@ -258,12 +243,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Terra",
-    "tags": [
-      "思考",
-      "均衡",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-5.6",
     "params": [
       {
         "name": "思考强度",
@@ -340,13 +320,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Luna",
-    "tags": [
-      "思考",
-      "快速",
-      "便宜",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-5.6",
     "params": [
       {
         "name": "思考强度",
@@ -423,12 +397,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Astra",
-    "tags": [
-      "思考",
-      "旗舰",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -488,12 +457,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6.1 Sol",
-    "tags": [
-      "思考",
-      "均衡",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -553,12 +517,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Sol",
-    "tags": [
-      "思考",
-      "编程",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -635,13 +594,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Luna",
-    "tags": [
-      "思考",
-      "快速",
-      "便宜",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -718,12 +671,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Sol",
-    "tags": [
-      "思考",
-      "旗舰",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-5.6",
     "params": [
       {
         "name": "思考强度",
@@ -845,12 +793,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Terra",
-    "tags": [
-      "思考",
-      "均衡",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-5.6",
     "params": [
       {
         "name": "思考强度",
@@ -972,13 +915,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Luna",
-    "tags": [
-      "思考",
-      "快速",
-      "便宜",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-5.6",
     "params": [
       {
         "name": "思考强度",
@@ -1100,12 +1037,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Astra",
-    "tags": [
-      "思考",
-      "旗舰",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -1192,12 +1124,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6.1 Sol",
-    "tags": [
-      "思考",
-      "均衡",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -1284,12 +1211,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Sol",
-    "tags": [
-      "思考",
-      "编程",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -1411,13 +1333,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Luna",
-    "tags": [
-      "思考",
-      "快速",
-      "便宜",
-      "长上下文",
-      "识图"
-    ],
+    "series": "GPT-6",
     "params": [
       {
         "name": "思考强度",
@@ -1539,12 +1455,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Fable 5.1",
-    "tags": [
-      "思考",
-      "最强",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 5",
     "params": [
       {
         "name": "思考强度",
@@ -1602,12 +1513,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 5.5",
-    "tags": [
-      "思考",
-      "旗舰",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 5",
     "params": [
       {
         "name": "思考强度",
@@ -1665,12 +1571,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 5.5",
-    "tags": [
-      "思考",
-      "均衡",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 5",
     "params": [
       {
         "name": "思考强度",
@@ -1749,11 +1650,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Fable 5",
-    "tags": [
-      "思考",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 5",
     "params": [
       {
         "name": "思考强度",
@@ -1807,11 +1704,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 5",
-    "tags": [
-      "思考",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 5",
     "params": [
       {
         "name": "思考强度",
@@ -1886,11 +1779,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 5",
-    "tags": [
-      "思考",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 5",
     "params": [
       {
         "name": "思考强度",
@@ -1958,11 +1847,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.8",
-    "tags": [
-      "思考",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 4",
     "params": [
       {
         "name": "思考",
@@ -2029,11 +1914,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.7",
-    "tags": [
-      "思考",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 4",
     "params": [
       {
         "name": "思考",
@@ -2100,11 +1981,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.6",
-    "tags": [
-      "思考",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 4",
     "params": [
       {
         "name": "思考",
@@ -2186,12 +2063,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 4.6",
-    "tags": [
-      "思考",
-      "均衡",
-      "长上下文",
-      "识图"
-    ],
+    "series": "Claude 4",
     "params": [
       {
         "name": "思考",

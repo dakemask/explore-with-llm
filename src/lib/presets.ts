@@ -13,7 +13,8 @@ export interface ModelPreset {
   vendor: string
   /** Display name, e.g. "DeepSeek V4 Pro". */
   label: string
-  tags: string[]
+  /** Model series tag, e.g. "GPT-6". The other tags are the channel (official = `vendor`) and `protocol`. */
+  series: string
   /** Parameter config items (format of `lib/params.ts`). */
   params: unknown[]
   echoReasoning: boolean
@@ -38,23 +39,46 @@ export function presetConfig(p: ModelPreset): ModelConfig {
   return c
 }
 
-/** Presets for `protocol` matching every word of `query` (name, vendor, tags) and every tag. */
-export function searchPresets(protocol: Protocol, query: string, tags: string[]) {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
-  return PRESETS.filter((p) => {
-    if (p.protocol !== protocol) return false
-    if (!tags.every((t) => p.tags.includes(t) || p.vendor === t)) return false
-    const hay = [p.label, p.vendor, ...p.tags].join(' ').toLowerCase()
-    return words.every((w) => hay.includes(w))
-  })
+/** A filter tag. Presets currently all come from the vendors' official APIs, so a channel is the vendor. */
+export type PresetTag = { group: 'channel' | 'series' | 'protocol'; value: string }
+
+export function tagsOf(p: ModelPreset): PresetTag[] {
+  return [
+    { group: 'channel', value: p.vendor },
+    { group: 'series', value: p.series },
+    { group: 'protocol', value: p.protocol },
+  ]
 }
 
-/** Filter chips for a protocol: vendors first, then tags by how often they occur. */
-export function presetTags(protocol: Protocol) {
-  const list = PRESETS.filter((p) => p.protocol === protocol)
-  const vendors = [...new Set(list.map((p) => p.vendor))]
-  const count = new Map<string, number>()
-  for (const p of list) for (const t of p.tags) count.set(t, (count.get(t) ?? 0) + 1)
-  const tags = [...count.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
-  return vendors.length > 1 ? [...vendors, ...tags] : tags
+/** Every filter tag, grouped: channels, series, protocols (in the order they first occur). */
+export function allPresetTags(): PresetTag[] {
+  const seen = new Set<string>()
+  const out: PresetTag[] = []
+  for (const group of ['channel', 'series', 'protocol'] as const) {
+    for (const p of PRESETS) {
+      const tag = tagsOf(p).find((t) => t.group === group)!
+      if (!seen.has(group + tag.value)) {
+        seen.add(group + tag.value)
+        out.push(tag)
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Presets matching every word of `query` (name, vendor, series, protocol) and the selected tags: any
+ * selected tag within a group, every group that has one.
+ */
+export function searchPresets(query: string, selected: PresetTag[]) {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+  return PRESETS.filter((p) => {
+    const own = tagsOf(p)
+    const groups = new Set(selected.map((t) => t.group))
+    for (const g of groups) {
+      if (!selected.some((s) => s.group === g && own.some((t) => t.group === g && t.value === s.value))) return false
+    }
+    const hay = [p.label, p.vendor, p.series, p.protocol].join(' ').toLowerCase()
+    return words.every((w) => hay.includes(w))
+  })
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Provider } from './db/types'
 import { parseHeaders } from './lib/params'
-import { presetConfig, PRESETS, searchPresets } from './lib/presets'
+import { allPresetTags, presetConfig, PRESETS, searchPresets } from './lib/presets'
 import { modelParams } from './providers'
 
 describe('presets', () => {
@@ -28,11 +28,26 @@ describe('presets', () => {
     })
   }
 
-  it('search matches every word and every tag', () => {
+  it('search matches every word', () => {
     const p = PRESETS[0]
-    if (!p) return
-    expect(searchPresets(p.protocol, p.label.toUpperCase(), [])).toContain(p)
-    expect(searchPresets(p.protocol, `${p.label} zzz-nothing`, [])).not.toContain(p)
-    expect(searchPresets(p.protocol, '', p.tags)).toContain(p)
+    expect(searchPresets(p.label.toUpperCase(), [])).toContain(p)
+    expect(searchPresets(`${p.label} zzz-nothing`, [])).not.toContain(p)
+  })
+
+  it('tags: any within a group, every group', () => {
+    const chat = searchPresets('', [{ group: 'protocol', value: 'openai-chat' }])
+    const both = searchPresets('', [
+      { group: 'protocol', value: 'openai-chat' },
+      { group: 'protocol', value: 'anthropic' },
+    ])
+    expect(chat.every((p) => p.protocol === 'openai-chat')).toBe(true)
+    expect(both.length).toBeGreaterThan(chat.length)
+    const deepseekChat = searchPresets('', [
+      { group: 'channel', value: 'DeepSeek' },
+      { group: 'protocol', value: 'openai-chat' },
+    ])
+    expect(deepseekChat.length).toBeGreaterThan(0)
+    expect(deepseekChat.every((p) => p.vendor === 'DeepSeek')).toBe(true)
+    expect(allPresetTags().filter((t) => t.group === 'protocol')).toHaveLength(3)
   })
 })
