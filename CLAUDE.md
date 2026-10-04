@@ -87,9 +87,14 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 3. ✅ Node detail panel (request / response / error)
    - 3a ✅ raw capture: headers (key masked, reveal toggle), body with folded history, SSE events / merged / raw views
    - 3b ✅ native reply storage, echo-back setting, reasoning (summary / encrypted / `<think>`) display
-4. ✅ Side questions + assistant message editing with locked anchors
+4. ✅ Side questions + assistant message editing (later changed to sibling versions, see 5d)
 5. Images, export/import, other protocols
    - 5a ✅ per-model parameter configs, echo switch + auto field, custom headers, presets removed, picker moved into the composer
    - 5b ✅ Anthropic Messages + OpenAI Responses adapters, required-field check
    - 5c ✅ per-model config page (params + echo + headers), model list, built-in presets
-   - next: images, then export/import
+   - 5d ✅ editing a reply makes a sibling version without reasoning (anchor locks removed)
+   - next: 5e images in user input — still open with the owner: add via paste / drag / button (all three proposed)? images in side questions too? Then 5f single-conversation export/import (strip the API key; open: full JSON backup vs readable Markdown, include raw request records?)
+
+## Not yet verified against real APIs
+
+Everything was tested only against `pnpm mock`. Open points (details in `docs/presets-research.md`): browser CORS for DeepSeek / OpenAI; Responses echo keeps the native message item's `id` under `store:false` (may be rejected — fallback: drop the id); GPT-5.6 temperature only at effort `none` (inferred); pro mode + streaming. If the owner reports an error, ask for the detail panel's error text.
