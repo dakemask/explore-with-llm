@@ -9,6 +9,24 @@ The owner is not a programmer and delegates all technical decisions. Requirement
 - `pnpm dev` — dev server
 - `pnpm test` — unit tests (vitest)
 - `pnpm build` — typecheck + production build into `dist/`
+- `pnpm mock` — fake OpenAI-compatible streaming server on :8787 (see `scripts/mock/server.mjs`)
+
+## Verifying UI changes
+
+The owner can't review code, so check changes in a real browser before reporting done:
+run `pnpm dev` + `pnpm mock`, then drive the page with `playwright-core` using the locally installed
+Chrome (`C:/Program Files/Google/Chrome/Application/chrome.exe`) — install playwright-core in the
+session scratchpad, not in this project. Add a Custom provider with base URL `http://localhost:8787`;
+model `mock-chat` streams reasoning + markdown/code/math, `mock-bad` returns 401. Take screenshots
+and look at them; check both themes when touching styles.
+
+## Gotchas
+
+- Git Bash heredocs on this machine can eat backslashes. Write files containing `\` (LaTeX, regex) with the Write tool, not heredocs.
+- Tailwind v4 `translate-*` utilities use the CSS `translate` property, which stacks with `transform` in keyframes. Animations on centered elements must not use `translate()` in `transform`.
+- Radix Dialog autofocuses the first button, which opens its tooltip. `Dialog` focuses the panel instead (`onOpenAutoFocus`); keep that for new dialogs.
+- Inputs bound to Dexie data must keep local state (IndexedDB writes are async; binding directly drops keystrokes). See `ProviderForm`.
+- Streaming mock replies can finish before a test clicks Stop; run `DELAY=60 pnpm mock` for stop tests.
 
 ## Architecture
 
