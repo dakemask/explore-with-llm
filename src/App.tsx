@@ -28,7 +28,9 @@ export function App() {
 
   return (
     <Tooltip.Provider delayDuration={400}>
-      <div className="flex h-full">
+      {/* overflow-hidden: the panel's slide-in animation briefly pokes past the right edge; without this,
+          Windows shows a horizontal scrollbar for a moment and the whole page jumps. */}
+      <div className="flex h-full overflow-hidden">
         <Sidebar />
         <ChatView />
         {panel?.type === 'detail' && <DetailPanel key={panel.nodeId} nodeId={panel.nodeId} />}

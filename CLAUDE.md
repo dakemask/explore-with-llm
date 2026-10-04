@@ -32,6 +32,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 - Tailwind v4 `translate-*` utilities use the CSS `translate` property, which stacks with `transform` in keyframes. Animations on centered elements must not use `translate()` in `transform`.
 - Radix Dialog autofocuses the first button, which opens its tooltip. `Dialog` focuses the panel instead (`onOpenAutoFocus`); keep that for new dialogs.
 - Inputs bound to Dexie data must keep local state (IndexedDB writes are async; binding directly drops keystrokes). See `ProviderForm`.
+- Anything animating past the viewport edge (e.g. the panel's slide-in) makes Windows Chrome flash a scrollbar and jump the page; the app root has `overflow-hidden` for this — keep it. Headless tests use overlay scrollbars, so check `document.documentElement.scrollWidth` instead of eyeballing.
 - Streaming mock replies can finish before a test clicks Stop; run `DELAY=60 pnpm mock` for stop tests.
 
 ## Architecture
