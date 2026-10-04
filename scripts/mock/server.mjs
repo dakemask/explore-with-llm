@@ -1,13 +1,18 @@
-// Fake OpenAI-compatible streaming server for manual / browser testing without a real API key.
+// Fake streaming LLM server for manual / browser testing without a real API key. Speaks three protocols,
+// chosen by the request path:
+//   …/chat/completions   OpenAI Chat Completions   (base URL http://localhost:8787)
+//   …/responses          OpenAI Responses          (base URL http://localhost:8787)
+//   …/v1/messages        Anthropic Messages        (base URL http://localhost:8787)
 // Usage: node scripts/mock/server.mjs   (env: PORT=8787, DELAY=8 ms between chunks)
-// In the app, add a Custom provider with base URL http://localhost:8787 and any key.
-// Models:
-//   mock-chat   DeepSeek style: reasoning_content + reply.md
-//   mock-think  OpenRouter style: `reasoning` summary text + reasoning_details (summary + encrypted blob)
+// Models (same meaning in every protocol, in that protocol's native shape):
+//   mock-chat   plain reasoning text (chat: reasoning_content; anthropic: thinking + signature; responses: summary)
+//   mock-think  summary + encrypted reasoning (chat: OpenRouter reasoning_details; anthropic: redacted_thinking
+//               + thinking; responses: two summary parts + encrypted_content)
 //   mock-tags   thinking inline in content as <think>…</think>
 //   mock-bad    returns HTTP 401
-// Every reply starts with a line echoing the request (counter, context size, extra fields found on
-// earlier assistant messages, body fields beyond model/messages/stream, last user message) so branches and echo-back are visible in tests.
+// Every reply starts with a line echoing the request (counter, protocol, context size, echoed reasoning found
+// in the context, body fields beyond the protocol's own, last user message) so branches, echo-back and
+// parameters are visible in tests. Anthropic requests without max_tokens get the API's 400 error.
 import fs from 'node:fs'
 import http from 'node:http'
 
@@ -19,10 +24,153 @@ const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': '*',
   'Access-Control-Allow-Methods': '*',
+  // Only exposed headers are readable from the page; the app's detail panel shows this one.
+  'Access-Control-Expose-Headers': 'X-Request-Id',
 }
 const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad']
 let count = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const blob = (n) => Buffer.from(`encrypted-reasoning-${n}-`.repeat(60)).toString('base64')
+
+/** First line of every reply. */
+function echoLine({ protocol, context, echoed, params, last }) {
+  const p = Object.keys(params).length ? JSON.stringify(params) : '无'
+  return `> 第 ${count} 次请求 · ${protocol} · 上下文 ${context} 条 · 回传 ${echoed.size ? [...echoed].join(', ') : '无'} · 参数 ${p} · 「${String(last).slice(0, 30)}」\n\n`
+}
+
+const replyText = (model, line) => (model === 'mock-tags' ? `<think>\n${reasoning}\n</think>\n\n` : '') + line + reply
+
+async function streamText(text, emit) {
+  for (let i = 0; i < text.length; i += 4) {
+    emit(text.slice(i, i + 4))
+    await sleep(delay)
+  }
+}
+
+async function chat(res, body) {
+  const { model, messages, stream, ...params } = body
+  const echoed = new Set()
+  for (const m of messages) {
+    if (m.role === 'assistant') for (const k of Object.keys(m)) if (k !== 'role' && k !== 'content') echoed.add(k)
+  }
+  const head = { id: `chatcmpl-${count}`, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model }
+  // OpenRouter repeats which upstream served the request on every chunk.
+  if (model === 'mock-think') head.provider = 'MockAI'
+  const send = (o) => res.write(`data: ${JSON.stringify({ ...head, ...o })}\n\n`)
+  const delta = (d) => send({ choices: [{ index: 0, delta: d, finish_reason: null }] })
+
+  delta({ role: 'assistant', content: '' })
+  if (model === 'mock-think') {
+    for (const ch of reasoning) {
+      delta({ reasoning: ch, reasoning_details: [{ type: 'reasoning.summary', summary: ch, index: 0, format: 'openai-responses-v1' }] })
+      await sleep(15)
+    }
+    delta({ reasoning_details: [{ type: 'reasoning.encrypted', data: blob(count), id: `rs_${count}`, index: 1, format: 'openai-responses-v1' }] })
+  } else if (model !== 'mock-tags') {
+    for (const ch of reasoning) {
+      delta({ reasoning_content: ch })
+      await sleep(15)
+    }
+  }
+  const line = echoLine({ protocol: 'chat', context: messages.length, echoed, params, last: messages.at(-1)?.content ?? '' })
+  await streamText(replyText(model, line), (t) => delta({ content: t }))
+  send({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
+  send({
+    choices: [],
+    usage: { prompt_tokens: 10, completion_tokens: 100, total_tokens: 110, completion_tokens_details: { reasoning_tokens: 17 } },
+  })
+  res.end('data: [DONE]\n\n')
+}
+
+async function anthropic(res, body) {
+  const { model, messages, stream, ...params } = body
+  const echoed = new Set()
+  for (const m of messages) {
+    if (m.role === 'assistant' && Array.isArray(m.content)) for (const b of m.content) if (b.type !== 'text') echoed.add(b.type)
+  }
+  const send = (o) => res.write(`event: ${o.type}\ndata: ${JSON.stringify(o)}\n\n`)
+  send({
+    type: 'message_start',
+    message: { id: `msg_${count}`, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 1 } },
+  })
+  send({ type: 'ping' })
+  let index = 0
+  if (model === 'mock-think') {
+    send({ type: 'content_block_start', index, content_block: { type: 'redacted_thinking', data: blob(count) } })
+    send({ type: 'content_block_stop', index: index++ })
+  }
+  if (model !== 'mock-tags') {
+    send({ type: 'content_block_start', index, content_block: { type: 'thinking', thinking: '', signature: '' } })
+    for (const ch of reasoning) {
+      send({ type: 'content_block_delta', index, delta: { type: 'thinking_delta', thinking: ch } })
+      await sleep(15)
+    }
+    send({ type: 'content_block_delta', index, delta: { type: 'signature_delta', signature: `sig-${count}-` + 'x'.repeat(40) } })
+    send({ type: 'content_block_stop', index: index++ })
+  }
+  send({ type: 'content_block_start', index, content_block: { type: 'text', text: '' } })
+  const last = messages.at(-1)?.content
+  const line = echoLine({ protocol: 'anthropic', context: messages.length, echoed, params, last: typeof last === 'string' ? last : '' })
+  await streamText(replyText(model, line), (t) => send({ type: 'content_block_delta', index, delta: { type: 'text_delta', text: t } }))
+  send({ type: 'content_block_stop', index })
+  send({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 100 } })
+  send({ type: 'message_stop' })
+  res.end()
+}
+
+async function responses(res, body) {
+  const { model, input, stream, ...params } = body
+  const echoed = new Set()
+  for (const it of input) if (it.type) echoed.add(it.type)
+  let seq = 0
+  const send = (o) => res.write(`event: ${o.type}\ndata: ${JSON.stringify({ ...o, sequence_number: seq++ })}\n\n`)
+  const base = { id: `resp_${count}`, object: 'response', created_at: Math.floor(Date.now() / 1000), model }
+  send({ type: 'response.created', response: { ...base, status: 'in_progress', output: [] } })
+  const output = []
+  if (model !== 'mock-tags') {
+    const id = `rs_${count}`
+    send({ type: 'response.output_item.added', output_index: 0, item: { id, type: 'reasoning', summary: [] } })
+    // mock-think: two summary parts, as o-series models often send.
+    const parts = model === 'mock-think' ? reasoning.split('\n\n') : [reasoning]
+    const summary = []
+    for (const [summary_index, text] of parts.entries()) {
+      send({ type: 'response.reasoning_summary_part.added', item_id: id, output_index: 0, summary_index, part: { type: 'summary_text', text: '' } })
+      for (const ch of text) {
+        send({ type: 'response.reasoning_summary_text.delta', item_id: id, output_index: 0, summary_index, delta: ch })
+        await sleep(15)
+      }
+      send({ type: 'response.reasoning_summary_text.done', item_id: id, output_index: 0, summary_index, text })
+      summary.push({ type: 'summary_text', text })
+    }
+    const item = { id, type: 'reasoning', summary, ...(model === 'mock-think' && { encrypted_content: blob(count) }) }
+    send({ type: 'response.output_item.done', output_index: 0, item })
+    output.push(item)
+  }
+  const oi = output.length
+  const id = `msg_${count}`
+  send({ type: 'response.output_item.added', output_index: oi, item: { id, type: 'message', status: 'in_progress', role: 'assistant', content: [] } })
+  send({ type: 'response.content_part.added', item_id: id, output_index: oi, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } })
+  const lastUser = [...input].reverse().find((it) => it.role === 'user')?.content
+  const line = echoLine({ protocol: 'responses', context: input.length, echoed, params, last: typeof lastUser === 'string' ? lastUser : '' })
+  const text = replyText(model, line)
+  await streamText(text, (t) => send({ type: 'response.output_text.delta', item_id: id, output_index: oi, content_index: 0, delta: t }))
+  send({ type: 'response.output_text.done', item_id: id, output_index: oi, content_index: 0, text })
+  const part = { type: 'output_text', text, annotations: [] }
+  send({ type: 'response.content_part.done', item_id: id, output_index: oi, content_index: 0, part })
+  const msg = { id, type: 'message', status: 'completed', role: 'assistant', content: [part] }
+  send({ type: 'response.output_item.done', output_index: oi, item: msg })
+  output.push(msg)
+  send({
+    type: 'response.completed',
+    response: {
+      ...base,
+      status: 'completed',
+      output,
+      usage: { input_tokens: 10, input_tokens_details: { cached_tokens: 4 }, output_tokens: 100, output_tokens_details: { reasoning_tokens: 17 }, total_tokens: 110 },
+    },
+  })
+  res.end()
+}
 
 http
   .createServer(async (req, res) => {
@@ -35,62 +183,21 @@ http
       return res.end(JSON.stringify({ data: MODELS.map((id) => ({ id })) }))
     }
 
-    let body = ''
-    for await (const c of req) body += c
-    const { model, messages, stream, ...params } = JSON.parse(body)
+    let raw = ''
+    for await (const c of req) raw += c
+    const body = JSON.parse(raw)
+    const protocol = req.url.endsWith('/v1/messages') ? 'anthropic' : req.url.endsWith('/responses') ? 'responses' : 'chat'
     count++
-    if (model === 'mock-bad') {
-      res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: { message: 'Authentication Fails (no such user)' } }))
+    const json = (status, o) => {
+      res.writeHead(status, { ...cors, 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(o))
+    }
+    if (body.model === 'mock-bad') return json(401, { error: { message: 'Authentication Fails (no such user)' } })
+    if (protocol === 'anthropic' && body.max_tokens === undefined) {
+      return json(400, { type: 'error', error: { type: 'invalid_request_error', message: 'max_tokens: Field required' } })
     }
 
-    res.writeHead(200, {
-      ...cors,
-      'Content-Type': 'text/event-stream',
-      'X-Request-Id': `mock-${count}`,
-      // Only exposed headers are readable from the page; the app's detail panel shows this one.
-      'Access-Control-Expose-Headers': 'X-Request-Id',
-    })
-    const head = { id: `chatcmpl-${count}`, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model }
-    // OpenRouter repeats which upstream served the request on every chunk.
-    if (model === 'mock-think') head.provider = 'MockAI'
-    const send = (o) => res.write(`data: ${JSON.stringify({ ...head, ...o })}\n\n`)
-    const delta = (d) => send({ choices: [{ index: 0, delta: d, finish_reason: null }] })
-
-    delta({ role: 'assistant', content: '' })
-    if (model === 'mock-think') {
-      for (const ch of reasoning) {
-        delta({ reasoning: ch, reasoning_details: [{ type: 'reasoning.summary', summary: ch, index: 0, format: 'openai-responses-v1' }] })
-        await sleep(15)
-      }
-      const blob = Buffer.from(`encrypted-reasoning-${count}-`.repeat(60)).toString('base64')
-      delta({ reasoning_details: [{ type: 'reasoning.encrypted', data: blob, id: `rs_${count}`, index: 1, format: 'openai-responses-v1' }] })
-    } else if (model !== 'mock-tags') {
-      for (const ch of reasoning) {
-        delta({ reasoning_content: ch })
-        await sleep(15)
-      }
-    }
-
-    const extras = new Set()
-    for (const m of messages) {
-      if (m.role === 'assistant') for (const k of Object.keys(m)) if (k !== 'role' && k !== 'content') extras.add(k)
-    }
-    const last = messages.at(-1)?.content ?? ''
-    const paramText = Object.keys(params).length ? JSON.stringify(params) : '无'
-    let text =
-      `> 第 ${count} 次请求 · 上下文 ${messages.length} 条 · 回传 ${extras.size ? [...extras].join(', ') : '无'} · 参数 ${paramText} · 「${last.slice(0, 30)}」\n\n` +
-      reply
-    if (model === 'mock-tags') text = `<think>\n${reasoning}\n</think>\n\n` + text
-    for (let i = 0; i < text.length; i += 4) {
-      delta({ content: text.slice(i, i + 4) })
-      await sleep(delay)
-    }
-    send({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
-    send({
-      choices: [],
-      usage: { prompt_tokens: 10, completion_tokens: 100, total_tokens: 110, completion_tokens_details: { reasoning_tokens: 17 } },
-    })
-    res.end('data: [DONE]\n\n')
+    res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream', 'X-Request-Id': `mock-${count}` })
+    await { chat, anthropic, responses }[protocol](res, body)
   })
   .listen(port, () => console.log(`mock LLM on http://localhost:${port}`))

@@ -1,9 +1,9 @@
-import type { Provider } from '../db/types'
+import type { Protocol, Provider } from '../db/types'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
-  /** Native fields of an earlier reply to send back as-is (assistant only). */
+  /** Native parts of an earlier reply to send back (assistant only), as returned by the adapter's `echo`. */
   extra?: Record<string, unknown>
 }
 
@@ -20,6 +20,9 @@ export interface PreparedRequest {
 }
 
 export interface ProtocolAdapter {
+  protocol: Protocol
+  /** Appended to the provider's base URL for chat requests (shown in settings). */
+  chatPath: string
   /**
    * `params` is the user's merged parameter body for this model (see `lib/params.ts`); it never contains
    * `reserved` fields. Custom headers are added by the caller.
@@ -32,18 +35,21 @@ export interface ProtocolAdapter {
   ): PreparedRequest
   /** Top-level body fields the protocol sets itself; parameter configs may not use them. */
   reserved: string[]
+  /** Body fields the protocol requires but whose value is the user's choice; parameters must supply them. */
+  required: string[]
   /**
-   * Reply fields that carry reasoning, best first. When echo-back is on without explicit fields, the first
-   * one present in a reply is sent back (sending several would duplicate the same reasoning).
+   * Which parts of an earlier native reply to send back with it. `fields` empty means automatic: the
+   * reasoning, once (protocols that offer it under several names would otherwise send it twice).
+   * Returns the `extra` that `buildRequest` understands, or undefined for text only.
    */
-  echoPriority: string[]
+  echo(message: Record<string, unknown>, fields: string[]): Record<string, unknown> | undefined
   parseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<StreamEvent>
   /**
    * Rebuilds the response the server would have sent without streaming, from the parsed SSE data payloads.
    * Unknown vendor fields are kept, so nothing the model returned is lost.
    */
   aggregate(payloads: unknown[]): unknown
-  /** The reply message inside an aggregated response, in native shape. */
+  /** The reply inside an aggregated response, in native shape (what `echo` and reasoning display read). */
   replyMessage(aggregated: unknown): Record<string, unknown> | undefined
   listModels(provider: Provider, headers: Record<string, string>, signal?: AbortSignal): Promise<string[]>
 }
@@ -63,4 +69,17 @@ export class ProviderError extends Error {
 
 export function joinUrl(base: string, path: string) {
   return base.trim().replace(/\/+$/, '') + path
+}
+
+/** Model ids from a `{ data: [{ id }] }` (or bare array) model list. */
+export async function fetchModelList(url: string, headers: Record<string, string>, signal?: AbortSignal) {
+  const res = await fetch(url, { headers, signal })
+  const text = await res.text()
+  if (!res.ok) throw new ProviderError(`HTTP ${res.status}`, res.status, text)
+  const json = JSON.parse(text)
+  const list: unknown[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : []
+  return list
+    .map((m) => (typeof m === 'string' ? m : (m as { id?: string }).id))
+    .filter((id): id is string => !!id)
+    .sort()
 }

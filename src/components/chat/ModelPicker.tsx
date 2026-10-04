@@ -3,9 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, ChevronDown, Plus } from 'lucide-react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
-import { useSettings } from '../../store/settings'
+import { paramKey, useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
-import { paramConfig } from '../../providers'
+import { modelParams } from '../../providers'
 import { ParamsControl } from './ParamsControl'
 import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/Menu'
 
@@ -20,13 +20,14 @@ export function useCurrentModel(): {
   ready: boolean
 } {
   const providers = useLiveQuery(() => db.providers.orderBy('createdAt').toArray(), [])
-  const { providerId, model } = useSettings()
+  const { providerId, model, paramChoices } = useSettings()
   if (!providers) return { providers, ready: false }
   const usable = providers.filter((p) => p.models.length > 0)
   const provider = usable.find((p) => p.id === providerId) ?? usable[0]
   if (!provider) return { providers, ready: false }
   const m = provider.models.includes(model ?? '') ? model! : provider.models[0]
-  return { providers, provider, model: m, ready: paramConfig(provider, m).ok }
+  const params = modelParams(provider, m, paramChoices[paramKey(provider.id, m)])
+  return { providers, provider, model: m, ready: params.ok && !params.missing }
 }
 
 /** Model picker plus the chosen model's parameters, for a composer's bottom bar. */

@@ -5,6 +5,7 @@ import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
 import { parseHeaders } from '../../lib/params'
 import { getAdapter, listModels, PROTOCOLS, ProviderError } from '../../providers'
+import { joinUrl } from '../../providers/types'
 import { Button } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
 import { Input, Label, Textarea } from '../ui/Field'
@@ -21,7 +22,7 @@ export function ProviderForm({ provider: initial, initialModel }: { provider: Pr
   const [echoText, setEchoText] = useState((provider.echoFields ?? []).join(', '))
   const [headersText, setHeadersText] = useState(provider.headers ?? '')
   const badHeaderLine = parseHeaders(headersText).badLine
-  const echoPriority = getAdapter(provider.protocol).echoPriority
+  const adapter = getAdapter(provider.protocol)
   const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string; error?: boolean }>({})
 
   const save = (patch: Partial<Provider>) => {
@@ -69,19 +70,16 @@ export function ProviderForm({ provider: initial, initialModel }: { provider: Pr
         <div className="grid grid-cols-3 gap-2">
           {PROTOCOLS.map((p) => (
             <button
-              key={p.id}
-              disabled={!p.available}
-              onClick={() => save({ protocol: p.id })}
+              key={p}
+              onClick={() => save({ protocol: p })}
               className={clsx(
-                'rounded-lg border px-3 py-2 text-left text-[13px] transition-colors disabled:cursor-not-allowed',
-                provider.protocol === p.id
+                'rounded-lg border px-3 py-2 text-left text-[13px] transition-colors',
+                provider.protocol === p
                   ? 'border-accent bg-accent-soft font-medium text-text'
-                  : 'border-border text-muted enabled:hover:border-border-strong enabled:hover:text-text',
-                !p.available && 'opacity-50',
+                  : 'border-border text-muted hover:border-border-strong hover:text-text',
               )}
             >
-              <div>{t(`protocol.${p.id}`)}</div>
-              {!p.available && <div className="mt-0.5 text-[11px] text-faint">{t('provider.comingSoon')}</div>}
+              {t(`protocol.${p}`)}
             </button>
           ))}
         </div>
@@ -92,10 +90,15 @@ export function ProviderForm({ provider: initial, initialModel }: { provider: Pr
         <Input
           value={provider.baseUrl}
           onChange={(e) => save({ baseUrl: e.target.value })}
-          placeholder="https://api.example.com/v1"
+          placeholder={provider.protocol === 'anthropic' ? 'https://api.example.com' : 'https://api.example.com/v1'}
           spellCheck={false}
           className="font-mono text-[13px]"
         />
+        {provider.baseUrl.trim() && (
+          <div className="mt-1.5 truncate font-mono text-xs text-faint">
+            {t('provider.endpoint', { url: joinUrl(provider.baseUrl, adapter.chatPath) })}
+          </div>
+        )}
       </div>
 
       <div>
@@ -180,7 +183,7 @@ export function ProviderForm({ provider: initial, initialModel }: { provider: Pr
               className="font-mono text-[13px]"
             />
             <div className="mt-1.5 text-xs leading-relaxed text-faint">
-              {t('provider.echoFieldsHint', { list: echoPriority.join(' › ') })}
+              {t(`echo.auto.${provider.protocol}`)} {t('echo.manual')}
             </div>
           </div>
         )}

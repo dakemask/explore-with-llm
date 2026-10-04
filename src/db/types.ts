@@ -18,8 +18,9 @@ export interface Provider {
    */
   echoReasoning?: boolean
   /**
-   * With `echoReasoning`: which native reply fields to send back (`*` = every field). Empty/missing:
-   * the first field present from the protocol's priority list (`ProtocolAdapter.echoPriority`).
+   * With `echoReasoning`: which parts of the native reply to send back — field names (openai-chat),
+   * content block types (anthropic) or output item types (openai-responses); `*` = all.
+   * Empty/missing: automatic, the reasoning once (see `ProtocolAdapter.echo`).
    */
   echoFields?: string[]
   /** Extra request headers, one `Name: value` per line, sent as typed (may replace built-in ones). */
@@ -89,7 +90,8 @@ export interface Attempt {
   rawReasoning?: string
   /**
    * The reply in its protocol's native shape, unknown vendor fields included
-   * (openai-chat: `choices[0].message` merged from the stream). Source for echo-back and reasoning display.
+   * (openai-chat: `choices[0].message` merged from the stream; anthropic: the message with its content
+   * blocks; openai-responses: `{ output }`). Source for echo-back and reasoning display.
    */
   message?: Record<string, unknown>
   finishReason?: string

@@ -27,19 +27,33 @@ export interface ReasoningView {
 /**
  * Recognizes the reasoning fields we know of in a native reply message. Unknown shapes are ignored here
  * (they still appear in request details and are echoed back per provider settings).
- * Currently understands OpenAI-compatible `reasoning_content` / `reasoning` (via `plain`) and
- * OpenRouter-style `reasoning_details` items.
+ * Understands OpenAI-compatible `reasoning_content` / `reasoning` (via `plain`), OpenRouter-style
+ * `reasoning_details`, Anthropic `thinking` / `redacted_thinking` blocks and Responses `reasoning` items.
  */
 export function reasoningView(plain: string, message: unknown): ReasoningView {
-  const details = isObj(message) && Array.isArray(message.reasoning_details) ? message.reasoning_details : []
   const texts: string[] = []
   const summaries: string[] = []
   const encrypted: number[] = []
-  for (const d of details) {
-    if (!isObj(d)) continue
+  const size = (s: string) => new Blob([s]).size
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter(isObj) : [])
+  const m = isObj(message) ? message : {}
+  // OpenAI-compatible (OpenRouter) reasoning_details.
+  for (const d of list(m.reasoning_details)) {
     if (d.type === 'reasoning.text' && typeof d.text === 'string') texts.push(d.text)
     else if (d.type === 'reasoning.summary' && typeof d.summary === 'string') summaries.push(d.summary)
-    else if (d.type === 'reasoning.encrypted' && typeof d.data === 'string') encrypted.push(new Blob([d.data]).size)
+    else if (d.type === 'reasoning.encrypted' && typeof d.data === 'string') encrypted.push(size(d.data))
+  }
+  // Anthropic content blocks.
+  for (const b of list(m.content)) {
+    if (b.type === 'thinking' && typeof b.thinking === 'string' && b.thinking) texts.push(b.thinking)
+    else if (b.type === 'redacted_thinking' && typeof b.data === 'string') encrypted.push(size(b.data))
+  }
+  // OpenAI Responses reasoning items: summary parts, raw reasoning text, encrypted content.
+  for (const it of list(m.output)) {
+    if (it.type !== 'reasoning') continue
+    for (const p of list(it.summary)) if (typeof p.text === 'string' && p.text) summaries.push(p.text)
+    for (const p of list(it.content)) if (typeof p.text === 'string' && p.text) texts.push(p.text)
+    if (typeof it.encrypted_content === 'string' && it.encrypted_content) encrypted.push(size(it.encrypted_content))
   }
   const text = plain || texts.join('\n\n')
   // Providers that send both usually put the summary text in the plain field too; compare ignoring whitespace.

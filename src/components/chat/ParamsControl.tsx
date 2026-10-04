@@ -3,8 +3,8 @@ import { AlertTriangle, Settings2, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { Provider } from '../../db'
 import { useT } from '../../i18n'
-import { resolveParams, snap, type Param, type ParamValue, type ResolvedParam } from '../../lib/params'
-import { paramConfig } from '../../providers'
+import { snap, type Param, type ParamValue, type ResolvedParam } from '../../lib/params'
+import { modelParams } from '../../providers'
 import { paramKey, useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { Segmented } from '../ui/Field'
@@ -20,22 +20,26 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
   const key = paramKey(provider.id, model)
   const choices = useSettings((s) => s.paramChoices[key])
   const setChoice = useSettings((s) => s.setParamChoice)
-  const config = useMemo(() => paramConfig(provider, model), [provider, model])
-  const resolved = useMemo(() => (config.ok ? resolveParams(config.config, choices).params : []), [config, choices])
+  const state = useMemo(() => modelParams(provider, model, choices), [provider, model, choices])
   const editConfig = () => openSettings('providers', { providerId: provider.id, model })
 
-  if (!config.ok) {
+  // Nothing to adjust: a broken config or a missing required field links straight to the editor.
+  if (!state.ok || state.params.length === 0) {
+    const problem = !state.ok ? t('params.invalidShort') : state.missing && t('params.missing', { field: state.missing })
+    if (!problem) return null
     return (
       <button
         onClick={editConfig}
+        title={state.ok ? t('params.missingHint', { field: state.missing! }) : undefined}
         className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-danger transition-colors hover:bg-danger-soft"
       >
         <AlertTriangle size={14} className="shrink-0" />
-        <span className="truncate">{t('params.invalidShort')}</span>
+        <span className="truncate">{problem}</span>
       </button>
     )
   }
-  if (resolved.length === 0) return null
+  const resolved = state.params
+  const missing = state.missing
 
   const shown = resolved.filter((r) => r.active && (r.param.type !== 'fixed' || r.param.toggle))
   const summary = shown.map((r) => (r.param.type === 'fixed' ? r.param.name : display(r.value))).join(' · ')
@@ -47,10 +51,15 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
         <button
           aria-label={t('params.title')}
           title={fullSummary.join('\n')}
-          className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-muted transition-colors hover:bg-hover hover:text-text data-[state=open]:bg-hover data-[state=open]:text-text"
+          className={clsx(
+            'flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors',
+            missing
+              ? 'text-danger hover:bg-danger-soft data-[state=open]:bg-danger-soft'
+              : 'text-muted hover:bg-hover hover:text-text data-[state=open]:bg-hover data-[state=open]:text-text',
+          )}
         >
-          <SlidersHorizontal size={14} className="shrink-0" />
-          {summary && <span className="truncate">{summary}</span>}
+          {missing ? <AlertTriangle size={14} className="shrink-0" /> : <SlidersHorizontal size={14} className="shrink-0" />}
+          <span className="truncate">{missing ? t('params.missing', { field: missing }) : summary}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
@@ -64,6 +73,12 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
             {t('params.editConfig')}
           </button>
         </div>
+        {missing && (
+          <div className="flex items-start gap-1.5 border-b border-border bg-danger-soft px-4 py-2.5 text-xs leading-relaxed text-danger">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+            {t('params.missingHint', { field: missing })}
+          </div>
+        )}
         <div className="divide-y divide-border">
           {resolved.map((r) => (
             <ParamRow key={r.param.name} r={r} onChange={(c) => setChoice(key, r.param.name, c)} />

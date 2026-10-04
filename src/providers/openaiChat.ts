@@ -1,13 +1,19 @@
 import { mergeHeaders } from '../lib/params'
 import { readSse } from './sse'
 import { isObj, mergeDelta } from './merge'
-import { joinUrl, ProviderError, type ProtocolAdapter, type StreamEvent } from './types'
+import { fetchModelList, joinUrl, ProviderError, type ProtocolAdapter, type StreamEvent } from './types'
+
+/** Reasoning fields of a Chat Completions reply, best first; they repeat the same reasoning, so only one is echoed. */
+const REASONING_FIELDS = ['reasoning_details', 'reasoning_content', 'reasoning']
 
 /** OpenAI Chat Completions protocol (also used by DeepSeek and most compatible vendors). */
 export const openaiChat: ProtocolAdapter = {
+  protocol: 'openai-chat',
+  chatPath: '/chat/completions',
+
   buildRequest(provider, model, messages, params) {
     return {
-      url: joinUrl(provider.baseUrl, '/chat/completions'),
+      url: joinUrl(provider.baseUrl, this.chatPath),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${provider.apiKey}`,
@@ -22,7 +28,20 @@ export const openaiChat: ProtocolAdapter = {
   },
 
   reserved: ['model', 'messages', 'stream'],
-  echoPriority: ['reasoning_details', 'reasoning_content', 'reasoning'],
+  required: [],
+
+  /** Extra fields go straight onto the assistant message. */
+  echo(message, fields) {
+    if (fields.length === 0) {
+      const key = REASONING_FIELDS.find((k) => message[k] != null && message[k] !== '')
+      return key ? { [key]: message[key] } : undefined
+    }
+    const all = fields.includes('*')
+    const picked = Object.entries(message).filter(
+      ([k]) => k !== 'role' && k !== 'content' && (all || fields.includes(k)),
+    )
+    return picked.length ? Object.fromEntries(picked) : undefined
+  },
 
   async *parseStream(body): AsyncGenerator<StreamEvent> {
     for await (const ev of readSse(body)) {
@@ -77,18 +96,8 @@ export const openaiChat: ProtocolAdapter = {
     return isObj(msg) ? msg : undefined
   },
 
-  async listModels(provider, headers, signal) {
-    const res = await fetch(joinUrl(provider.baseUrl, '/models'), {
-      headers: mergeHeaders({ Authorization: `Bearer ${provider.apiKey}` }, headers),
-      signal,
-    })
-    const text = await res.text()
-    if (!res.ok) throw new ProviderError(`HTTP ${res.status}`, res.status, text)
-    const json = JSON.parse(text)
-    const list: unknown[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : []
-    return list
-      .map((m) => (typeof m === 'string' ? m : (m as { id?: string }).id))
-      .filter((id): id is string => !!id)
-      .sort()
+  listModels(provider, headers, signal) {
+    const auth = { Authorization: `Bearer ${provider.apiKey}` }
+    return fetchModelList(joinUrl(provider.baseUrl, '/models'), mergeHeaders(auth, headers), signal)
   },
 }

@@ -5,7 +5,7 @@ import type { Provider } from '../../db'
 import { useT } from '../../i18n'
 import { useCopy } from '../../lib/hooks'
 import { paramsDoc, paramsExample } from '../../lib/paramsDoc'
-import { paramConfig } from '../../providers'
+import { modelParams } from '../../providers'
 import { useSettings } from '../../store/settings'
 import { Markdown } from '../chat/Markdown'
 import { Button } from '../ui/Button'
@@ -43,7 +43,7 @@ export function ParamsEditor({
 
   const text = model ? (drafts[model] ?? '') : ''
   const result = useMemo(
-    () => (model ? paramConfig({ ...provider, modelParams: { [model]: text } }, model) : undefined),
+    () => (model ? modelParams({ ...provider, modelParams: { [model]: text } }, model) : undefined),
     [provider, model, text],
   )
 
@@ -146,6 +146,12 @@ export function ParamsEditor({
                 <CircleAlert size={13} className="mt-px shrink-0" />
                 {t(result.error.key, result.error.vars)}
               </>
+            ) : result?.ok && result.missing ? (
+              // With default choices, a field the protocol requires isn't supplied.
+              <span className="flex items-start gap-1.5 text-danger">
+                <CircleAlert size={13} className="mt-px shrink-0" />
+                {t('provider.paramsRequired', { field: result.missing })}
+              </span>
             ) : !text.trim() ? (
               <span className="text-faint">{t('provider.paramsBlank')}</span>
             ) : (

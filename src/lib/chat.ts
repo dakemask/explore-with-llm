@@ -11,9 +11,8 @@ import {
   type SideAnchor,
 } from '../db'
 import { translate } from '../i18n'
-import { getAdapter, paramConfig, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import { getAdapter, modelParams, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
 import { paramKey, useSettings } from '../store/settings'
-import { resolveParams } from './params'
 import { streamEvents } from './attempt'
 import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
@@ -67,15 +66,9 @@ export function buildMessages(path: ChatNode[], userText: string, provider?: Pro
 function echoFields(node: ChatNode, provider: Provider): Record<string, unknown> | undefined {
   const msg = node.attempt.message
   if (!msg || !provider.echoReasoning || node.attempt.providerId !== provider.id) return undefined
-  const wanted = provider.echoFields ?? []
-  if (wanted.length === 0) {
-    // Automatic: the best reasoning field this reply has.
-    const key = getAdapter(provider.protocol).echoPriority.find((k) => msg[k] != null && msg[k] !== '')
-    return key ? { [key]: msg[key] } : undefined
-  }
-  const all = wanted.includes('*')
-  const picked = Object.entries(msg).filter(([k]) => k !== 'role' && k !== 'content' && (all || wanted.includes(k)))
-  return picked.length ? Object.fromEntries(picked) : undefined
+  // A reply from before a protocol switch has another protocol's shape; it can't be echoed.
+  if (node.attempt.protocol !== provider.protocol) return undefined
+  return getAdapter(provider.protocol).echo(msg, provider.echoFields ?? [])
 }
 
 /** Rebuilds the native reply message from the recorded stream. */
@@ -197,10 +190,11 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
   }
 
   try {
-    const config = paramConfig(provider, model)
-    if (!config.ok) throw new ProviderError(translate(useSettings.getState().lang, 'params.invalid'))
-    const choices = useSettings.getState().paramChoices[paramKey(provider.id, model)]
-    const req = prepareChat(provider, model, messages, resolveParams(config.config, choices).body)
+    const { lang, paramChoices } = useSettings.getState()
+    const params = modelParams(provider, model, paramChoices[paramKey(provider.id, model)])
+    if (!params.ok) throw new ProviderError(translate(lang, 'params.invalid'))
+    if (params.missing) throw new ProviderError(translate(lang, 'params.missingError', { field: params.missing }))
+    const req = prepareChat(provider, model, messages, params.body)
     node.attempt = { ...node.attempt, url: req.url, requestHeaders: req.headers, requestBody: req.body }
     await db.nodes.update(node.id, { attempt: node.attempt })
 

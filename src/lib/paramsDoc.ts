@@ -82,7 +82,8 @@ const zh = `# 模型参数配置格式
 ## 合并规则
 
 - 按配置顺序合并。多个参数写进同一个对象时逐层合并，同一个键后面的覆盖前面的。
-- 协议自己设置的字段不能使用，例如 OpenAI Chat Completions 的 \`model\`、\`messages\`、\`stream\`。
+- 协议自己设置的字段不能使用：OpenAI Chat Completions 和 Anthropic Messages 的 \`model\`、\`messages\`、\`stream\`；OpenAI Responses 的 \`model\`、\`input\`、\`stream\`。
+- Anthropic Messages 协议要求每个请求都带 \`max_tokens\`，配置里必须提供它（例如数字范围型或静默发送型），否则不能发送。
 - 应用自己不会添加任何参数。比如想在流式回复中拿到 token 用量，需要自己加上对应字段（见下面示例的最后一项）。
 
 ## 示例
@@ -139,7 +140,8 @@ When dependencies aren't met the control is greyed out and the parameter isn't s
 ## Merging
 
 - Items merge in config order. Parameters writing into the same object merge level by level; for the same key the later one wins.
-- Fields the protocol sets itself are off limits, e.g. \`model\`, \`messages\`, \`stream\` for OpenAI Chat Completions.
+- Fields the protocol sets itself are off limits: \`model\`, \`messages\`, \`stream\` for OpenAI Chat Completions and Anthropic Messages; \`model\`, \`input\`, \`stream\` for OpenAI Responses.
+- Anthropic Messages requires \`max_tokens\` in every request, so the config must supply it (e.g. as a range or silent parameter); sending is blocked otherwise.
 - The app adds no parameters of its own. For example, to get token usage in streamed replies, add the field yourself (see the last item of the example).
 
 ## Example

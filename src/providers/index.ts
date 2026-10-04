@@ -1,6 +1,18 @@
 import type { Protocol, Provider } from '../db/types'
-import { mergeHeaders, parseHeaders, parseParamConfig, type ParseResult } from '../lib/params'
+import {
+  mergeHeaders,
+  parseHeaders,
+  parseParamConfig,
+  resolveParams,
+  type ParamChoice,
+  type ParamConfig,
+  type ParamError,
+  type ParseResult,
+  type ResolvedParam,
+} from '../lib/params'
+import { anthropic } from './anthropic'
 import { openaiChat } from './openaiChat'
+import { openaiResponses } from './openaiResponses'
 import {
   ProviderError,
   type ChatMessage,
@@ -9,15 +21,13 @@ import {
   type StreamEvent,
 } from './types'
 
-const adapters: Partial<Record<Protocol, ProtocolAdapter>> = {
+const adapters: Record<Protocol, ProtocolAdapter> = {
   'openai-chat': openaiChat,
+  'openai-responses': openaiResponses,
+  anthropic,
 }
 
-export const PROTOCOLS: { id: Protocol; available: boolean }[] = [
-  { id: 'openai-chat', available: true },
-  { id: 'openai-responses', available: false },
-  { id: 'anthropic', available: false },
-]
+export const PROTOCOLS: Protocol[] = ['openai-chat', 'openai-responses', 'anthropic']
 
 export function getAdapter(protocol: Protocol): ProtocolAdapter {
   const a = adapters[protocol]
@@ -40,6 +50,24 @@ export function prepareChat(
 export function paramConfig(provider: Provider, model: string): ParseResult {
   const adapter = adapters[provider.protocol]
   return parseParamConfig(provider.modelParams?.[model] ?? '', adapter?.reserved)
+}
+
+/**
+ * The model's parameters with the user's choices applied. `missing`: a field the protocol requires that the
+ * active parameters don't supply (sending is blocked until they do).
+ */
+export function modelParams(
+  provider: Provider,
+  model: string,
+  choices?: Record<string, ParamChoice>,
+):
+  | { ok: false; error: ParamError }
+  | { ok: true; config: ParamConfig; params: ResolvedParam[]; body: Record<string, unknown>; missing?: string } {
+  const parsed = paramConfig(provider, model)
+  if (!parsed.ok) return parsed
+  const { params, body } = resolveParams(parsed.config, choices)
+  const missing = getAdapter(provider.protocol).required.find((k) => !(k in body))
+  return { ok: true, config: parsed.config, params, body, missing }
 }
 
 export function customHeaders(provider: Provider): Record<string, string> {
