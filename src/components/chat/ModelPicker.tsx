@@ -27,7 +27,7 @@ export function useCurrentModel(): {
   if (!provider) return { providers, ready: false }
   const m = provider.models.includes(model ?? '') ? model! : provider.models[0]
   const params = modelParams(provider, m, paramChoices[paramKey(provider.id, m)])
-  return { providers, provider, model: m, ready: params.ok && !params.missing }
+  return { providers, provider, model: m, ready: params.ok }
 }
 
 /** Model picker plus the chosen model's parameters, for a composer's bottom bar. */

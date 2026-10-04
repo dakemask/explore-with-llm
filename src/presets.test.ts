@@ -23,7 +23,6 @@ describe('presets', () => {
       }
       const state = modelParams(provider, 'm')
       if (!state.ok) throw new Error(JSON.stringify(state.error))
-      expect(state.missing).toBeUndefined()
       expect(parseHeaders(p.headers ?? '').badLine).toBeUndefined()
     })
   }

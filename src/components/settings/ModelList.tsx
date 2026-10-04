@@ -79,7 +79,6 @@ function describe(provider: Provider, model: string, t: ReturnType<typeof useT>)
   const config = provider.modelConfigs?.[model]
   const state = modelParams(provider, model)
   if (!state.ok) return { text: t('params.invalidShort'), error: true }
-  if (state.missing) return { text: t('params.missing', { field: state.missing }), error: true }
   const preset = presetById(config?.preset)
   const parts: string[] = []
   if (preset) parts.push(t('model.fromPreset', { name: preset.label }))

@@ -24,23 +24,20 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
   const [helpOpen, setHelpOpen] = useState(false)
   const editConfig = () => openSettings('providers', { providerId: provider.id, model })
 
-  // Nothing to adjust: a broken config or a missing required field links straight to the editor.
+  // Nothing to adjust: a broken config links straight to the editor.
   if (!state.ok || state.params.length === 0) {
-    const problem = !state.ok ? t('params.invalidShort') : state.missing && t('params.missing', { field: state.missing })
-    if (!problem) return null
+    if (state.ok) return null
     return (
       <button
         onClick={editConfig}
-        title={state.ok ? t('params.missingHint', { field: state.missing! }) : undefined}
         className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-danger transition-colors hover:bg-danger-soft"
       >
         <AlertTriangle size={14} className="shrink-0" />
-        <span className="truncate">{problem}</span>
+        <span className="truncate">{t('params.invalidShort')}</span>
       </button>
     )
   }
   const resolved = state.params
-  const missing = state.missing
   const hasSwitch = resolved.some((r) => r.param.toggle)
 
   return (
@@ -48,15 +45,10 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
       <PopoverTrigger asChild>
         <button
           aria-label={t('params.title')}
-          className={clsx(
-            'flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors',
-            missing
-              ? 'text-danger hover:bg-danger-soft data-[state=open]:bg-danger-soft'
-              : 'text-muted hover:bg-hover hover:text-text data-[state=open]:bg-hover data-[state=open]:text-text',
-          )}
+          className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-muted transition-colors hover:bg-hover hover:text-text data-[state=open]:bg-hover data-[state=open]:text-text"
         >
-          {missing ? <AlertTriangle size={14} className="shrink-0" /> : <SlidersHorizontal size={14} className="shrink-0" />}
-          <span className="truncate">{missing ? t('params.missing', { field: missing }) : t('params.button')}</span>
+          <SlidersHorizontal size={14} className="shrink-0" />
+          <span className="truncate">{t('params.button')}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
@@ -88,12 +80,6 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
         {helpOpen && (
           <div className="border-b border-border bg-subtle px-4 py-2.5 text-xs leading-relaxed text-muted">
             {t('params.switchHelp')}
-          </div>
-        )}
-        {missing && (
-          <div className="flex items-start gap-1.5 border-b border-border bg-danger-soft px-4 py-2.5 text-xs leading-relaxed text-danger">
-            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-            {t('params.missingHint', { field: missing })}
           </div>
         )}
         <div className="divide-y divide-border">

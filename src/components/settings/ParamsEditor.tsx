@@ -65,12 +65,6 @@ export function ParamsEditor({
               <CircleAlert size={13} className="mt-px shrink-0" />
               {t(result.error.key, result.error.vars)}
             </>
-          ) : result.missing ? (
-            // With default choices, a field the protocol requires isn't supplied.
-            <span className="flex items-start gap-1.5 text-danger">
-              <CircleAlert size={13} className="mt-px shrink-0" />
-              {t('provider.paramsRequired', { field: result.missing })}
-            </span>
           ) : !value.trim() ? (
             <span className="text-faint">{t('provider.paramsBlank')}</span>
           ) : (

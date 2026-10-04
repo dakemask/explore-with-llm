@@ -19,7 +19,7 @@ function baseHeaders(apiKey: string): Record<string, string> {
 
 /**
  * Anthropic Messages protocol. The base URL excludes `/v1` (as in Anthropic's SDKs), e.g.
- * `https://api.anthropic.com`. `max_tokens` is required but left to the model's parameters.
+ * `https://api.anthropic.com`. `max_tokens` is required by the API but left to the model's parameters.
  */
 export const anthropic: ProtocolAdapter = {
   protocol: 'anthropic',
@@ -45,7 +45,6 @@ export const anthropic: ProtocolAdapter = {
   },
 
   reserved: ['model', 'messages', 'stream'],
-  required: ['max_tokens'],
 
   /** `fields` name content block types (`thinking`, `redacted_thinking`…); `*` means every non-text block. */
   echo(message, fields) {

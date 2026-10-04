@@ -36,7 +36,6 @@ export const openaiChat: ProtocolAdapter = {
   },
 
   reserved: ['model', 'messages', 'stream'],
-  required: [],
 
   /** Extra fields go straight onto the assistant message. */
   echo(message, fields) {

@@ -219,7 +219,6 @@ async function runAttempt(
     const { lang, paramChoices } = useSettings.getState()
     const params = modelParams(provider, model, paramChoices[paramKey(provider.id, model)])
     if (!params.ok) throw new ProviderError(translate(lang, 'params.invalid'))
-    if (params.missing) throw new ProviderError(translate(lang, 'params.missingError', { field: params.missing }))
     const req = prepareChat(provider, model, messages, params.body)
     node.attempt = { ...node.attempt, url: req.url, requestHeaders: req.headers, requestBody: maskImages(req.body, images) }
     await db.nodes.update(node.id, { attempt: node.attempt })

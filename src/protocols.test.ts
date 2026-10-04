@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { ChatNode, Protocol, Provider } from './db/types'
 import { buildMessages } from './lib/chat'
 import { reasoningView } from './lib/reasoning'
-import { modelParams, prepareChat } from './providers'
+import { prepareChat } from './providers'
 import { anthropic } from './providers/anthropic'
 import { openaiResponses } from './providers/openaiResponses'
 import type { StreamEvent } from './providers/types'
@@ -140,18 +140,6 @@ describe('anthropic', () => {
     })
     const off = buildMessages([node('anthropic', msg)], 'next', { provider: provider('anthropic'), model: 'm' })
     expect(off[1]).toEqual({ role: 'assistant', content: 'edited answer' })
-  })
-
-  it('requires max_tokens from the parameters', () => {
-    const p = provider('anthropic', {
-      modelConfigs: { m: { params: '[{"name":"Max","type":"range","body":{"max_tokens":"VALUE"},"min":1,"max":8,"toggle":true}]' } },
-    })
-    const on = modelParams(p, 'm')
-    expect(on.ok && on.missing).toBe(undefined)
-    const off = modelParams(p, 'm', { Max: { on: false } })
-    expect(off.ok && off.missing).toBe('max_tokens')
-    const none = modelParams(provider('anthropic'), 'm')
-    expect(none.ok && none.missing).toBe('max_tokens')
   })
 })
 

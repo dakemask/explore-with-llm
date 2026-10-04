@@ -44,8 +44,6 @@ export interface ProtocolAdapter {
   ): PreparedRequest
   /** Top-level body fields the protocol sets itself; parameter configs may not use them. */
   reserved: string[]
-  /** Body fields the protocol requires but whose value is the user's choice; parameters must supply them. */
-  required: string[]
   /**
    * Which parts of an earlier native reply to send back with it. `fields` empty means automatic: the
    * reasoning, once (protocols that offer it under several names would otherwise send it twice).

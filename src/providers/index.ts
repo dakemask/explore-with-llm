@@ -58,22 +58,18 @@ export function paramConfig(provider: Provider, model: string): ParseResult {
   return parseParamConfig(modelConfig(provider, model).params ?? '', adapter?.reserved)
 }
 
-/**
- * The model's parameters with the user's choices applied. `missing`: a field the protocol requires that the
- * active parameters don't supply (sending is blocked until they do).
- */
+/** The model's parameters with the user's choices applied. */
 export function modelParams(
   provider: Provider,
   model: string,
   choices?: Record<string, ParamChoice>,
 ):
   | { ok: false; error: ParamError }
-  | { ok: true; config: ParamConfig; params: ResolvedParam[]; body: Record<string, unknown>; missing?: string } {
+  | { ok: true; config: ParamConfig; params: ResolvedParam[]; body: Record<string, unknown> } {
   const parsed = paramConfig(provider, model)
   if (!parsed.ok) return parsed
   const { params, body } = resolveParams(parsed.config, choices)
-  const missing = getAdapter(provider.protocol).required.find((k) => !(k in body))
-  return { ok: true, config: parsed.config, params, body, missing }
+  return { ok: true, config: parsed.config, params, body }
 }
 
 export function customHeaders(provider: Provider, model: string): Record<string, string> {

@@ -40,7 +40,6 @@ export const openaiResponses: ProtocolAdapter = {
   },
 
   reserved: ['model', 'input', 'stream'],
-  required: [],
 
   /** `fields` name output item types (`reasoning`…); `*` means every item that isn't the message. */
   echo(message, fields) {
