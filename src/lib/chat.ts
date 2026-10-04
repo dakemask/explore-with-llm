@@ -8,12 +8,15 @@ import {
   type Protocol,
   type Provider,
   type RawChunk,
+  type SideAnchor,
 } from '../db'
+import { translate } from '../i18n'
 import { getAdapter, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
 import { streamEvents } from './attempt'
 import { splitThink } from './reasoning'
+import { useSettings } from '../store/settings'
 import { useUi } from '../store/ui'
-import { pathTo } from './tree'
+import { forkKey, pathTo } from './tree'
 
 const controllers = new Map<string, AbortController>()
 
@@ -37,6 +40,16 @@ export async function deleteConversation(id: string) {
   })
 }
 
+/** What the model sees for a user turn: side-question roots quote the anchored text before the question. */
+export function userPrompt(text: string, anchor?: SideAnchor): string {
+  if (!anchor) return text
+  const quote = anchor.text
+    .split('\n')
+    .map((l) => (l ? `> ${l}` : '>'))
+    .join('\n')
+  return translate(useSettings.getState().lang, 'side.prompt', { quote, question: text })
+}
+
 /**
  * Turns a root→leaf path into protocol messages, then appends the new user turn.
  * Nodes whose request produced no assistant text still contribute their user turn.
@@ -45,7 +58,7 @@ export async function deleteConversation(id: string) {
 export function buildMessages(path: ChatNode[], userText: string, provider?: Provider): ChatMessage[] {
   const messages: ChatMessage[] = []
   for (const n of path) {
-    messages.push({ role: 'user', content: n.user.text })
+    messages.push({ role: 'user', content: userPrompt(n.user.text, n.anchor) })
     if (n.assistant.content) {
       const extra = provider && echoFields(n, provider)
       messages.push(extra ? { role: 'assistant', content: n.assistant.content, extra } : { role: 'assistant', content: n.assistant.content })
@@ -84,6 +97,7 @@ function nativeReply(protocol: Protocol, chunks: RawChunk[]): Record<string, unk
 /**
  * Creates a new node under `parentId` and streams its reply. Retrying or editing a message
  * is the same call with the original node's parent, which makes the new node a sibling.
+ * `side` makes it a side-question node in `thread`; `anchor` makes it a thread root.
  */
 export async function sendMessage(opts: {
   conversationId: string
@@ -91,14 +105,15 @@ export async function sendMessage(opts: {
   text: string
   provider: Provider
   model: string
+  side?: { thread: string; anchor?: SideAnchor }
 }) {
-  const { conversationId, parentId, text, provider, model } = opts
+  const { conversationId, parentId, text, provider, model, side } = opts
   const conv = await db.conversations.get(conversationId)
   if (!conv) return
 
   const allNodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
   const path = parentId ? pathTo(allNodes, parentId) : []
-  const messages = buildMessages(path, text, provider)
+  const messages = buildMessages(path, userPrompt(text, side?.anchor), provider)
 
   const nodeId = nanoid()
   const now = Date.now()
@@ -117,7 +132,9 @@ export async function sendMessage(opts: {
     id: nodeId,
     conversationId,
     parentId,
-    kind: 'main',
+    kind: side ? 'side' : 'main',
+    ...(side && { thread: side.thread }),
+    ...(side?.anchor && { anchor: side.anchor }),
     createdAt: now,
     user: { text },
     assistant: { content: '' },
@@ -129,7 +146,7 @@ export async function sendMessage(opts: {
     await db.conversations.update(conversationId, {
       updatedAt: now,
       title: conv.title || summarizeTitle(text),
-      selectedChild: { ...conv.selectedChild, [parentId ?? ROOT_KEY]: nodeId },
+      selectedChild: { ...conv.selectedChild, [forkKey(node)]: nodeId },
     })
   })
 
@@ -214,9 +231,56 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
   }
 }
 
-/** Shows `nodeId` at its fork; descendants follow their own remembered selections. */
-export async function selectBranch(conversationId: string, parentId: string | null, nodeId: string) {
-  await db.conversations.update(conversationId, { [`selectedChild.${parentId ?? ROOT_KEY}`]: nodeId })
+/** A new version of `node` (retry, or edited question): a sibling at the same fork, same thread/anchor. */
+export function resend(node: ChatNode, text: string, provider: Provider, model: string) {
+  return sendMessage({
+    conversationId: node.conversationId,
+    parentId: node.parentId,
+    text,
+    provider,
+    model,
+    side: node.thread ? { thread: node.thread, anchor: node.anchor } : undefined,
+  })
+}
+
+/** Shows `nodeId` at its fork (see `forkKey`); descendants follow their own remembered selections. */
+export async function selectBranch(conversationId: string, key: string | null, nodeId: string) {
+  await db.conversations.update(conversationId, { [`selectedChild.${key ?? ROOT_KEY}`]: nodeId })
+}
+
+/** Deletes a side question with all its versions and follow-ups, which unlocks its anchored text. */
+export async function deleteThread(conversationId: string, thread: string) {
+  await db.transaction('rw', db.conversations, db.nodes, async () => {
+    const nodes = (await db.nodes.where('conversationId').equals(conversationId).toArray()).filter(
+      (n) => n.thread === thread,
+    )
+    for (const n of nodes) controllers.get(n.id)?.abort()
+    await db.nodes.bulkDelete(nodes.map((n) => n.id))
+    const conv = await db.conversations.get(conversationId)
+    if (!conv) return
+    const gone = new Set([thread, ...nodes.map((n) => n.id)])
+    const selectedChild = Object.fromEntries(Object.entries(conv.selectedChild).filter(([k]) => !gone.has(k)))
+    await db.conversations.update(conversationId, { selectedChild })
+  })
+}
+
+/**
+ * Edits an assistant reply in place. `anchors` gives the new offsets of each side-question thread's
+ * anchored text (the text itself can't change; the editor locks it).
+ */
+export async function editAssistant(
+  node: ChatNode,
+  content: string,
+  anchors: Record<string, { start: number; end: number }>,
+) {
+  await db.transaction('rw', db.nodes, async () => {
+    await db.nodes.update(node.id, { assistant: { ...node.assistant, content, edited: true } })
+    const roots = await db.nodes.where('parentId').equals(node.id).toArray()
+    for (const r of roots) {
+      const moved = r.anchor && r.thread && anchors[r.thread]
+      if (moved) await db.nodes.update(r.id, { anchor: { ...r.anchor!, ...moved } })
+    }
+  })
 }
 
 export function stopGeneration(nodeId: string) {

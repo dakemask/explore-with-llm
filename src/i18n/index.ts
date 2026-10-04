@@ -37,6 +37,21 @@ const zh = {
   'msg.editHint': '发送后会创建一个新分支，原内容保留',
   'msg.prevBranch': '上一个分支',
   'msg.nextBranch': '下一个分支',
+  'msg.editReply': '编辑回复',
+  'msg.lockedHint': '灰色部分被侧问引用，不能修改；删除对应的侧问后即可编辑',
+  'msg.lockedBlocked': '这部分被侧问引用，不能修改',
+  'msg.editReplyHint': '修改后的内容会作为后续对话的上下文',
+  'side.title': '侧问',
+  'side.ask': '追问',
+  'side.quote': '引用',
+  'side.locate': '在回复中定位',
+  'side.draftHint': '针对引用的内容提问。侧问不会进入主对话的上下文。',
+  'side.placeholder': '针对这段内容提问…',
+  'side.delete': '删除侧问',
+  'side.deleteConfirm': '删除这个侧问吗？其中所有消息都会删除，引用的文字会解锁。此操作无法撤销。',
+  'side.pick': '这段文字有多个侧问',
+  'side.prompt': '关于你上面回答中的这一段：\n\n{quote}\n\n{question}',
+  'detail.back': '返回侧问',
   'detail.title': '请求详情',
   'detail.open': '请求详情',
   'detail.openShort': '详情',
@@ -155,6 +170,21 @@ const en: Record<Key, string> = {
   'msg.editHint': 'Sending creates a new branch; the original is kept.',
   'msg.prevBranch': 'Previous branch',
   'msg.nextBranch': 'Next branch',
+  'msg.editReply': 'Edit reply',
+  'msg.lockedHint': 'Grey text is quoted by side questions and locked; delete the side question to edit it',
+  'msg.lockedBlocked': 'This part is quoted by a side question and can’t be changed',
+  'msg.editReplyHint': 'The edited text is used as context from now on',
+  'side.title': 'Side question',
+  'side.ask': 'Ask',
+  'side.quote': 'Quoted',
+  'side.locate': 'Show in reply',
+  'side.draftHint': 'Ask about the quoted text. Side questions stay out of the main conversation’s context.',
+  'side.placeholder': 'Ask about this…',
+  'side.delete': 'Delete side question',
+  'side.deleteConfirm': 'Delete this side question? All its messages will be deleted and the quoted text unlocked. This cannot be undone.',
+  'side.pick': 'Side questions on this text',
+  'side.prompt': 'About this part of your answer above:\n\n{quote}\n\n{question}',
+  'detail.back': 'Back to side question',
   'detail.title': 'Request details',
   'detail.open': 'Request details',
   'detail.openShort': 'Details',
@@ -240,7 +270,8 @@ const dicts: Record<Lang, Record<Key, string>> = { zh, en }
 
 export function translate(lang: Lang, key: Key, vars?: Record<string, string | number>) {
   let s = dicts[lang][key] ?? key
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v))
+  // Function replacer: values may contain `$` sequences (LaTeX) that a string replacement would interpret.
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, () => String(v))
   return s
 }
 

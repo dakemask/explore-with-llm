@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { SideAnchor } from '../db'
 
 /** Live text of in-flight requests, kept in memory so streaming doesn't hammer IndexedDB. */
 export interface LiveStream {
@@ -6,8 +7,14 @@ export interface LiveStream {
   reasoning: string
 }
 
-/** What the right-hand panel shows. Side questions will be another variant. */
-export type Panel = { type: 'detail'; nodeId: string }
+/**
+ * What the right-hand panel shows. `side`: a side-question thread asked from main node `nodeId`;
+ * `draft` is set while the thread doesn't exist yet (nothing sent). `detail.back` returns to that panel.
+ */
+export type Panel =
+  | { type: 'detail'; nodeId: string; back?: SidePanel }
+  | SidePanel
+export type SidePanel = { type: 'side'; nodeId: string; thread: string; draft?: SideAnchor }
 
 interface UiState {
   conversationId: string | null

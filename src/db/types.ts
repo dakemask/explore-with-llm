@@ -30,6 +30,8 @@ export const ROOT_KEY = '__root__'
 /**
  * 'main' nodes form the conversation tree.
  * 'side' nodes are side questions; a side root's parentId points at the main node it was asked from.
+ * Every side node carries its `thread`: one side question and its follow-ups. Retrying or editing a
+ * side root makes another root with the same thread and anchor (a version, shown by ‹n/m›).
  */
 export type NodeKind = 'main' | 'side'
 
@@ -91,6 +93,8 @@ export interface ChatNode {
   kind: NodeKind
   /** Only set on side-question roots. */
   anchor?: SideAnchor
+  /** Side nodes only: the side-question thread they belong to. */
+  thread?: string
   createdAt: number
   user: { text: string }
   assistant: {

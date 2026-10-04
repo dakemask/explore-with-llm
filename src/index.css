@@ -29,6 +29,9 @@
   --c-success-soft: #ecfdf3;
   --c-user-bubble: #f0efec;
   --c-code-bg: #f6f6f4;
+  --c-anchor: rgb(79 70 229 / 0.09);
+  --c-anchor-active: rgb(79 70 229 / 0.2);
+  --c-anchor-line: rgb(79 70 229 / 0.45);
   --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -6px rgb(0 0 0 / 0.12);
   --shadow-composer: 0 1px 2px rgb(0 0 0 / 0.03), 0 4px 16px -4px rgb(0 0 0 / 0.08);
   color-scheme: light;
@@ -56,6 +59,9 @@
   --c-success-soft: rgb(74 222 128 / 0.12);
   --c-user-bubble: #2c2c2a;
   --c-code-bg: #1f1f1e;
+  --c-anchor: rgb(129 140 248 / 0.13);
+  --c-anchor-active: rgb(129 140 248 / 0.28);
+  --c-anchor-line: rgb(129 140 248 / 0.55);
   --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -6px rgb(0 0 0 / 0.5);
   --shadow-composer: 0 1px 2px rgb(0 0 0 / 0.2), 0 4px 16px -4px rgb(0 0 0 / 0.35);
   color-scheme: dark;
@@ -83,6 +89,8 @@
   --color-success-soft: var(--c-success-soft);
   --color-user-bubble: var(--c-user-bubble);
   --color-code-bg: var(--c-code-bg);
+  --color-anchor: var(--c-anchor);
+  --color-anchor-line: var(--c-anchor-line);
   --shadow-pop: var(--shadow-pop);
   --shadow-composer: var(--shadow-composer);
   --font-sans:
@@ -280,6 +288,19 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.25em 0;
+}
+
+/* Text quoted by side questions. Runs are split per element, so keep the look seamless across them. */
+.prose .anchor-hl {
+  background: var(--c-anchor);
+  color: inherit;
+  box-shadow: inset 0 -1.5px 0 var(--c-anchor-line);
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+.prose .anchor-hl:hover,
+.prose .anchor-hl.active {
+  background: var(--c-anchor-active);
 }
 
 /* ---------- Syntax highlighting (highlight.js), theme-aware ---------- */

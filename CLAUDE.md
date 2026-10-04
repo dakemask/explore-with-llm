@@ -38,7 +38,8 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 ## Architecture
 
 - `src/db/` — Dexie schema and data types. **Data model is the core; change it deliberately.**
-- `src/lib/tree.ts` — tree navigation (active path, path to node).
+- `src/lib/tree.ts` — tree navigation (active path, side-question threads, path to node).
+- `src/lib/anchor.ts` — maps rendered Markdown ↔ source offsets: a rehype plugin wraps every text run with `data-s`/`data-e` (math and other unpositioned output become atomic ranges), highlights anchors, and `rangeToSource` turns a DOM selection into source offsets. Also the lock logic for editing around anchors.
 - `src/lib/chat.ts` — conversation actions: send, stream, stop, build context messages.
 - `src/providers/` — one adapter per protocol (`ProtocolAdapter`). Only `openai-chat` is implemented.
 - `src/store/` — Zustand: `settings` (persisted to localStorage: lang, theme, last model) and `ui` (in-memory: current conversation, live streaming text, right panel).
@@ -50,7 +51,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 
 - `Conversation.selectedChild[parentId | ROOT_KEY]` remembers which child is shown at each fork.
 - `ChatNode` = one user message + one assistant message + exactly one request `Attempt`.
-  - `kind: 'main' | 'side'`. Side-question roots point `parentId` at the main node they were asked from and carry an `anchor` (offsets into the assistant content).
+  - `kind: 'main' | 'side'`. Side-question roots point `parentId` at the main node they were asked from and carry an `anchor` (offsets into the assistant content + the quoted source text). Every side node has `thread` (one side question + follow-ups); retrying/editing a root makes another root with the same thread and anchor. The shown root version is remembered under `selectedChild[thread]` (see `forkKey`).
   - `assistant.content` is what's displayed and sent as context; `attempt.rawText` is the untouched model output.
   - `Attempt` records the HTTP exchange verbatim: `requestHeaders` (**includes the API key** — owner's choice, so details show exactly what was sent; export must strip it), `requestBody`, `response` (status + CORS-readable headers), `rawChunks` (response body as received, with ms offsets). The detail panel derives events / merged view from these; adapters provide `aggregate()` (generic delta merge, keeps unknown vendor fields).
 - Streaming text lives in `useUi().live[nodeId]` and is written to IndexedDB once at the end. Nodes left `streaming` on reload are marked `aborted` at startup.
@@ -60,8 +61,9 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 - Main view: linear chat of the active path; ‹n/m› switcher under the user message of any node with siblings. A tree-map view may come later — it is just another view over the same data.
 - Retry / editing a user message → new sibling node, using the model currently selected in the picker (lets users compare models). Error boxes have a visible Retry button.
 - Editing an assistant message → in place, same node; `edited: true`. Text ranges anchoring side questions are locked.
-- Right side is one panel slot (`useUi().panel`), docked, pushes the chat. Node detail (ⓘ in the reply footer, "详情" on error boxes) lives there now; side questions will be another `panel` variant. Switching conversation closes it.
-- Side questions: right drawer; context = root→node main path + selected text + question.
+- Right side is one panel slot (`useUi().panel`), docked, pushes the chat: node detail (ⓘ in the reply footer, "详情" on error boxes) or a side-question thread. Detail opened from a side panel has a back button. Switching conversation closes it.
+- Side questions: select text in a main-line assistant reply (body only, not reasoning or user messages) → floating "追问" → right panel. Context = root→node main path + the quoted source text + question (template `side.prompt`); side threads never enter the main context. A thread is a full mini-chat (follow-ups, retry, edit, ‹n/m›). No side questions inside side answers. Anchored text is highlighted; click opens the thread, overlapping highlights show a picker. The panel shows the quote (markers stripped for display) and can delete the thread.
+- Editing an assistant reply: Markdown source editor; text quoted by side questions is greyed and refuses edits (delete the side question to unlock); edits elsewhere shift the anchors.
 - Protocols planned: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages.
 - Provider config should let users freely decide which request parameters are sent and their values; avoid per-vendor adaptation in the app (no OpenRouter-specific request params etc.). The app adapts per *protocol*, not per vendor. Done: "echo fields" (`Provider.echoFields`, default text only, since e.g. DeepSeek rejects echoed `reasoning_content`; for OpenRouter recommend `reasoning_details` only — `reasoning` duplicates it). Planned: per-provider params template + custom headers.
 - Reasoning / encrypted reasoning: `attempt.message` holds the reply in native protocol shape (unknown fields included). `Provider.echoFields` picks which of its fields are sent back in context (empty = text only, `*` = all); only to the **same provider** that produced the reply (stricter than same-protocol: another vendor's encrypted blobs/signatures are useless or rejected). Text always comes from `assistant.content`, so edits win. Display (`lib/reasoning.ts`) recognizes `reasoning_content` / `reasoning`, OpenRouter `reasoning_details` (text / summary / encrypted → lock badge), and leading `<think>` blocks (moved out of `assistant.content`; raw stays in `rawText`). Add Anthropic `thinking`/`redacted_thinking` and Responses `reasoning` items with those adapters. In request details, history reasoning folds with history messages.
@@ -76,5 +78,5 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 3. ✅ Node detail panel (request / response / error)
    - 3a ✅ raw capture: headers (key masked, reveal toggle), body with folded history, SSE events / merged / raw views
    - 3b ✅ native reply storage, echo-back setting, reasoning (summary / encrypted / `<think>`) display
-4. Side questions + assistant message editing with locked anchors
+4. ✅ Side questions + assistant message editing with locked anchors
 5. Images, export/import, other protocols

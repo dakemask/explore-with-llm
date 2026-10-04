@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import hljs from 'highlight.js/lib/core'
 import jsonLang from 'highlight.js/lib/languages/json'
-import { AlertCircle, ChevronsDownUp, ChevronsUpDown, Eye, EyeOff, Info, X } from 'lucide-react'
+import { AlertCircle, ChevronLeft, ChevronsDownUp, ChevronsUpDown, Eye, EyeOff, Info, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { db, type Attempt, type AttemptStatus, type ChatNode } from '../../db'
 import { useT, type TKey } from '../../i18n'
@@ -30,6 +30,7 @@ type Tab = 'request' | 'response' | 'error'
 export function DetailPanel({ nodeId }: { nodeId: string }) {
   const t = useT()
   const setPanel = useUi((s) => s.setPanel)
+  const back = useUi((s) => (s.panel?.type === 'detail' ? s.panel.back : undefined))
   // `null` once the query has run and found nothing (node deleted), `undefined` while loading.
   const node = useLiveQuery(async () => (await db.nodes.get(nodeId)) ?? null, [nodeId])
   const close = () => setPanel(null)
@@ -45,7 +46,16 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
   return (
     <aside className="anim-drawer flex h-full w-[440px] shrink-0 flex-col border-l border-border bg-surface">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border pr-3 pl-5">
-        <h2 className="text-[15px] font-semibold">{t('detail.title')}</h2>
+        {back ? (
+          <div className="-ml-2 flex items-center gap-1">
+            <IconButton label={t('detail.back')} size="sm" onClick={() => setPanel(back)}>
+              <ChevronLeft size={16} />
+            </IconButton>
+            <h2 className="text-[15px] font-semibold">{t('detail.title')}</h2>
+          </div>
+        ) : (
+          <h2 className="text-[15px] font-semibold">{t('detail.title')}</h2>
+        )}
         <IconButton label={t('common.close')} size="sm" onClick={close}>
           <X size={16} />
         </IconButton>

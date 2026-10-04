@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ArrowUp, Square } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useT } from '../../i18n'
 import { useAutosize } from '../../lib/hooks'
 
@@ -9,11 +9,16 @@ export function Composer({
   onStop,
   generating,
   disabled,
+  placeholder,
+  leading,
 }: {
   onSend: (text: string) => void
   onStop: () => void
   generating: boolean
   disabled?: boolean
+  placeholder?: string
+  /** Shown at the left of the bottom bar. */
+  leading?: ReactNode
 }) {
   const t = useT()
   const [text, setText] = useState('')
@@ -47,10 +52,11 @@ export function Composer({
             submit()
           }
         }}
-        placeholder={t('chat.placeholder')}
+        placeholder={placeholder ?? t('chat.placeholder')}
         className="block max-h-60 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-relaxed placeholder:text-faint focus:outline-none"
       />
-      <div className="flex items-center justify-end px-2.5 pb-2.5">
+      <div className="flex items-center gap-2 px-2.5 pb-2.5">
+        <div className="min-w-0 flex-1">{leading}</div>
         {generating ? (
           <button
             onClick={onStop}

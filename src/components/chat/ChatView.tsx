@@ -1,21 +1,28 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { KeyRound, Sparkles } from 'lucide-react'
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { db } from '../../db'
+import { nanoid } from 'nanoid'
+import { useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { db, type ChatNode } from '../../db'
 import { useT } from '../../i18n'
-import { createConversation, selectBranch, sendMessage, stopGeneration } from '../../lib/chat'
-import { activePath, siblingsOf } from '../../lib/tree'
-import { useUi } from '../../store/ui'
+import type { AnchorMark } from '../../lib/anchor'
+import { createConversation, sendMessage, stopGeneration } from '../../lib/chat'
+import { activePath, sideThreads, siblingsOf, threadPath } from '../../lib/tree'
+import { useAutoScroll } from '../../lib/hooks'
+import { useUi, type Panel } from '../../store/ui'
+import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { Button } from '../ui/Button'
 import { Composer } from './Composer'
-import { MessageNode, type NodeActions } from './MessageNode'
+import { DRAFT_PREFIX, MessageNode } from './MessageNode'
 import { ModelPicker, useCurrentModel } from './ModelPicker'
+import { useNodeActions } from './useNodeActions'
 
 export function ChatView() {
   const t = useT()
   const conversationId = useUi((s) => s.conversationId)
   const setConversation = useUi((s) => s.setConversation)
   const openSettings = useUi((s) => s.openSettings)
+  const panel = useUi((s) => s.panel)
+  const setPanel = useUi((s) => s.setPanel)
   const { providers, provider, model } = useCurrentModel()
 
   const conversation = useLiveQuery(
@@ -47,23 +54,43 @@ export function ChatView() {
     await sendMessage({ conversationId: id, parentId, text, provider, model })
   }
 
-  // MessageNode is memoized; route its actions through a ref so the object never changes.
-  const latest = useRef({ send, nodes })
-  latest.current = { send, nodes }
-  const actions = useMemo<NodeActions>(
-    () => ({
-      retry: (node) => latest.current.send(node.parentId, node.user.text),
-      edit: (node, text) => latest.current.send(node.parentId, text),
-      switchBranch: (node, delta) => {
-        const sibs = siblingsOf(latest.current.nodes ?? [], node)
-        const target = sibs[sibs.findIndex((s) => s.id === node.id) + delta]
-        if (target) selectBranch(node.conversationId, node.parentId, target.id)
-      },
-    }),
-    [],
-  )
-
   const scroll = useAutoScroll(conversationId)
+  const actions = useNodeActions(nodes, scroll.pin)
+  const anchors = useAnchors(path, nodes, panel)
+  const [picker, setPicker] = useState<{
+    x: number
+    y: number
+    nodeId: string
+    items: { thread: string; question: string }[]
+  } | null>(null)
+
+  const openThread = (nodeId: string, thread: string) => setPanel({ type: 'side', nodeId, thread })
+
+  /** Clicking highlighted text opens its side question, or offers a choice where several overlap. */
+  const onContentClick = (e: MouseEvent) => {
+    const sel = getSelection()
+    if (sel && !sel.isCollapsed) return
+    const mark = (e.target as Element).closest<HTMLElement>('[data-threads]')
+    const root = mark?.closest<HTMLElement>('[data-anchor-root]')
+    if (!mark || !root) return
+    const nodeId = root.dataset.anchorRoot!
+    const threads = mark.dataset.threads!.split(' ').filter((id) => !id.startsWith(DRAFT_PREFIX))
+    if (threads.length === 1) openThread(nodeId, threads[0])
+    else if (threads.length > 1) {
+      const all = nodes ?? []
+      setPicker({
+        x: e.clientX,
+        y: e.clientY,
+        nodeId,
+        items: threads.map((thread) => ({
+          thread,
+          question: threadPath(all, thread, conversation?.selectedChild ?? {})[0]?.user.text ?? '',
+        })),
+      })
+    }
+  }
+  const contentOf = (nodeId: string) => nodes?.find((n) => n.id === nodeId)?.assistant.content
+
   const noProvider = providers && !provider
 
   return (
@@ -74,7 +101,7 @@ export function ChatView() {
         <div className="w-24" />
       </header>
 
-      <div ref={scroll.containerRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scroll.containerRef} onClick={onContentClick} className="min-h-0 flex-1 overflow-y-auto">
         <div ref={scroll.contentRef} className="mx-auto w-full max-w-3xl px-6 py-8">
           {path.length === 0 ? (
             noProvider ? (
@@ -103,6 +130,7 @@ export function ChatView() {
                     branchCount={sibs.length}
                     canSend={canSend}
                     actions={actions}
+                    anchors={anchors.get(n.id)}
                   />
                 )
               })}
@@ -110,6 +138,22 @@ export function ChatView() {
           )}
         </div>
       </div>
+
+      <SelectionAsk
+        containerRef={scroll.containerRef}
+        contentOf={contentOf}
+        onAsk={(nodeId, anchor) =>
+          setPanel({ type: 'side', nodeId, thread: nanoid(), draft: anchor })
+        }
+      />
+      {picker && (
+        <ThreadPicker
+          at={picker}
+          items={picker.items}
+          onPick={(thread) => openThread(picker.nodeId, thread)}
+          onClose={() => setPicker(null)}
+        />
+      )}
 
       <div className="shrink-0 px-6 pb-5">
         <div className="mx-auto w-full max-w-3xl">
@@ -123,6 +167,33 @@ export function ChatView() {
       </div>
     </main>
   )
+}
+
+/**
+ * Side-question highlights for each node on the path (an empty list still enables selecting text).
+ * Lists are reused while unchanged so memoized messages don't re-render their Markdown.
+ */
+function useAnchors(path: ChatNode[], nodes: ChatNode[] | undefined, panel: Panel | null) {
+  const cache = useRef(new Map<string, AnchorMark[]>())
+  return useMemo(() => {
+    const side = panel?.type === 'side' ? panel : panel?.type === 'detail' ? panel.back : undefined
+    const next = new Map<string, AnchorMark[]>()
+    for (const n of path) {
+      const list: AnchorMark[] = sideThreads(nodes ?? [], n.id).map((t) => ({
+        id: t.thread,
+        start: t.anchor.start,
+        end: t.anchor.end,
+        active: side?.thread === t.thread,
+      }))
+      if (side?.draft && side.nodeId === n.id) {
+        list.push({ id: DRAFT_PREFIX + side.thread, start: side.draft.start, end: side.draft.end, active: true })
+      }
+      const prev = cache.current.get(n.id)
+      next.set(n.id, prev && JSON.stringify(prev) === JSON.stringify(list) ? prev : list)
+    }
+    cache.current = next
+    return next
+  }, [path, nodes, panel])
 }
 
 function EmptyState({
@@ -144,47 +215,4 @@ function EmptyState({
       {action && <div className="mt-5">{action}</div>}
     </div>
   )
-}
-
-/**
- * Keeps the view pinned to the bottom while content grows, unless the user has scrolled up.
- * Jumps to the bottom when switching conversations.
- */
-function useAutoScroll(conversationId: string | null) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const stick = useRef(true)
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const onScroll = () => {
-      stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [])
-
-  useEffect(() => {
-    const el = containerRef.current
-    const content = contentRef.current
-    if (!el || !content) return
-    const ro = new ResizeObserver(() => {
-      if (stick.current) el.scrollTop = el.scrollHeight
-    })
-    ro.observe(content)
-    return () => ro.disconnect()
-  }, [])
-
-  useEffect(() => {
-    stick.current = true
-    const el = containerRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [conversationId])
-
-  const pin = () => {
-    stick.current = true
-  }
-
-  return { containerRef, contentRef, pin }
 }

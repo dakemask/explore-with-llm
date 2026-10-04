@@ -24,3 +24,46 @@ export function useCopy() {
   }
   return { copied, copy }
 }
+
+/**
+ * Keeps the view pinned to the bottom while content grows, unless the user has scrolled up.
+ * Jumps to the bottom when `resetKey` changes (e.g. switching conversations).
+ */
+export function useAutoScroll(resetKey: string | null) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const stick = useRef(true)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onScroll = () => {
+      stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    const el = containerRef.current
+    const content = contentRef.current
+    if (!el || !content) return
+    const ro = new ResizeObserver(() => {
+      if (stick.current) el.scrollTop = el.scrollHeight
+    })
+    ro.observe(content)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    stick.current = true
+    const el = containerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [resetKey])
+
+  const pin = () => {
+    stick.current = true
+  }
+
+  return { containerRef, contentRef, pin }
+}

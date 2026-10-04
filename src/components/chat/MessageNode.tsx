@@ -4,9 +4,12 @@ import { memo, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { useAutosize, useCopy } from '../../lib/hooks'
+import type { AnchorMark } from '../../lib/anchor'
+import { editAssistant } from '../../lib/chat'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
 import { useUi } from '../../store/ui'
 import { Button, IconButton, Tip } from '../ui/Button'
+import { AssistantEditor } from './AssistantEditor'
 import { Markdown } from './Markdown'
 
 /** Callbacks from ChatView. Kept referentially stable so memoized nodes don't re-render. */
@@ -22,6 +25,7 @@ export const MessageNode = memo(function MessageNode({
   branchCount,
   canSend,
   actions,
+  anchors,
 }: {
   node: ChatNode
   /** Position among the sibling versions at this fork (0-based). */
@@ -29,6 +33,11 @@ export const MessageNode = memo(function MessageNode({
   branchCount: number
   canSend: boolean
   actions: NodeActions
+  /**
+   * Main-line nodes only: side-question anchors on the reply. Makes the reply selectable for new side
+   * questions (the root carries `data-anchor-root`) and locks the anchored text when editing.
+   */
+  anchors?: AnchorMark[]
 }) {
   const live = useUi((s) => s.live[node.id])
   const streaming = node.attempt.status === 'streaming'
@@ -37,7 +46,19 @@ export const MessageNode = memo(function MessageNode({
   const thinking = useMemo(() => reasoningView(reasoning, node.attempt.message), [reasoning, node.attempt.message])
   const retry = canSend ? () => actions.retry(node) : undefined
   const detailOpen = useUi((s) => s.panel?.type === 'detail' && s.panel.nodeId === node.id)
-  const toggleDetail = () => useUi.getState().setPanel(detailOpen ? null : { type: 'detail', nodeId: node.id })
+  const toggleDetail = () => {
+    const { panel, setPanel } = useUi.getState()
+    if (detailOpen) setPanel(panel?.type === 'detail' ? (panel.back ?? null) : null)
+    else setPanel({ type: 'detail', nodeId: node.id, back: panel?.type === 'side' ? panel : undefined })
+  }
+  const [editing, setEditing] = useState(false)
+  const startEdit = () => {
+    // An unsent side question's offsets would go stale; drop it.
+    const { panel, setPanel } = useUi.getState()
+    if (panel?.type === 'side' && panel.draft && panel.nodeId === node.id) setPanel(null)
+    setEditing(true)
+  }
+  const locks = useMemo(() => anchors?.filter((a) => !isDraft(a)) ?? [], [anchors])
 
   return (
     <div className="space-y-3">
@@ -57,17 +78,34 @@ export const MessageNode = memo(function MessageNode({
       />
       <div className="group/assistant">
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
-        {content ? (
-          <Markdown text={content} className={clsx(streaming && 'streaming-caret')} />
+        {editing ? (
+          <AssistantEditor
+            initial={node.assistant.content}
+            locks={locks}
+            onCancel={() => setEditing(false)}
+            onSave={async (text, moved) => {
+              setEditing(false)
+              await editAssistant(node, text, Object.fromEntries(moved.map((l) => [l.id, { start: l.start, end: l.end }])))
+            }}
+          />
+        ) : content ? (
+          <div data-anchor-root={anchors && !streaming ? node.id : undefined}>
+            <Markdown
+              text={content}
+              className={clsx(streaming && 'streaming-caret')}
+              anchors={streaming ? undefined : anchors}
+            />
+          </div>
         ) : (
           streaming && !hasReasoning(thinking) && <TypingDots />
         )}
         {node.attempt.status === 'error' && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} />}
-        {!streaming && (
+        {!streaming && !editing && (
           <AssistantFooter
             node={node}
             content={content}
             onRetry={retry}
+            onEdit={content ? startEdit : undefined}
             detailOpen={detailOpen}
             onDetail={toggleDetail}
           />
@@ -76,6 +114,12 @@ export const MessageNode = memo(function MessageNode({
     </div>
   )
 })
+
+/** The highlight of a side question not sent yet (see ChatView); not a real anchor, so never a lock. */
+export const DRAFT_PREFIX = 'draft:'
+function isDraft(a: AnchorMark) {
+  return a.id.startsWith(DRAFT_PREFIX)
+}
 
 function UserMessage({
   text,
@@ -294,12 +338,14 @@ function AssistantFooter({
   node,
   content,
   onRetry,
+  onEdit,
   detailOpen,
   onDetail,
 }: {
   node: ChatNode
   content: string
   onRetry?: () => void
+  onEdit?: () => void
   detailOpen: boolean
   onDetail: () => void
 }) {
@@ -331,6 +377,11 @@ function AssistantFooter({
         {onRetry && (
           <IconButton label={t('msg.retry')} size="sm" onClick={onRetry}>
             <RotateCcw size={14} />
+          </IconButton>
+        )}
+        {onEdit && (
+          <IconButton label={t('msg.editReply')} size="sm" onClick={onEdit}>
+            <Pencil size={14} />
           </IconButton>
         )}
         <IconButton label={t('detail.open')} size="sm" active={detailOpen} onClick={onDetail}>
