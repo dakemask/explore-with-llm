@@ -120,7 +120,8 @@
 @keyframes pop-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -48%) scale(0.98);
+    /* Only scale: centering uses the separate `translate` property, which transform would stack with. */
+    transform: translateY(4px) scale(0.97);
   }
 }
 @keyframes menu-in {

@@ -26,6 +26,12 @@ export function Dialog({
         <RD.Overlay className="anim-fade fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] dark:bg-black/50" />
         <RD.Content
           aria-describedby={undefined}
+          // Focus the panel itself rather than the first button, so the close button's tooltip doesn't pop up.
+          tabIndex={-1}
+          onOpenAutoFocus={(e) => {
+            e.preventDefault()
+            ;(e.currentTarget as HTMLElement).focus()
+          }}
           className={clsx(
             'anim-pop fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col',
             'rounded-xl border border-border bg-surface shadow-pop focus:outline-none',
