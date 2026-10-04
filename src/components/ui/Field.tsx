@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { HelpTip } from './Button'
 
 const fieldBase =
   'w-full rounded-lg border border-border bg-surface px-3 text-sm text-text placeholder:text-faint transition-colors ' +
@@ -18,11 +19,25 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
   },
 )
 
-export function Label({ children, hint, action }: { children: ReactNode; hint?: ReactNode; action?: ReactNode }) {
+/** A field's title. `hint`: always-visible line below it (consequences); `help`: hover ⓘ (explanations). */
+export function Label({
+  children,
+  hint,
+  help,
+  action,
+}: {
+  children: ReactNode
+  hint?: ReactNode
+  help?: ReactNode
+  action?: ReactNode
+}) {
   return (
     <div className="mb-1.5 flex items-end justify-between gap-2">
       <div>
-        <div className="text-[13px] font-medium text-text">{children}</div>
+        <div className="flex items-center gap-1 text-[13px] font-medium text-text">
+          {children}
+          {help && <HelpTip content={help} />}
+        </div>
         {hint && <div className="mt-0.5 text-xs text-faint">{hint}</div>}
       </div>
       {action}

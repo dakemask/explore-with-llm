@@ -1,5 +1,6 @@
 import * as Tooltip from '@radix-ui/react-tooltip'
 import clsx from 'clsx'
+import { CircleHelp } from 'lucide-react'
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -100,5 +101,24 @@ export function Tip({ content, children }: { content: ReactNode; children: React
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
+  )
+}
+
+/** A small ⓘ-style question mark explaining the thing next to it on hover. */
+export function HelpTip({ content, className }: { content: ReactNode; className?: string }) {
+  return (
+    <Tip content={content}>
+      <button
+        type="button"
+        aria-label={typeof content === 'string' ? content : undefined}
+        className={clsx(
+          'inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full text-faint transition-colors',
+          'hover:text-text focus-visible:text-text focus-visible:outline-none',
+          className,
+        )}
+      >
+        <CircleHelp size={13} />
+      </button>
+    </Tip>
   )
 }

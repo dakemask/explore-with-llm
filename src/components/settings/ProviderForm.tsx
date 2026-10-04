@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Eye, EyeOff, Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
 import { addModels } from '../../lib/models'
@@ -11,43 +11,19 @@ import { confirmDialog } from '../ui/Dialog'
 import { notifyError } from '../ui/Toast'
 import { Input, Label } from '../ui/Field'
 import { FetchedModels, PICK_THRESHOLD } from './FetchedModels'
-import { ModelConfigPage } from './ModelConfigPage'
+import { ModelConfigDialog } from './ModelConfigDialog'
 import { ModelList } from './ModelList'
 
 /**
- * A provider's settings, or the config page of one of its models (`initialModel` opens straight into it).
- * `provider` is the live stored record.
+ * A provider's own fields (saved immediately) and its model list; a model's config opens in a dialog
+ * (`initialModel` opens straight into it). `provider` is the live stored record.
  */
-export function ProviderForm({ provider, initialModel }: { provider: Provider; initialModel?: string }) {
-  // Which model's page is open: a name, null for a new model, undefined for the provider's own fields.
-  const [page, setPage] = useState<string | null | undefined>(
-    initialModel && provider.models.includes(initialModel) ? initialModel : undefined,
-  )
-  const rootRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    rootRef.current?.parentElement?.scrollTo(0, 0)
-  }, [page])
-
-  return (
-    <div ref={rootRef}>
-      {page === undefined ? (
-        <ProviderFields provider={provider} onOpenModel={setPage} />
-      ) : (
-        <ModelConfigPage key={page ?? ''} provider={provider} model={page} onBack={() => setPage(undefined)} />
-      )}
-    </div>
-  )
-}
-
-/** The provider's own fields and its model list; every change is saved immediately. */
-function ProviderFields({
-  provider: stored,
-  onOpenModel,
-}: {
-  provider: Provider
-  onOpenModel: (model: string | null) => void
-}) {
+export function ProviderForm({ provider: stored, initialModel }: { provider: Provider; initialModel?: string }) {
   const t = useT()
+  // The model whose config dialog is open: a name, null for a new model, undefined for none.
+  const [editing, setEditing] = useState<string | null | undefined>(
+    initialModel && stored.models.includes(initialModel) ? initialModel : undefined,
+  )
   // Local copy so inputs stay responsive; IndexedDB writes are async. Models change elsewhere, so they
   // always come from the stored record.
   const [local, setLocal] = useState(stored)
@@ -160,7 +136,6 @@ function ProviderFields({
 
       <div>
         <Label
-          hint={t('provider.modelsHint')}
           action={
             <div className="flex gap-1.5">
               <Button
@@ -172,7 +147,7 @@ function ProviderFields({
                 {fetchState.loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                 {fetchState.loading ? t('provider.fetching') : t('provider.fetchModels')}
               </Button>
-              <Button size="sm" onClick={() => onOpenModel(null)}>
+              <Button size="sm" onClick={() => setEditing(null)}>
                 <Plus size={13} />
                 {t('model.add')}
               </Button>
@@ -181,7 +156,7 @@ function ProviderFields({
         >
           {t('provider.models')}
         </Label>
-        <ModelList provider={provider} onOpen={onOpenModel} />
+        <ModelList provider={provider} onOpen={setEditing} />
         {fetchState.message && (
           <div className="mt-1.5 text-xs text-muted">
             {fetchState.message}
@@ -193,6 +168,14 @@ function ProviderFields({
           </div>
         )}
         <FetchedModels open={pickOpen} onOpenChange={setPickOpen} provider={provider} models={fetched} />
+        {editing !== undefined && (
+          <ModelConfigDialog
+            key={editing ?? ''}
+            provider={provider}
+            model={editing}
+            onClose={() => setEditing(undefined)}
+          />
+        )}
       </div>
 
       <div className="border-t border-border pt-5">
