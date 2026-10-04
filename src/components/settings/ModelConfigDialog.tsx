@@ -51,13 +51,15 @@ export function ModelConfigDialog({
   const save = async () => {
     const n = name.trim()
     const next = withoutEmpty(config)
+    // Each problem names the field it's about.
     const problems: string[] = []
+    const problem = (field: string, error: string) => problems.push(t('model.problem', { field, error }))
     const nameError = modelNameError(provider, n, model)
-    if (nameError) problems.push(t(nameError === 'empty' ? 'model.nameEmpty' : 'model.nameTaken'))
+    if (nameError) problem(t('model.name'), t(nameError === 'empty' ? 'model.nameEmpty' : 'model.nameTaken'))
     const params = paramConfig({ ...provider, modelConfigs: { m: next } }, 'm')
-    if (!params.ok) problems.push(t('model.paramsError', { error: t(params.error.key, params.error.vars) }))
+    if (!params.ok) problem(t('provider.params'), t(params.error.key, params.error.vars))
     const badLine = parseHeaders(next.headers ?? '').badLine
-    if (badLine) problems.push(t('provider.headersBad', { n: badLine }))
+    if (badLine) problem(t('provider.headers'), t('provider.headersBad', { n: badLine }))
     if (problems.length) return notifyError(t('model.saveFailed'), problems)
 
     if (!model) await addModel(provider.id, n, next)
