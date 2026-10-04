@@ -23,7 +23,8 @@ and look at them; check both themes when touching styles.
 Shortcuts for scripts: seed the provider by writing straight into the `providers` store of the
 `explore-with-llm` IndexedDB and reloading (faster than clicking through Settings). To wait for a
 reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear — the Send button exists
-(disabled) even while streaming.
+(disabled) even while streaming. To attach an image, make the PNG in the page (`canvas.toDataURL`) and
+`setInputFiles` it on `input[accept="image/*"]`; hand-written PNG bytes are easily invalid and silently rejected.
 
 ## Gotchas
 
