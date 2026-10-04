@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { normalizeMath } from './components/chat/Markdown'
 import { ROOT_KEY, type ChatNode } from './db/types'
 import { db } from './db'
+import { prettyJson, requestMessages, summarizeUsage } from './lib/attempt'
 import { buildMessages, createConversation, selectBranch } from './lib/chat'
 import { activePath, pathTo, siblingsOf } from './lib/tree'
 import { openaiChat } from './providers/openaiChat'
@@ -154,5 +155,51 @@ describe('normalizeMath', () => {
   it('leaves code untouched', () => {
     const src = '```\n\\(x\\)\n```\nand `\\[y\\]`'
     expect(normalizeMath(src)).toBe(src)
+  })
+})
+
+describe('attempt helpers', () => {
+  it('summarizes OpenAI / DeepSeek usage', () => {
+    expect(
+      summarizeUsage({
+        prompt_tokens: 10,
+        completion_tokens: 30,
+        prompt_cache_hit_tokens: 4,
+        completion_tokens_details: { reasoning_tokens: 12 },
+      }),
+    ).toEqual({ input: 10, output: 30, reasoning: 12, cached: 4 })
+  })
+
+  it('summarizes Anthropic-style usage and ignores unknown shapes', () => {
+    expect(summarizeUsage({ input_tokens: 5, output_tokens: 7, cache_read_input_tokens: 2 })).toEqual({
+      input: 5,
+      output: 7,
+      reasoning: undefined,
+      cached: 2,
+    })
+    expect(summarizeUsage({ foo: 1 })).toBeNull()
+    expect(summarizeUsage(undefined)).toBeNull()
+  })
+
+  it('extracts readable messages from request bodies', () => {
+    expect(
+      requestMessages({
+        system: 'be brief',
+        messages: [
+          { role: 'user', content: 'hi' },
+          { role: 'user', content: [{ type: 'text', text: 'look' }, { type: 'image_url' }] },
+        ],
+      }),
+    ).toEqual([
+      { role: 'system', text: 'be brief' },
+      { role: 'user', text: 'hi' },
+      { role: 'user', text: 'look\n[image_url]' },
+    ])
+    expect(requestMessages(null)).toBeNull()
+  })
+
+  it('pretty-prints JSON and rejects non-JSON', () => {
+    expect(prettyJson('{"a":1}')).toBe('{\n  "a": 1\n}')
+    expect(prettyJson('<html>')).toBeNull()
   })
 })

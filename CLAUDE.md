@@ -40,7 +40,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 - `src/lib/tree.ts` — tree navigation (active path, path to node).
 - `src/lib/chat.ts` — conversation actions: send, stream, stop, build context messages.
 - `src/providers/` — one adapter per protocol (`ProtocolAdapter`). Only `openai-chat` is implemented.
-- `src/store/` — Zustand: `settings` (persisted to localStorage: lang, theme, last model) and `ui` (in-memory: current conversation, live streaming text).
+- `src/store/` — Zustand: `settings` (persisted to localStorage: lang, theme, last model) and `ui` (in-memory: current conversation, live streaming text, right panel).
 - `src/i18n/` — zh/en dictionaries; every UI string goes through `useT()`.
 - `src/components/ui/` — shared primitives (Button, IconButton, Input, Dialog, Menu, Segmented). Build new UI from these.
 - `src/index.css` — design tokens as CSS variables (light + `.dark`). Components use semantic Tailwind colors (`bg-surface`, `text-muted`, `border-border`, `bg-accent`…), never raw palette colors.
@@ -59,6 +59,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 - Main view: linear chat of the active path; ‹n/m› switcher under the user message of any node with siblings. A tree-map view may come later — it is just another view over the same data.
 - Retry / editing a user message → new sibling node, using the model currently selected in the picker (lets users compare models). Error boxes have a visible Retry button.
 - Editing an assistant message → in place, same node; `edited: true`. Text ranges anchoring side questions are locked.
+- Right side is one panel slot (`useUi().panel`), docked, pushes the chat. Node detail (ⓘ in the reply footer, "详情" on error boxes) lives there now; side questions will be another `panel` variant. Switching conversation closes it.
 - Side questions: right drawer; context = root→node main path + selected text + question.
 - Protocols planned: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages.
 - Images in user input (planned); no tool calling. Single-conversation export/import (planned).
@@ -69,6 +70,6 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 
 1. ✅ Base: layout, providers, streaming chat, persistence, themes, i18n
 2. ✅ Branching: retry, edit user message, ‹n/m› switcher
-3. Node detail panel (request / response / error)
+3. ✅ Node detail panel (request / response / error)
 4. Side questions + assistant message editing with locked anchors
 5. Images, export/import, other protocols

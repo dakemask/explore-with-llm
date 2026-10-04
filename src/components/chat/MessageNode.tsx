@@ -1,10 +1,9 @@
 import clsx from 'clsx'
-import { AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, Pencil, RotateCcw } from 'lucide-react'
+import { AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, Info, Pencil, RotateCcw } from 'lucide-react'
 import { memo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
-import { copyText } from '../../lib/clipboard'
-import { useAutosize } from '../../lib/hooks'
+import { useAutosize, useCopy } from '../../lib/hooks'
 import { useUi } from '../../store/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Markdown } from './Markdown'
@@ -35,6 +34,8 @@ export const MessageNode = memo(function MessageNode({
   const content = live?.content ?? node.assistant.content
   const reasoning = live?.reasoning ?? node.assistant.reasoning ?? ''
   const retry = canSend ? () => actions.retry(node) : undefined
+  const detailOpen = useUi((s) => s.panel?.type === 'detail' && s.panel.nodeId === node.id)
+  const toggleDetail = () => useUi.getState().setPanel(detailOpen ? null : { type: 'detail', nodeId: node.id })
 
   return (
     <div className="space-y-3">
@@ -59,8 +60,16 @@ export const MessageNode = memo(function MessageNode({
         ) : (
           streaming && !reasoning && <TypingDots />
         )}
-        {node.attempt.status === 'error' && <ErrorBox node={node} onRetry={retry} />}
-        {!streaming && <AssistantFooter node={node} content={content} onRetry={retry} />}
+        {node.attempt.status === 'error' && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} />}
+        {!streaming && (
+          <AssistantFooter
+            node={node}
+            content={content}
+            onRetry={retry}
+            detailOpen={detailOpen}
+            onDetail={toggleDetail}
+          />
+        )}
       </div>
     </div>
   )
@@ -77,12 +86,7 @@ function UserMessage({
 }) {
   const t = useT()
   const [editing, setEditing] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const copy = async () => {
-    await copyText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
+  const { copied, copy } = useCopy()
 
   if (editing && onEdit) {
     return (
@@ -104,7 +108,7 @@ function UserMessage({
       </div>
       <div className="mt-1 flex h-7 items-center gap-1">
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/user:opacity-100 focus-within:opacity-100">
-          <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={copy}>
+          <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={() => copy(text)}>
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </IconButton>
           {onEdit && (
@@ -232,7 +236,7 @@ function TypingDots() {
   )
 }
 
-function ErrorBox({ node, onRetry }: { node: ChatNode; onRetry?: () => void }) {
+function ErrorBox({ node, onRetry, onDetail }: { node: ChatNode; onRetry?: () => void; onDetail: () => void }) {
   const t = useT()
   const err = node.attempt.error
   if (!err) return null
@@ -246,24 +250,36 @@ function ErrorBox({ node, onRetry }: { node: ChatNode; onRetry?: () => void }) {
         </div>
         <div className="mt-0.5 break-words text-muted">{err.code === 'network' ? t('error.network') : err.message}</div>
       </div>
-      {onRetry && (
-        <Button size="sm" className="self-center" onClick={onRetry}>
-          <RotateCcw size={13} />
-          {t('msg.retryShort')}
+      <div className="flex shrink-0 items-center gap-1.5 self-center">
+        <Button size="sm" variant="ghost" onClick={onDetail}>
+          {t('detail.openShort')}
         </Button>
-      )}
+        {onRetry && (
+          <Button size="sm" onClick={onRetry}>
+            <RotateCcw size={13} />
+            {t('msg.retryShort')}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
 
-function AssistantFooter({ node, content, onRetry }: { node: ChatNode; content: string; onRetry?: () => void }) {
+function AssistantFooter({
+  node,
+  content,
+  onRetry,
+  detailOpen,
+  onDetail,
+}: {
+  node: ChatNode
+  content: string
+  onRetry?: () => void
+  detailOpen: boolean
+  onDetail: () => void
+}) {
   const t = useT()
-  const [copied, setCopied] = useState(false)
-  const copy = async () => {
-    await copyText(content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
+  const { copied, copy } = useCopy()
   const tags = [
     node.attempt.status === 'aborted' && t('msg.aborted'),
     node.assistant.edited && t('msg.edited'),
@@ -276,9 +292,14 @@ function AssistantFooter({ node, content, onRetry }: { node: ChatNode; content: 
           {tag}
         </span>
       ))}
-      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/assistant:opacity-100 focus-within:opacity-100">
+      <div
+        className={clsx(
+          'flex items-center gap-1 transition-opacity group-hover/assistant:opacity-100 focus-within:opacity-100',
+          !detailOpen && 'opacity-0',
+        )}
+      >
         {content && (
-          <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={copy}>
+          <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={() => copy(content)}>
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </IconButton>
         )}
@@ -287,6 +308,9 @@ function AssistantFooter({ node, content, onRetry }: { node: ChatNode; content: 
             <RotateCcw size={14} />
           </IconButton>
         )}
+        <IconButton label={t('detail.open')} size="sm" active={detailOpen} onClick={onDetail}>
+          <Info size={14} />
+        </IconButton>
         <span className="ml-1">{node.attempt.model}</span>
       </div>
     </div>

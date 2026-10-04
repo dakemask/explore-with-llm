@@ -104,6 +104,7 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
   let reasoning = ''
   let finishReason: string | undefined
   let usage: Record<string, unknown> | undefined
+  let firstTokenAt: number | undefined
   let flushTimer: ReturnType<typeof setTimeout> | null = null
   const flush = () => {
     flushTimer = null
@@ -123,6 +124,7 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
         rawReasoning: reasoning || undefined,
         finishReason,
         usage,
+        firstTokenAt,
         finishedAt: Date.now(),
       },
     })
@@ -140,7 +142,10 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
       else if (ev.type === 'reasoning') reasoning += ev.delta
       else if (ev.type === 'finish') finishReason = ev.reason
       else if (ev.type === 'usage') usage = ev.usage
-      if ((ev.type === 'text' || ev.type === 'reasoning') && !flushTimer) flushTimer = setTimeout(flush, 40)
+      if (ev.type === 'text' || ev.type === 'reasoning') {
+        firstTokenAt ??= Date.now()
+        if (!flushTimer) flushTimer = setTimeout(flush, 40)
+      }
     }
     await finish({ status: 'done' })
   } catch (e) {

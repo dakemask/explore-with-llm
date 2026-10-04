@@ -46,6 +46,8 @@ export interface Attempt {
   url: string
   requestBody: unknown
   startedAt: number
+  /** When the first text or reasoning delta arrived. */
+  firstTokenAt?: number
   finishedAt?: number
   /** Raw assistant text exactly as the model returned it (assistant.content may be edited later). */
   rawText: string

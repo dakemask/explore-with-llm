@@ -1,12 +1,10 @@
-import { Check, Copy } from 'lucide-react'
-import { memo, useState, type ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import { useT } from '../../i18n'
-import { copyText } from '../../lib/clipboard'
+import { CodeBox } from '../ui/CodeBox'
 
 /** Models often emit \( \) and \[ \] delimiters; remark-math only understands $ / $$. */
 export function normalizeMath(src: string) {
@@ -47,30 +45,13 @@ export const Markdown = memo(function Markdown({ text, className }: { text: stri
 })
 
 function CodeBlock({ children }: { children: ReactNode }) {
-  const t = useT()
-  const [copied, setCopied] = useState(false)
   // children is the <code> element; pull language and raw text off it.
   const code = children as { props?: { className?: string; children?: ReactNode } }
   const lang = /language-([\w+-]+)/.exec(code?.props?.className ?? '')?.[1] ?? ''
-  const raw = extractText(code?.props?.children)
-
-  const copy = async () => {
-    await copyText(raw)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
-
   return (
-    <div className="group/code my-3 overflow-hidden rounded-lg border border-border bg-code-bg">
-      <div className="flex h-8 items-center justify-between border-b border-border px-3 text-xs text-faint">
-        <span className="font-mono">{lang || 'text'}</span>
-        <button onClick={copy} className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-hover hover:text-text">
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          {copied ? t('msg.copied') : t('msg.copy')}
-        </button>
-      </div>
-      <pre className="overflow-x-auto px-4 py-3 font-mono text-[13px] leading-relaxed">{children}</pre>
-    </div>
+    <CodeBox label={lang || 'text'} copyText={extractText(code?.props?.children)} className="my-3">
+      {children}
+    </CodeBox>
   )
 }
 

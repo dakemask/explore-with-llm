@@ -53,7 +53,7 @@ http
       await sleep(delay)
     }
     send({ choices: [{ delta: {}, finish_reason: 'stop' }] })
-    send({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 100, total_tokens: 110 } })
+    send({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 100, total_tokens: 110, completion_tokens_details: { reasoning_tokens: 17 } } })
     res.end('data: [DONE]\n\n')
   })
   .listen(port, () => console.log(`mock LLM on http://localhost:${port}`))
