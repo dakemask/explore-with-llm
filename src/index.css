@@ -189,6 +189,16 @@
   font-size: 15px;
   overflow-wrap: anywhere;
 }
+/* Inside the user's bubble: tighter, and quotes/code read against the bubble colour. */
+.prose.prose-user {
+  line-height: 1.65;
+}
+.prose.prose-user blockquote {
+  border-left-color: var(--c-faint);
+}
+.prose.prose-user :not(pre) > code {
+  background: var(--c-active);
+}
 /* Smaller variant for side panels. */
 .prose.prose-compact {
   font-size: 13.5px;

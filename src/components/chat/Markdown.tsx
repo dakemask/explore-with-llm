@@ -2,6 +2,7 @@ import { memo, useMemo, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeKatex from 'rehype-katex'
+import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { normalizeMathMapped, rehypeAnchors, type AnchorMark } from '../../lib/anchor'
@@ -22,6 +23,8 @@ const components: Components = {
 }
 
 const remarkPlugins = [remarkGfm, [remarkMath, { singleDollarTextMath: true }]] as const
+/** For text people typed: a single Enter is a line break, as it was when they wrote it. */
+const remarkPluginsBreaks = [...remarkPlugins, remarkBreaks] as const
 const rehypePlugins = [[rehypeHighlight, { detect: false, ignoreMissing: true }], rehypeKatex] as const
 
 /**
@@ -32,10 +35,13 @@ export const Markdown = memo(function Markdown({
   text,
   className,
   anchors,
+  breaks,
 }: {
   text: string
   className?: string
   anchors?: AnchorMark[]
+  /** Keep single newlines as line breaks. */
+  breaks?: boolean
 }) {
   const norm = useMemo(() => normalizeMathMapped(text), [text])
   const rehype = useMemo(
@@ -45,7 +51,7 @@ export const Markdown = memo(function Markdown({
   return (
     <div className={className ? `prose ${className}` : 'prose'}>
       <ReactMarkdown
-        remarkPlugins={remarkPlugins as never}
+        remarkPlugins={(breaks ? remarkPluginsBreaks : remarkPlugins) as never}
         rehypePlugins={rehype as never}
         components={components}
       >

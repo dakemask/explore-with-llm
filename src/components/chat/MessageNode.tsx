@@ -149,8 +149,8 @@ function UserMessage({
 
   return (
     <div className="group/user flex flex-col items-end">
-      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
-        {text}
+      <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5">
+        <Markdown text={text} className="prose-user" breaks />
       </div>
       <div className="mt-1 flex h-7 items-center gap-1">
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/user:opacity-100 focus-within:opacity-100">
