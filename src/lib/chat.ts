@@ -17,6 +17,7 @@ import { streamEvents } from './attempt'
 import { loadPayloads, maskImages, pruneImages, saveImages, type ImageFile } from './images'
 import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
+import { afterReply, fallbackTitle, namingModel, needsName, titleKey } from './naming'
 import { forkKey, pathTo } from './tree'
 
 const controllers = new Map<string, AbortController>()
@@ -29,7 +30,7 @@ export async function createConversation(): Promise<string> {
 }
 
 export async function renameConversation(id: string, title: string) {
-  await db.conversations.update(id, { title })
+  await db.conversations.update(id, { title, named: true })
 }
 
 export async function deleteConversation(id: string) {
@@ -150,16 +151,21 @@ export async function sendMessage(opts: {
     attempt,
   }
 
+  // With a naming model, the title waits for the reply (a loading animation shows meanwhile); else the first line.
+  const titleFor = titleKey(node)
+  const naming = !!titleFor && !!namingModel(await db.providers.toArray()) && (await needsName(node))
+  if (naming) useUi.getState().setNaming(titleFor, true)
   await db.transaction('rw', db.nodes, db.conversations, async () => {
     await db.nodes.add(node)
     await db.conversations.update(conversationId, {
       updatedAt: now,
-      title: conv.title || summarizeTitle(text) || (images.length ? translate(useSettings.getState().lang, 'chat.imageTitle') : ''),
+      title: conv.title || (naming ? '' : fallbackTitle(text, images.length, useSettings.getState().lang)),
       selectedChild: { ...conv.selectedChild, [forkKey(node)]: nodeId },
     })
   })
 
   await runAttempt(node, provider, model, messages, payloads.values())
+  await afterReply(nodeId)
 }
 
 async function runAttempt(
@@ -285,7 +291,8 @@ export async function deleteThread(conversationId: string, thread: string) {
     if (!conv) return
     const gone = new Set([thread, ...nodes.map((n) => n.id)])
     const selectedChild = Object.fromEntries(Object.entries(conv.selectedChild).filter(([k]) => !gone.has(k)))
-    await db.conversations.update(conversationId, { selectedChild })
+    const { [thread]: _, ...threadTitles } = conv.threadTitles ?? {}
+    await db.conversations.update(conversationId, { selectedChild, threadTitles })
     await pruneImages(conversationId)
   })
 }
@@ -325,11 +332,6 @@ export async function editAssistant(node: ChatNode, content: string): Promise<st
 
 export function stopGeneration(nodeId: string) {
   controllers.get(nodeId)?.abort()
-}
-
-function summarizeTitle(text: string) {
-  const line = text.trim().split('\n')[0]
-  return line.length > 40 ? line.slice(0, 40) + '…' : line
 }
 
 export interface ReplyVersion {

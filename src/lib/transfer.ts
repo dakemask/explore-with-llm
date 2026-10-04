@@ -93,6 +93,12 @@ export async function importConversation(text: string): Promise<string> {
     selectedChild: Object.fromEntries(
       Object.entries(file.conversation.selectedChild).map(([k, v]) => [k === ROOT_KEY ? k : remap(k), remap(v)]),
     ),
+    ...(file.conversation.named && { named: true }),
+    ...(isRecord(file.conversation.threadTitles) && {
+      threadTitles: Object.fromEntries(
+        Object.entries(file.conversation.threadTitles).flatMap(([k, v]) => (typeof v === 'string' ? [[remap(k), v]] : [])),
+      ),
+    }),
   }
   const nodes: ChatNode[] = file.nodes.map((n) => ({
     ...n,

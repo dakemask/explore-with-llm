@@ -10,6 +10,7 @@ import { useStoredImages, type ImageFile } from '../../lib/images'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
 import { useUi } from '../../store/ui'
 import { Button, IconButton, Tip } from '../ui/Button'
+import { Dots } from '../ui/Dots'
 import { AssistantEditor } from './AssistantEditor'
 import { AttachButton, AttachmentStrip, DropHint, MessageImages, useAttachments } from './Images'
 import { Markdown } from './Markdown'
@@ -320,14 +321,8 @@ function TypingDots({ since }: { since: number }) {
   }, [])
   const seconds = Math.floor((now - since) / 1000)
   return (
-    <div className="flex h-7 items-center gap-1">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="size-1.5 animate-bounce rounded-full bg-faint"
-          style={{ animationDelay: `${i * 120}ms` }}
-        />
-      ))}
+    <div className="flex h-7 items-center">
+      <Dots />
       {seconds >= 5 && <span className="ml-2 text-xs text-faint tabular-nums">{t('msg.waiting', { n: seconds })}</span>}
     </div>
   )

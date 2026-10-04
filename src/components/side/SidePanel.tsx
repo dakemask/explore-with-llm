@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { MessagesSquare, Trash2, X } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { db } from '../../db'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
 import { deleteThread, sendMessage, stopGeneration } from '../../lib/chat'
+import { sideFallbackTitle } from '../../lib/naming'
 import type { ImageFile } from '../../lib/images'
 import { useAutoScroll } from '../../lib/hooks'
 import { siblingsOf, threadPath } from '../../lib/tree'
@@ -15,6 +16,7 @@ import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
 import { useNodeActions } from '../chat/useNodeActions'
 import { IconButton } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
+import { Dots } from '../ui/Dots'
 
 /** Right-hand panel for one side-question thread: the quoted text, its messages, and a composer. */
 export function SidePanel({ panel }: { panel: SidePanelState }) {
@@ -37,6 +39,8 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
   const root = path[0]
   const last = path[path.length - 1]
   const loaded = nodes !== undefined && conversation !== undefined
+  const naming = useUi((s) => !!s.naming[panel.thread])
+  const title = conversation?.threadTitles?.[panel.thread] ?? sideFallbackTitle(root, root?.anchor?.text ?? panel.draft?.text ?? '')
 
   useEffect(() => {
     if (!loaded) return
@@ -73,8 +77,12 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
   return (
     <aside ref={asideRef} className="anim-drawer flex h-full w-[460px] shrink-0 flex-col border-l border-border bg-surface">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border pr-3 pl-5">
-        <MessagesSquare size={16} className="text-muted" />
-        <h2 className="flex-1 text-[15px] font-semibold">{t('side.title')}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="flex h-5 items-center text-[14px] font-semibold">
+            {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{title}</span>}
+          </h2>
+          <div className="text-[11px] leading-4 text-faint">{t('side.title')}</div>
+        </div>
         {root && (
           <IconButton label={t('side.delete')} size="sm" onClick={remove}>
             <Trash2 size={15} />

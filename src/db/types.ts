@@ -44,6 +44,10 @@ export interface Conversation {
   updatedAt: number
   /** Which child is shown at each fork. Key is the parent node id, or ROOT_KEY for top-level nodes. */
   selectedChild: Record<string, string>
+  /** The title is final: named by the naming model or by the user, so automatic naming leaves it alone. */
+  named?: boolean
+  /** Side-question titles made by the naming model, by thread id. Threads without one show a fallback. */
+  threadTitles?: Record<string, string>
 }
 
 export const ROOT_KEY = '__root__'

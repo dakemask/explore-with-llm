@@ -12,6 +12,8 @@ import { useAutoScroll } from '../../lib/hooks'
 import { useUi, type Panel } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { Button } from '../ui/Button'
+import { Dots } from '../ui/Dots'
+import { sideFallbackTitle } from '../../lib/naming'
 import { Composer } from './Composer'
 import { DRAFT_PREFIX, MessageNode } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
@@ -25,6 +27,7 @@ export function ChatView() {
   const panel = useUi((s) => s.panel)
   const setPanel = useUi((s) => s.setPanel)
   const { providers, provider, model, ready } = useCurrentModel()
+  const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
 
   const conversation = useLiveQuery(
     () => (conversationId ? db.conversations.get(conversationId) : undefined),
@@ -86,7 +89,10 @@ export function ChatView() {
         nodeId,
         items: threads.map((thread) => ({
           thread,
-          question: threadPath(all, thread, conversation?.selectedChild ?? {})[0]?.user.text || t('image.only'),
+          question: (() => {
+            const root = threadPath(all, thread, conversation?.selectedChild ?? {})[0]
+            return conversation?.threadTitles?.[thread] ?? (sideFallbackTitle(root, root?.anchor?.text ?? '') || t('image.only'))
+          })(),
         })),
       })
     }
@@ -98,7 +104,9 @@ export function ChatView() {
   return (
     <main ref={mainRef} className="flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-        <div className="min-w-0 flex-1 truncate px-2 text-sm font-medium">{conversation?.title}</div>
+        <div className="flex min-w-0 flex-1 items-center px-2 text-sm font-medium">
+          {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{conversation?.title}</span>}
+        </div>
       </header>
 
       <div ref={scroll.containerRef} onClick={onContentClick} className="min-h-0 flex-1 overflow-y-auto">

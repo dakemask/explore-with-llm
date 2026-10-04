@@ -13,10 +13,13 @@ interface SettingsState {
   model: string | null
   /** Parameter choices last made for each model, keyed by `paramKey(providerId, model)`, then parameter name. */
   paramChoices: Record<string, Record<string, ParamChoice>>
+  /** Model that names conversations and side questions (`lib/naming.ts`); null = no automatic naming. */
+  namingModel: { providerId: string; model: string } | null
   setLang: (lang: Lang) => void
   setTheme: (theme: Theme) => void
   setModel: (providerId: string, model: string) => void
   setParamChoice: (key: string, name: string, choice: ParamChoice) => void
+  setNamingModel: (m: { providerId: string; model: string } | null) => void
   /** A model was renamed in settings: keep it selected and keep its parameter choices. */
   renameModel: (providerId: string, from: string, to: string) => void
 }
@@ -33,9 +36,11 @@ export const useSettings = create<SettingsState>()(
       providerId: null,
       model: null,
       paramChoices: {},
+      namingModel: null,
       setLang: (lang) => set({ lang }),
       setTheme: (theme) => set({ theme }),
       setModel: (providerId, model) => set({ providerId, model }),
+      setNamingModel: (namingModel) => set({ namingModel }),
       setParamChoice: (key, name, choice) =>
         set((s) => {
           const forModel = s.paramChoices[key] ?? {}
@@ -48,7 +53,8 @@ export const useSettings = create<SettingsState>()(
           if (paramChoices[old]) paramChoices[paramKey(providerId, to)] = paramChoices[old]
           delete paramChoices[old]
           const selected = s.providerId === providerId && s.model === from
-          return { paramChoices, ...(selected && { model: to }) }
+          const naming = s.namingModel?.providerId === providerId && s.namingModel.model === from
+          return { paramChoices, ...(selected && { model: to }), ...(naming && { namingModel: { providerId, model: to } }) }
         }),
     }),
     { name: 'ewl-settings' },

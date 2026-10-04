@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Globe, Plug, Plus } from 'lucide-react'
+import { Check, ChevronDown, Globe, Plug, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { nanoid } from 'nanoid'
 import { db, type Provider } from '../../db'
@@ -9,6 +9,7 @@ import { useSettings, type Theme } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { Dialog } from '../ui/Dialog'
 import { Label, Segmented } from '../ui/Field'
+import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/Menu'
 import { ProviderForm } from './ProviderForm'
 
 export function SettingsDialog() {
@@ -168,6 +169,61 @@ function GeneralTab() {
           ]}
         />
       </div>
+      <div>
+        <Label help={t('settings.naming.help')}>{t('settings.naming')}</Label>
+        <NamingModelPicker />
+      </div>
+    </div>
+  )
+}
+
+/** Chooses the model that names conversations and side questions, or none. */
+function NamingModelPicker() {
+  const t = useT()
+  const providers = useLiveQuery(() => db.providers.orderBy('createdAt').toArray(), [])
+  const { namingModel, setNamingModel } = useSettings()
+  const provider = namingModel && providers?.find((p) => p.id === namingModel.providerId)
+  const missing = !!providers && !!namingModel && !provider?.models.includes(namingModel.model)
+  const check = (on: boolean) => <Check size={14} className={clsx(!on && 'invisible')} />
+  return (
+    <div>
+      <MenuRoot>
+        <MenuTrigger asChild>
+          <button className="flex h-9 w-72 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-left text-sm transition-colors hover:border-border-strong data-[state=open]:border-accent">
+            {namingModel ? (
+              <>
+                <span className="truncate">{namingModel.model}</span>
+                {provider && <span className="truncate text-faint">{provider.name}</span>}
+              </>
+            ) : (
+              <span className="text-muted">{t('settings.naming.off')}</span>
+            )}
+            <ChevronDown size={14} className="ml-auto shrink-0 text-faint" />
+          </button>
+        </MenuTrigger>
+        <MenuContent align="start" className="w-72">
+          <MenuItem selected={!namingModel} icon={check(!namingModel)} onSelect={() => setNamingModel(null)}>
+            {t('settings.naming.off')}
+          </MenuItem>
+          {providers?.some((p) => p.models.length > 0) && <MenuSeparator />}
+          {providers
+            ?.filter((p) => p.models.length > 0)
+            .map((p) => (
+              <div key={p.id}>
+                <MenuLabel>{p.name}</MenuLabel>
+                {p.models.map((m) => {
+                  const on = namingModel?.providerId === p.id && namingModel.model === m
+                  return (
+                    <MenuItem key={m} selected={on} icon={check(on)} onSelect={() => setNamingModel({ providerId: p.id, model: m })}>
+                      {m}
+                    </MenuItem>
+                  )
+                })}
+              </div>
+            ))}
+        </MenuContent>
+      </MenuRoot>
+      {missing && <div className="mt-1.5 text-xs text-danger">{t('settings.naming.missing')}</div>}
     </div>
   )
 }

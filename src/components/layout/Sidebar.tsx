@@ -8,6 +8,7 @@ import { deleteConversation, renameConversation } from '../../lib/chat'
 import { download, exportConversation, importConversation } from '../../lib/transfer'
 import { useUi } from '../../store/ui'
 import { IconButton } from '../ui/Button'
+import { Dots } from '../ui/Dots'
 import { confirmDialog, promptDialog } from '../ui/Dialog'
 import { notifyError } from '../ui/Toast'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
@@ -125,6 +126,7 @@ function ConversationItem({
   onSelect: (id: string | null) => void
 }) {
   const t = useT()
+  const naming = useUi((s) => !!s.naming[conv.id])
   const rename = async () => {
     const title = await promptDialog(t('conv.rename'), conv.title)
     if (title?.trim()) await renameConversation(conv.id, title.trim())
@@ -147,7 +149,7 @@ function ConversationItem({
           active ? 'bg-active font-medium text-text' : 'text-muted hover:bg-hover hover:text-text',
         )}
       >
-        <span className="truncate">{conv.title || t('conv.untitled')}</span>
+        {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{conv.title || t('conv.untitled')}</span>}
       </button>
       <MenuRoot>
         <MenuTrigger asChild>

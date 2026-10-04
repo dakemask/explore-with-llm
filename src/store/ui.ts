@@ -24,11 +24,14 @@ interface UiState {
   /** Provider (and model) the providers tab should show when it opens. */
   settingsFocus: { providerId: string; model?: string } | null
   live: Record<string, LiveStream>
+  /** Conversations / side threads (by id) waiting for their automatic title: the reply or the naming request is running. */
+  naming: Record<string, true>
   setConversation: (id: string | null) => void
   openSettings: (tab?: UiState['settingsTab'], focus?: UiState['settingsFocus']) => void
   closeSettings: () => void
   setLive: (nodeId: string, live: LiveStream | null) => void
   setPanel: (panel: Panel | null) => void
+  setNaming: (key: string, on: boolean) => void
 }
 
 export const useUi = create<UiState>()((set) => ({
@@ -38,6 +41,7 @@ export const useUi = create<UiState>()((set) => ({
   settingsTab: 'providers',
   settingsFocus: null,
   live: {},
+  naming: {},
   setConversation: (conversationId) => set({ conversationId, panel: null }),
   openSettings: (tab = 'providers', focus = null) => set({ settingsOpen: true, settingsTab: tab, settingsFocus: focus }),
   closeSettings: () => set({ settingsOpen: false }),
@@ -49,4 +53,11 @@ export const useUi = create<UiState>()((set) => ({
       return { live: next }
     }),
   setPanel: (panel) => set({ panel }),
+  setNaming: (key, on) =>
+    set((s) => {
+      const naming = { ...s.naming }
+      if (on) naming[key] = true
+      else delete naming[key]
+      return { naming }
+    }),
 }))

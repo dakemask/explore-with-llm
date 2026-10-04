@@ -14,6 +14,8 @@
 //   mock-cut    starts like mock-chat, then drops the connection mid-reply
 //   mock-empty  200 with an event stream that ends without any output
 //   mock-hang   accepts the request and never answers (for the waiting timer)
+//   mock-name   a short quoted title instead of the usual reply (automatic naming): which prompt it got
+//               (conversation / side question) and how many context messages the side prompt had
 // Every reply starts with a line echoing the request (counter, protocol, context size, echoed reasoning found
 // in the context, body fields beyond the protocol's own, last user message) so branches, echo-back and
 // parameters are visible in tests. Anthropic requests without max_tokens get the API's 400 error.
@@ -34,7 +36,7 @@ const cors = {
   'Access-Control-Expose-Headers': 'X-Request-Id',
 }
 const extra = Number(process.env.EXTRA_MODELS ?? 0)
-const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad', 'mock-cut', 'mock-empty', 'mock-hang']
+const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad', 'mock-cut', 'mock-empty', 'mock-hang', 'mock-name']
 if (extra > 0) MODELS.push(...Array.from({ length: extra }, (_, i) => `mock-extra-${String(i + 1).padStart(2, '0')}`), 'mock-chat')
 let count = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -82,7 +84,18 @@ function echoLine({ protocol, context, echoed, params, users }) {
 const userContents = (protocol, body) =>
   (protocol === 'responses' ? body.input : body.messages).filter((m) => m.role === 'user').map((m) => m.content)
 
-const replyText = (model, line) => (model === 'mock-tags' ? `<think>\n${reasoning}\n</think>\n\n` : '') + line + reply
+const replyText = (model, line, users, protocol) => {
+  if (model === 'mock-name') return nameText(userParts(protocol, users.at(-1)).text)
+  return (model === 'mock-tags' ? `<think>\n${reasoning}\n</think>\n\n` : '') + line + reply
+}
+
+/** mock-name: "对话标题 #n" for a conversation prompt, "侧问标题 #n（背景 k 条）" for a side-question prompt. */
+function nameText(prompt) {
+  if (!prompt.includes('follow-up question')) return `“对话标题 #${count}”`
+  const context = prompt.match(/for context only:([\s\S]*?)Here's the follow-up/)
+  const k = context ? context[1].split('\n\n---------\n\n').length : 0
+  return `“侧问标题 #${count}（背景 ${k} 条）”`
+}
 
 async function streamText(text, emit) {
   for (let i = 0; i < text.length; i += 4) {
@@ -117,7 +130,7 @@ async function chat(res, body) {
     }
   }
   const line = echoLine({ protocol: 'chat', context: messages.length, echoed, params, users: userContents('chat', body) })
-  await streamText(replyText(model, line), (t) => delta({ content: t }))
+  await streamText(replyText(model, line, userContents('chat', body), 'chat'), (t) => delta({ content: t }))
   send({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
   send({
     choices: [],
@@ -154,7 +167,7 @@ async function anthropic(res, body) {
   }
   send({ type: 'content_block_start', index, content_block: { type: 'text', text: '' } })
   const line = echoLine({ protocol: 'anthropic', context: messages.length, echoed, params, users: userContents('anthropic', body) })
-  await streamText(replyText(model, line), (t) => send({ type: 'content_block_delta', index, delta: { type: 'text_delta', text: t } }))
+  await streamText(replyText(model, line, userContents('anthropic', body), 'anthropic'), (t) => send({ type: 'content_block_delta', index, delta: { type: 'text_delta', text: t } }))
   send({ type: 'content_block_stop', index })
   send({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 100 } })
   send({ type: 'message_stop' })
@@ -194,7 +207,7 @@ async function responses(res, body) {
   send({ type: 'response.output_item.added', output_index: oi, item: { id, type: 'message', status: 'in_progress', role: 'assistant', content: [] } })
   send({ type: 'response.content_part.added', item_id: id, output_index: oi, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } })
   const line = echoLine({ protocol: 'responses', context: input.length, echoed, params, users: userContents('responses', body) })
-  const text = replyText(model, line)
+  const text = replyText(model, line, userContents('responses', body), 'responses')
   await streamText(text, (t) => send({ type: 'response.output_text.delta', item_id: id, output_index: oi, content_index: 0, delta: t }))
   send({ type: 'response.output_text.done', item_id: id, output_index: oi, content_index: 0, text })
   const part = { type: 'output_text', text, annotations: [] }
