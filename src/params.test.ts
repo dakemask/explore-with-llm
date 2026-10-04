@@ -125,7 +125,7 @@ describe('helpers', () => {
       baseUrl: 'http://x/v1/',
       apiKey: 'k',
       models: ['m'],
-      headers: 'X-Title: t',
+      modelConfigs: { m: { headers: 'X-Title: t' } },
       createdAt: 0,
     }
     const req = prepareChat(provider, 'm', [{ role: 'user', content: 'q' }], { temperature: 1 })

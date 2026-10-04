@@ -12,12 +12,15 @@ export function Dialog({
   title,
   children,
   className,
+  initialFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: ReactNode
   children: ReactNode
   className?: string
+  /** Selector of the element to focus on open (e.g. a search box); the panel itself otherwise. */
+  initialFocus?: string
 }) {
   const t = useT()
   return (
@@ -30,7 +33,8 @@ export function Dialog({
           tabIndex={-1}
           onOpenAutoFocus={(e) => {
             e.preventDefault()
-            ;(e.currentTarget as HTMLElement).focus()
+            const panel = e.currentTarget as HTMLElement
+            ;((initialFocus && panel.querySelector<HTMLElement>(initialFocus)) || panel).focus()
           }}
           className={clsx(
             'anim-pop fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col',

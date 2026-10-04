@@ -1,4 +1,4 @@
-import type { Protocol, Provider } from '../db/types'
+import type { ModelConfig, Protocol, Provider } from '../db/types'
 import {
   mergeHeaders,
   parseHeaders,
@@ -43,13 +43,18 @@ export function prepareChat(
   params: Record<string, unknown> = {},
 ): PreparedRequest {
   const req = getAdapter(provider.protocol).buildRequest(provider, model, messages, params)
-  return { ...req, headers: mergeHeaders(req.headers, customHeaders(provider)) }
+  return { ...req, headers: mergeHeaders(req.headers, customHeaders(provider, model)) }
+}
+
+/** The user's settings for `model` (empty when it has none). */
+export function modelConfig(provider: Provider, model: string): ModelConfig {
+  return provider.modelConfigs?.[model] ?? {}
 }
 
 /** The parameter config the user wrote for `model`, parsed against the protocol's reserved fields. */
 export function paramConfig(provider: Provider, model: string): ParseResult {
   const adapter = adapters[provider.protocol]
-  return parseParamConfig(provider.modelParams?.[model] ?? '', adapter?.reserved)
+  return parseParamConfig(modelConfig(provider, model).params ?? '', adapter?.reserved)
 }
 
 /**
@@ -70,12 +75,13 @@ export function modelParams(
   return { ok: true, config: parsed.config, params, body, missing }
 }
 
-export function customHeaders(provider: Provider): Record<string, string> {
-  return parseHeaders(provider.headers ?? '').headers
+export function customHeaders(provider: Provider, model: string): Record<string, string> {
+  return parseHeaders(modelConfig(provider, model).headers ?? '').headers
 }
 
+/** Model listing isn't tied to a model, so it goes out with the protocol's own headers only. */
 export function listModels(provider: Provider, signal?: AbortSignal) {
-  return getAdapter(provider.protocol).listModels(provider, customHeaders(provider), signal)
+  return getAdapter(provider.protocol).listModels(provider, {}, signal)
 }
 
 /** The non-streamed equivalent of a streamed response, rebuilt from its SSE data payloads. */

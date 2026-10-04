@@ -1,0 +1,2323 @@
+import type { ModelPreset } from './presets'
+
+/**
+ * Researched from the vendors' official API docs (2026-10). Only official channels. Parameter names are
+ * shown in the composer as-is.
+ */
+export const PRESET_DATA: ModelPreset[] = [
+  {
+    "id": "openai-chat/deepseek-flash",
+    "protocol": "openai-chat",
+    "vendor": "DeepSeek",
+    "label": "DeepSeek V4.1 Flash",
+    "model": "deepseek-flash",
+    "baseUrl": "https://api.deepseek.com",
+    "tags": [
+      "思考",
+      "快速",
+      "便宜",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "EFFORT"
+          }
+        },
+        "options": [
+          "enabled",
+          "disabled"
+        ],
+        "default": "enabled"
+      },
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "low",
+          "high",
+          "max"
+        ],
+        "default": "high",
+        "requires": {
+          "思考": "enabled"
+        }
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 384000,
+        "step": 1000,
+        "default": 64000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考": "disabled"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1M 上下文，最大输出 384K。默认开启思考（强度 high）；思考模式下温度无效，所以只在关闭思考时提供。旧名 deepseek-v4-flash 目前也会转到这个模型。"
+  },
+  {
+    "id": "openai-chat/deepseek-v4-pro",
+    "protocol": "openai-chat",
+    "vendor": "DeepSeek",
+    "label": "DeepSeek V4 Pro",
+    "model": "deepseek-v4-pro",
+    "baseUrl": "https://api.deepseek.com",
+    "tags": [
+      "思考",
+      "旗舰",
+      "长上下文"
+    ],
+    "params": [
+      {
+        "name": "思考",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "EFFORT"
+          }
+        },
+        "options": [
+          "enabled",
+          "disabled"
+        ],
+        "default": "enabled"
+      },
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "low",
+          "high",
+          "max"
+        ],
+        "default": "high",
+        "requires": {
+          "思考": "enabled"
+        }
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 384000,
+        "step": 1000,
+        "default": 64000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考": "disabled"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1M 上下文，最大输出 384K，不支持图片。默认开启思考（强度 high）；思考模式下温度无效，所以只在关闭思考时提供。"
+  },
+  {
+    "id": "openai-chat/gpt-5.6-sol",
+    "protocol": "openai-chat",
+    "vendor": "OpenAI",
+    "label": "GPT-5.6 Sol",
+    "model": "gpt-5.6-sol",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "旗舰",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "verbosity": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_completion_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+  },
+  {
+    "id": "openai-chat/gpt-5.6-terra",
+    "protocol": "openai-chat",
+    "vendor": "OpenAI",
+    "label": "GPT-5.6 Terra",
+    "model": "gpt-5.6-terra",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "均衡",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "verbosity": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_completion_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1.05M 上下文，最大输出 128K。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+  },
+  {
+    "id": "openai-chat/gpt-5.6-luna",
+    "protocol": "openai-chat",
+    "vendor": "OpenAI",
+    "label": "GPT-5.6 Luna",
+    "model": "gpt-5.6-luna",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "快速",
+      "便宜",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "verbosity": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_completion_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1.05M 上下文，最大输出 128K。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+  },
+  {
+    "id": "openai-chat/gpt-6-astra",
+    "protocol": "openai-chat",
+    "vendor": "OpenAI",
+    "label": "GPT-6 Astra",
+    "model": "gpt-6-astra",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "旗舰",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "verbosity": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_completion_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），不支持自定义温度。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+  },
+  {
+    "id": "openai-chat/gpt-6.1-sol",
+    "protocol": "openai-chat",
+    "vendor": "OpenAI",
+    "label": "GPT-6.1 Sol",
+    "model": "gpt-6.1-sol",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "均衡",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "verbosity": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_completion_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），因此不提供温度。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+  },
+  {
+    "id": "openai-chat/gpt-6-sol",
+    "protocol": "openai-chat",
+    "vendor": "OpenAI",
+    "label": "GPT-6 Sol",
+    "model": "gpt-6-sol",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "编程",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "verbosity": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_completion_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+  },
+  {
+    "id": "openai-chat/gpt-6-luna",
+    "protocol": "openai-chat",
+    "vendor": "OpenAI",
+    "label": "GPT-6 Luna",
+    "model": "gpt-6-luna",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "快速",
+      "便宜",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "verbosity": "EFFORT"
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_completion_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      }
+    ],
+    "echoReasoning": false,
+    "notes": "1.05M 上下文，最大输出 128K。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+  },
+  {
+    "id": "openai-responses/gpt-5.6-sol",
+    "protocol": "openai-responses",
+    "vendor": "OpenAI",
+    "label": "GPT-5.6 Sol",
+    "model": "gpt-5.6-sol",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "旗舰",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考摘要",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "summary": "auto"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "Pro 模式",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "mode": "pro"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "text": {
+            "verbosity": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_output_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "store": false,
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+  },
+  {
+    "id": "openai-responses/gpt-5.6-terra",
+    "protocol": "openai-responses",
+    "vendor": "OpenAI",
+    "label": "GPT-5.6 Terra",
+    "model": "gpt-5.6-terra",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "均衡",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考摘要",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "summary": "auto"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "Pro 模式",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "mode": "pro"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "text": {
+            "verbosity": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_output_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "store": false,
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1.05M 上下文，最大输出 128K。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+  },
+  {
+    "id": "openai-responses/gpt-5.6-luna",
+    "protocol": "openai-responses",
+    "vendor": "OpenAI",
+    "label": "GPT-5.6 Luna",
+    "model": "gpt-5.6-luna",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "快速",
+      "便宜",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考摘要",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "summary": "auto"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "Pro 模式",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "mode": "pro"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "text": {
+            "verbosity": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_output_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "store": false,
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1.05M 上下文，最大输出 128K。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+  },
+  {
+    "id": "openai-responses/gpt-6-astra",
+    "protocol": "openai-responses",
+    "vendor": "OpenAI",
+    "label": "GPT-6 Astra",
+    "model": "gpt-6-astra",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "旗舰",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考摘要",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "summary": "auto"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true
+      },
+      {
+        "name": "Pro 模式",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "mode": "pro"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "text": {
+            "verbosity": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_output_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "type": "silent",
+        "body": {
+          "store": false,
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），不支持自定义温度。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+  },
+  {
+    "id": "openai-responses/gpt-6.1-sol",
+    "protocol": "openai-responses",
+    "vendor": "OpenAI",
+    "label": "GPT-6.1 Sol",
+    "model": "gpt-6.1-sol",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "均衡",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考摘要",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "summary": "auto"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true
+      },
+      {
+        "name": "Pro 模式",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "mode": "pro"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "text": {
+            "verbosity": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_output_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "type": "silent",
+        "body": {
+          "store": false,
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），因此不提供温度。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+  },
+  {
+    "id": "openai-responses/gpt-6-sol",
+    "protocol": "openai-responses",
+    "vendor": "OpenAI",
+    "label": "GPT-6 Sol",
+    "model": "gpt-6-sol",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "编程",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考摘要",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "summary": "auto"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "Pro 模式",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "mode": "pro"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "text": {
+            "verbosity": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_output_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "store": false,
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+  },
+  {
+    "id": "openai-responses/gpt-6-luna",
+    "protocol": "openai-responses",
+    "vendor": "OpenAI",
+    "label": "GPT-6 Luna",
+    "model": "gpt-6-luna",
+    "baseUrl": "https://api.openai.com/v1",
+    "tags": [
+      "思考",
+      "快速",
+      "便宜",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考摘要",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "summary": "auto"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "Pro 模式",
+        "type": "fixed",
+        "body": {
+          "reasoning": {
+            "mode": "pro"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      {
+        "name": "详细程度",
+        "type": "choice",
+        "body": {
+          "text": {
+            "verbosity": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_output_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 32000,
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": "none"
+        }
+      },
+      {
+        "type": "silent",
+        "body": {
+          "store": false,
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1.05M 上下文，最大输出 128K。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+  },
+  {
+    "id": "anthropic/claude-fable-5-1",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Fable 5.1",
+    "model": "claude-fable-5-1",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "最强",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "adaptive",
+            "display": "EFFORT",
+            "block_binding": {
+              "prefix_mismatch_behavior": "drop_block"
+            }
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），不支持温度。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
+  },
+  {
+    "id": "anthropic/claude-opus-5-5",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Opus 5.5",
+    "model": "claude-opus-5-5",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "旗舰",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "medium"
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "adaptive",
+            "display": "EFFORT",
+            "block_binding": {
+              "prefix_mismatch_behavior": "drop_block"
+            }
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），默认强度 medium，不支持温度。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
+  },
+  {
+    "id": "anthropic/claude-sonnet-5-5",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Sonnet 5.5",
+    "model": "claude-sonnet-5-5",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "均衡",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "关闭思考",
+        "type": "fixed",
+        "body": {
+          "thinking": {
+            "type": "between_tools"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "adaptive",
+            "display": "EFFORT",
+            "block_binding": {
+              "prefix_mismatch_behavior": "drop_block"
+            }
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized",
+        "requires": {
+          "关闭思考": false
+        }
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
+    "notes": "1M 上下文，最大输出 128K。“关闭思考”发送 between_tools（关闭前置思考），只能在 high 及以下强度使用。不支持温度。"
+  },
+  {
+    "id": "anthropic/claude-fable-5",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Fable 5",
+    "model": "claude-fable-5",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "adaptive",
+            "display": "EFFORT"
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），不支持温度。已有更新的 Fable 5.1。"
+  },
+  {
+    "id": "anthropic/claude-opus-5",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Opus 5",
+    "model": "claude-opus-5",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "关闭思考",
+        "type": "fixed",
+        "body": {
+          "thinking": {
+            "type": "disabled"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考强度": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "adaptive",
+            "display": "EFFORT"
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized",
+        "requires": {
+          "关闭思考": false
+        }
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1M 上下文，最大输出 128K。默认思考（自适应）；只有 high 及以下强度可以关闭思考。不支持温度。"
+  },
+  {
+    "id": "anthropic/claude-sonnet-5",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Sonnet 5",
+    "model": "claude-sonnet-5",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "关闭思考",
+        "type": "fixed",
+        "body": {
+          "thinking": {
+            "type": "disabled"
+          }
+        },
+        "toggle": true,
+        "defaultOn": false
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "type": "adaptive",
+            "display": "EFFORT"
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized",
+        "requires": {
+          "关闭思考": false
+        }
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1M 上下文，最大输出 128K。默认思考（自适应），可关闭。不支持温度。"
+  },
+  {
+    "id": "anthropic/claude-opus-4-8",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Opus 4.8",
+    "model": "claude-opus-4-8",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考",
+        "type": "fixed",
+        "body": {
+          "thinking": {
+            "type": "adaptive"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "display": "EFFORT"
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized",
+        "requires": {
+          "思考": true
+        }
+      },
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。不支持温度。"
+  },
+  {
+    "id": "anthropic/claude-opus-4-7",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Opus 4.7",
+    "model": "claude-opus-4-7",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考",
+        "type": "fixed",
+        "body": {
+          "thinking": {
+            "type": "adaptive"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "display": "EFFORT"
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized",
+        "requires": {
+          "思考": true
+        }
+      },
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。不支持温度。"
+  },
+  {
+    "id": "anthropic/claude-opus-4-6",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Opus 4.6",
+    "model": "claude-opus-4-6",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考",
+        "type": "fixed",
+        "body": {
+          "thinking": {
+            "type": "adaptive"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "display": "EFFORT"
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized",
+        "requires": {
+          "思考": true
+        }
+      },
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 1,
+        "step": 0.05,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考": false
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考；温度只能在关闭思考时使用。强度没有 xhigh。"
+  },
+  {
+    "id": "anthropic/claude-sonnet-4-6",
+    "protocol": "anthropic",
+    "vendor": "Anthropic",
+    "label": "Claude Sonnet 4.6",
+    "model": "claude-sonnet-4-6",
+    "baseUrl": "https://api.anthropic.com",
+    "tags": [
+      "思考",
+      "均衡",
+      "长上下文",
+      "识图"
+    ],
+    "params": [
+      {
+        "name": "思考",
+        "type": "fixed",
+        "body": {
+          "thinking": {
+            "type": "adaptive"
+          }
+        },
+        "toggle": true,
+        "defaultOn": true
+      },
+      {
+        "name": "思考显示",
+        "type": "choice",
+        "body": {
+          "thinking": {
+            "display": "EFFORT"
+          }
+        },
+        "options": [
+          "summarized",
+          "omitted"
+        ],
+        "default": "summarized",
+        "requires": {
+          "思考": true
+        }
+      },
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "output_config": {
+            "effort": "EFFORT"
+          }
+        },
+        "options": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "default": "high"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1000,
+        "max": 128000,
+        "step": 1000,
+        "default": 64000
+      },
+      {
+        "name": "温度",
+        "type": "range",
+        "body": {
+          "temperature": "VALUE"
+        },
+        "min": 0,
+        "max": 1,
+        "step": 0.05,
+        "default": 1,
+        "toggle": true,
+        "defaultOn": false,
+        "requires": {
+          "思考": false
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考；温度只能在关闭思考时使用。强度没有 xhigh。"
+  }
+]

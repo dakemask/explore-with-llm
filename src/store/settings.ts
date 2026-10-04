@@ -17,6 +17,8 @@ interface SettingsState {
   setTheme: (theme: Theme) => void
   setModel: (providerId: string, model: string) => void
   setParamChoice: (key: string, name: string, choice: ParamChoice) => void
+  /** A model was renamed in settings: keep it selected and keep its parameter choices. */
+  renameModel: (providerId: string, from: string, to: string) => void
 }
 
 export const paramKey = (providerId: string, model: string) => `${providerId}/${model}`
@@ -38,6 +40,15 @@ export const useSettings = create<SettingsState>()(
         set((s) => {
           const forModel = s.paramChoices[key] ?? {}
           return { paramChoices: { ...s.paramChoices, [key]: { ...forModel, [name]: { ...forModel[name], ...choice } } } }
+        }),
+      renameModel: (providerId, from, to) =>
+        set((s) => {
+          const paramChoices = { ...s.paramChoices }
+          const old = paramKey(providerId, from)
+          if (paramChoices[old]) paramChoices[paramKey(providerId, to)] = paramChoices[old]
+          delete paramChoices[old]
+          const selected = s.providerId === providerId && s.model === from
+          return { paramChoices, ...(selected && { model: to }) }
         }),
     }),
     { name: 'ewl-settings' },

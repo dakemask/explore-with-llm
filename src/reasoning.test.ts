@@ -1,19 +1,23 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import type { ChatNode, Provider } from './db/types'
+import type { ChatNode, ModelConfig, Provider } from './db/types'
 import { buildMessages } from './lib/chat'
 import { reasoningView, splitThink } from './lib/reasoning'
 import { openaiChat } from './providers/openaiChat'
 
-const provider = (extra: Partial<Provider> = {}): Provider => ({
-  id: 'p',
-  name: 'P',
-  protocol: 'openai-chat',
-  baseUrl: 'http://x',
-  apiKey: 'k',
-  models: ['m'],
-  createdAt: 0,
-  ...extra,
+/** Sending to model `m` of provider `id` (default `p`, the one that produced the replies) with `config`. */
+const target = ({ id = 'p', ...config }: ModelConfig & { id?: string } = {}): { provider: Provider; model: string } => ({
+  provider: {
+    id,
+    name: 'P',
+    protocol: 'openai-chat',
+    baseUrl: 'http://x',
+    apiKey: 'k',
+    models: ['m'],
+    modelConfigs: { m: config },
+    createdAt: 0,
+  },
+  model: 'm',
 })
 
 function node(message: Record<string, unknown> | undefined, extra: Partial<ChatNode> = {}): ChatNode {
@@ -50,41 +54,41 @@ const native = {
 
 describe('echo-back', () => {
   it('sends text only by default', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider())
+    const [, a] = buildMessages([node(native)], 'next', target())
     expect(a).toEqual({ role: 'assistant', content: 'answer' })
   })
 
   it('sends nothing extra when switched off, even with fields listed', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: false, echoFields: ['*'] }))
+    const [, a] = buildMessages([node(native)], 'next', target({ echoReasoning: false, echoFields: ['*'] }))
     expect(a).toEqual({ role: 'assistant', content: 'answer' })
   })
 
   it('picks only the best reasoning field automatically', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: true }))
+    const [, a] = buildMessages([node(native)], 'next', target({ echoReasoning: true }))
     expect(a.extra).toEqual({ reasoning_details: native.reasoning_details })
     const plain = { role: 'assistant', content: 'x', reasoning_content: 'thought', reasoning: 'thought' }
-    const [, b] = buildMessages([node(plain)], 'next', provider({ echoReasoning: true }))
+    const [, b] = buildMessages([node(plain)], 'next', target({ echoReasoning: true }))
     expect(b.extra).toEqual({ reasoning_content: 'thought' })
   })
 
   it('sends the listed native fields, with current (possibly edited) text', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: true, echoFields: ['reasoning_details', 'missing'] }))
+    const [, a] = buildMessages([node(native)], 'next', target({ echoReasoning: true, echoFields: ['reasoning_details', 'missing'] }))
     expect(a).toEqual({ role: 'assistant', content: 'answer', extra: { reasoning_details: native.reasoning_details } })
   })
 
   it('sends every native field with *', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: true, echoFields: ['*'] }))
+    const [, a] = buildMessages([node(native)], 'next', target({ echoReasoning: true, echoFields: ['*'] }))
     expect(a.extra).toEqual({ reasoning_content: 'thought', reasoning_details: native.reasoning_details })
   })
 
   it('never sends fields to a different provider', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ id: 'other', echoReasoning: true, echoFields: ['*'] }))
+    const [, a] = buildMessages([node(native)], 'next', target({ id: 'other', echoReasoning: true, echoFields: ['*'] }))
     expect(a).toEqual({ role: 'assistant', content: 'answer' })
   })
 
   it('puts extra fields on the wire message', () => {
     const req = openaiChat.buildRequest(
-      provider(),
+      target().provider,
       'm',
       [
         { role: 'user', content: 'q' },

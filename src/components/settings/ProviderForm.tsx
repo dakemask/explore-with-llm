@@ -1,44 +1,67 @@
 import clsx from 'clsx'
-import { Eye, EyeOff, Loader2, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Eye, EyeOff, Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
-import { parseHeaders } from '../../lib/params'
+import { addModels } from '../../lib/models'
 import { getAdapter, listModels, PROTOCOLS, ProviderError } from '../../providers'
 import { joinUrl } from '../../providers/types'
 import { Button } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
-import { Input, Label, Textarea } from '../ui/Field'
-import { Switch } from '../ui/Switch'
-import { ParamsEditor } from './ParamsEditor'
+import { Input, Label } from '../ui/Field'
+import { ModelConfigPage } from './ModelConfigPage'
+import { ModelList } from './ModelList'
 
-/** Edits a provider in place; every change is saved immediately. */
-export function ProviderForm({ provider: initial, initialModel }: { provider: Provider; initialModel?: string }) {
+/**
+ * A provider's settings, or the config page of one of its models (`initialModel` opens straight into it).
+ * `provider` is the live stored record.
+ */
+export function ProviderForm({ provider, initialModel }: { provider: Provider; initialModel?: string }) {
+  // Which model's page is open: a name, null for a new model, undefined for the provider's own fields.
+  const [page, setPage] = useState<string | null | undefined>(
+    initialModel && provider.models.includes(initialModel) ? initialModel : undefined,
+  )
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    rootRef.current?.parentElement?.scrollTo(0, 0)
+  }, [page])
+
+  return (
+    <div ref={rootRef}>
+      {page === undefined ? (
+        <ProviderFields provider={provider} onOpenModel={setPage} />
+      ) : (
+        <ModelConfigPage key={page ?? ''} provider={provider} model={page} onBack={() => setPage(undefined)} />
+      )}
+    </div>
+  )
+}
+
+/** The provider's own fields and its model list; every change is saved immediately. */
+function ProviderFields({
+  provider: stored,
+  onOpenModel,
+}: {
+  provider: Provider
+  onOpenModel: (model: string | null) => void
+}) {
   const t = useT()
-  // Local copy so inputs stay responsive; IndexedDB writes are async.
-  const [provider, setProvider] = useState(initial)
+  // Local copy so inputs stay responsive; IndexedDB writes are async. Models change elsewhere, so they
+  // always come from the stored record.
+  const [local, setLocal] = useState(stored)
+  const provider = { ...local, models: stored.models, modelConfigs: stored.modelConfigs }
   const [showKey, setShowKey] = useState(false)
-  const [modelsText, setModelsText] = useState(provider.models.join('\n'))
-  const [echoText, setEchoText] = useState((provider.echoFields ?? []).join(', '))
-  const [headersText, setHeadersText] = useState(provider.headers ?? '')
-  const badHeaderLine = parseHeaders(headersText).badLine
   const adapter = getAdapter(provider.protocol)
   const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string; error?: boolean }>({})
 
+  // A preset can fill an empty name / base URL while this form is hidden; pick that up.
+  useEffect(() => {
+    setLocal((l) => ({ ...l, name: l.name || stored.name, baseUrl: l.baseUrl || stored.baseUrl }))
+  }, [stored.name, stored.baseUrl])
+
   const save = (patch: Partial<Provider>) => {
-    setProvider((p) => ({ ...p, ...patch }))
+    setLocal((p) => ({ ...p, ...patch }))
     db.providers.update(provider.id, patch)
-  }
-
-  const setModels = (text: string) => {
-    setModelsText(text)
-    const models = [...new Set(text.split('\n').map((s) => s.trim()).filter(Boolean))]
-    save({ models })
-  }
-
-  const setEcho = (text: string) => {
-    setEchoText(text)
-    save({ echoFields: [...new Set(text.split(/[\s,，]+/).filter(Boolean))] })
   }
 
   const fetchModels = async () => {
@@ -46,8 +69,8 @@ export function ProviderForm({ provider: initial, initialModel }: { provider: Pr
     try {
       const models = await listModels(provider)
       if (models.length === 0) throw new ProviderError('Empty model list')
-      setModels(models.join('\n'))
-      setFetchState({ message: t('provider.fetched', { n: models.length }) })
+      const added = await addModels(provider, models)
+      setFetchState({ message: t('provider.fetched', { n: models.length, added }) })
     } catch (e) {
       const err = e as ProviderError
       setFetchState({ error: true, message: err.code === 'network' ? t('error.network') : err.message })
@@ -131,79 +154,30 @@ export function ProviderForm({ provider: initial, initialModel }: { provider: Pr
         <Label
           hint={t('provider.modelsHint')}
           action={
-            <Button
-              size="sm"
-              onClick={fetchModels}
-              disabled={fetchState.loading || !provider.baseUrl || !provider.apiKey}
-            >
-              {fetchState.loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              {fetchState.loading ? t('provider.fetching') : t('provider.fetchModels')}
-            </Button>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={fetchModels}
+                disabled={fetchState.loading || !provider.baseUrl || !provider.apiKey}
+              >
+                {fetchState.loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                {fetchState.loading ? t('provider.fetching') : t('provider.fetchModels')}
+              </Button>
+              <Button size="sm" onClick={() => onOpenModel(null)}>
+                <Plus size={13} />
+                {t('model.add')}
+              </Button>
+            </div>
           }
         >
           {t('provider.models')}
         </Label>
-        <Textarea
-          rows={5}
-          value={modelsText}
-          onChange={(e) => setModels(e.target.value)}
-          spellCheck={false}
-          className="font-mono text-[13px]"
-        />
+        <ModelList provider={provider} onOpen={onOpenModel} />
         {fetchState.message && (
           <div className={clsx('mt-1.5 text-xs', fetchState.error ? 'text-danger' : 'text-muted')}>
             {fetchState.message}
           </div>
-        )}
-      </div>
-
-      <ParamsEditor provider={provider} initialModel={initialModel} onSave={(modelParams) => save({ modelParams })} />
-
-      <div>
-        <Label
-          hint={t('provider.echoHint')}
-          action={
-            <Switch
-              checked={!!provider.echoReasoning}
-              onChange={(echoReasoning) => save({ echoReasoning })}
-              label={t('provider.echo')}
-            />
-          }
-        >
-          {t('provider.echo')}
-        </Label>
-        {provider.echoReasoning && (
-          <div className="mt-3 rounded-lg bg-subtle p-3">
-            <div className="mb-1.5 text-xs font-medium text-muted">{t('provider.echoFields')}</div>
-            <Input
-              value={echoText}
-              onChange={(e) => setEcho(e.target.value)}
-              placeholder={t('provider.echoAuto')}
-              spellCheck={false}
-              className="font-mono text-[13px]"
-            />
-            <div className="mt-1.5 text-xs leading-relaxed text-faint">
-              {t(`echo.auto.${provider.protocol}`)} {t('echo.manual')}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div>
-        <Label hint={t('provider.headersHint')}>{t('provider.headers')}</Label>
-        <Textarea
-          rows={3}
-          value={headersText}
-          onChange={(e) => {
-            setHeadersText(e.target.value)
-            save({ headers: e.target.value })
-          }}
-          placeholder="X-Title: Explore"
-          spellCheck={false}
-          className="font-mono text-[13px]"
-        />
-        {badHeaderLine && (
-          <div className="mt-1.5 text-xs text-danger">{t('provider.headersBad', { n: badHeaderLine })}</div>
         )}
       </div>
 

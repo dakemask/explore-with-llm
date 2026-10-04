@@ -117,8 +117,8 @@ describe('anthropic', () => {
 
   it('echoes thinking blocks before the edited text, only when switched on', () => {
     const msg = anthropic.replyMessage(anthropic.aggregate(stream))!
-    const p = provider('anthropic', { echoReasoning: true })
-    const req = prepareChat(p, 'm', buildMessages([node('anthropic', msg)], 'next', p), { max_tokens: 1024 })
+    const p = provider('anthropic', { modelConfigs: { m: { echoReasoning: true } } })
+    const req = prepareChat(p, 'm', buildMessages([node('anthropic', msg)], 'next', { provider: p, model: 'm' }), { max_tokens: 1024 })
     expect(req.url).toBe('http://x/v1/messages')
     expect(req.headers).toMatchObject({ 'x-api-key': 'k', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' })
     expect(req.body).toEqual({
@@ -138,13 +138,13 @@ describe('anthropic', () => {
       max_tokens: 1024,
       stream: true,
     })
-    const off = buildMessages([node('anthropic', msg)], 'next', provider('anthropic'))
+    const off = buildMessages([node('anthropic', msg)], 'next', { provider: provider('anthropic'), model: 'm' })
     expect(off[1]).toEqual({ role: 'assistant', content: 'edited answer' })
   })
 
   it('requires max_tokens from the parameters', () => {
     const p = provider('anthropic', {
-      modelParams: { m: '[{"name":"Max","type":"range","body":{"max_tokens":"VALUE"},"min":1,"max":8,"toggle":true}]' },
+      modelConfigs: { m: { params: '[{"name":"Max","type":"range","body":{"max_tokens":"VALUE"},"min":1,"max":8,"toggle":true}]' } },
     })
     const on = modelParams(p, 'm')
     expect(on.ok && on.missing).toBe(undefined)
@@ -212,8 +212,8 @@ describe('openai-responses', () => {
   })
 
   it('echoes reasoning items before the native message item with the edited text', () => {
-    const p = provider('openai-responses', { echoReasoning: true })
-    const req = prepareChat(p, 'm', buildMessages([node('openai-responses', { output: [reasoningItem, message] })], 'next', p))
+    const p = provider('openai-responses', { modelConfigs: { m: { echoReasoning: true } } })
+    const req = prepareChat(p, 'm', buildMessages([node('openai-responses', { output: [reasoningItem, message] })], 'next', { provider: p, model: 'm' }))
     expect(req.url).toBe('http://x/responses')
     expect(req.body).toEqual({
       model: 'm',
@@ -225,13 +225,13 @@ describe('openai-responses', () => {
       ],
       stream: true,
     })
-    const off = prepareChat(p, 'm', buildMessages([node('openai-responses', { output: [reasoningItem, message] })], 'next', provider('openai-responses')))
+    const off = prepareChat(p, 'm', buildMessages([node('openai-responses', { output: [reasoningItem, message] })], 'next', { provider: provider('openai-responses'), model: 'm' }))
     expect((off.body as { input: unknown[] }).input[1]).toEqual({ role: 'assistant', content: 'edited answer' })
   })
 
   it('never echoes a reply recorded under another protocol', () => {
-    const p = provider('openai-responses', { echoReasoning: true })
-    const msgs = buildMessages([node('openai-chat', { role: 'assistant', content: 'x', reasoning_content: 'r' })], 'next', p)
+    const p = provider('openai-responses', { modelConfigs: { m: { echoReasoning: true } } })
+    const msgs = buildMessages([node('openai-chat', { role: 'assistant', content: 'x', reasoning_content: 'r' })], 'next', { provider: p, model: 'm' })
     expect(msgs[1]).toEqual({ role: 'assistant', content: 'edited answer' })
   })
 })

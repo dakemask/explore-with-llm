@@ -6,12 +6,20 @@ export interface Provider {
   protocol: Protocol
   baseUrl: string
   apiKey: string
+  /** Model names, in the order shown. */
   models: string[]
+  /** Per-model settings, keyed by model name. A model without an entry has none. */
+  modelConfigs?: Record<string, ModelConfig>
+  createdAt: number
+}
+
+/** How requests to one model are made, beyond the protocol's own fields. */
+export interface ModelConfig {
   /**
-   * Per-model request parameters: the user's JSON config text (format in `lib/params.ts`), keyed by
-   * model name. Kept as typed so mistakes stay visible; parsed when used.
+   * Request parameters: the user's JSON config text (format in `lib/params.ts`). Kept as typed so
+   * mistakes stay visible; parsed when used.
    */
-  modelParams?: Record<string, string>
+  params?: string
   /**
    * Send the reasoning of earlier replies back as context. Only applies to replies this provider
    * produced — foreign fields (e.g. another vendor's encrypted reasoning) are never sent.
@@ -25,7 +33,8 @@ export interface Provider {
   echoFields?: string[]
   /** Extra request headers, one `Name: value` per line, sent as typed (may replace built-in ones). */
   headers?: string
-  createdAt: number
+  /** The built-in preset (`lib/presets.ts` id) this config was last filled from. */
+  preset?: string
 }
 
 export interface Conversation {

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { ChatNode, Conversation, Provider } from './types'
+import type { ChatNode, Conversation, ModelConfig, Provider } from './types'
 
 export const db = new Dexie('explore-with-llm') as Dexie & {
   providers: EntityTable<Provider, 'id'>
@@ -22,10 +22,40 @@ db.version(2)
   })
   .upgrade((tx) =>
     tx
-      .table<Provider>('providers')
+      .table('providers')
       .toCollection()
-      .modify((p) => {
+      .modify((p: Record<string, any>) => {
         p.echoReasoning = (p.echoFields?.length ?? 0) > 0
+      }),
+  )
+
+// v3: parameters, echo-back and custom headers became per-model (`modelConfigs`). Provider-wide echo and
+// headers used to apply to every model, so each model gets a copy.
+db.version(3)
+  .stores({
+    providers: 'id, createdAt',
+    conversations: 'id, updatedAt',
+    nodes: 'id, conversationId, parentId',
+  })
+  .upgrade((tx) =>
+    tx
+      .table('providers')
+      .toCollection()
+      .modify((p: Provider & Record<string, any>) => {
+        const configs: Record<string, ModelConfig> = {}
+        for (const m of p.models) {
+          const c: ModelConfig = {}
+          if (p.modelParams?.[m]?.trim()) c.params = p.modelParams[m]
+          if (p.echoReasoning) c.echoReasoning = true
+          if (p.echoFields?.length) c.echoFields = p.echoFields
+          if (p.headers?.trim()) c.headers = p.headers
+          if (Object.keys(c).length) configs[m] = c
+        }
+        p.modelConfigs = configs
+        delete p.modelParams
+        delete p.echoReasoning
+        delete p.echoFields
+        delete p.headers
       }),
   )
 

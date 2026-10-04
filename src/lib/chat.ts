@@ -11,7 +11,7 @@ import {
   type SideAnchor,
 } from '../db'
 import { translate } from '../i18n'
-import { getAdapter, modelParams, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import { getAdapter, modelConfig, modelParams, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
 import { paramKey, useSettings } from '../store/settings'
 import { streamEvents } from './attempt'
 import { splitThink } from './reasoning'
@@ -43,14 +43,14 @@ export async function deleteConversation(id: string) {
 /**
  * Turns a root→leaf path into protocol messages, then appends the new user turn.
  * Nodes whose request produced no assistant text still contribute their user turn.
- * Replies carry the native fields `provider` asks to be echoed back (see `Provider.echoFields`).
+ * Replies carry the native fields the target model's config asks to be echoed back (see `ModelConfig.echoFields`).
  */
-export function buildMessages(path: ChatNode[], userText: string, provider?: Provider): ChatMessage[] {
+export function buildMessages(path: ChatNode[], userText: string, target?: { provider: Provider; model: string }): ChatMessage[] {
   const messages: ChatMessage[] = []
   for (const n of path) {
     messages.push({ role: 'user', content: n.user.text })
     if (n.assistant.content) {
-      const extra = provider && echoFields(n, provider)
+      const extra = target && echoFields(n, target.provider, target.model)
       messages.push(extra ? { role: 'assistant', content: n.assistant.content, extra } : { role: 'assistant', content: n.assistant.content })
     }
   }
@@ -63,12 +63,13 @@ export function buildMessages(path: ChatNode[], userText: string, provider?: Pro
  * another vendor's fields (encrypted reasoning, signatures…) would be meaningless or rejected.
  * Text always comes from `assistant.content`, so in-place edits win over the original.
  */
-function echoFields(node: ChatNode, provider: Provider): Record<string, unknown> | undefined {
+function echoFields(node: ChatNode, provider: Provider, model: string): Record<string, unknown> | undefined {
   const msg = node.attempt.message
-  if (!msg || !provider.echoReasoning || node.attempt.providerId !== provider.id) return undefined
+  const config = modelConfig(provider, model)
+  if (!msg || !config.echoReasoning || node.attempt.providerId !== provider.id) return undefined
   // A reply from before a protocol switch has another protocol's shape; it can't be echoed.
   if (node.attempt.protocol !== provider.protocol) return undefined
-  return getAdapter(provider.protocol).echo(msg, provider.echoFields ?? [])
+  return getAdapter(provider.protocol).echo(msg, config.echoFields ?? [])
 }
 
 /** Rebuilds the native reply message from the recorded stream. */
@@ -102,7 +103,7 @@ export async function sendMessage(opts: {
 
   const allNodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
   const path = parentId ? pathTo(allNodes, parentId) : []
-  const messages = buildMessages(path, text, provider)
+  const messages = buildMessages(path, text, { provider, model })
 
   const nodeId = nanoid()
   const now = Date.now()
