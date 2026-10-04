@@ -54,11 +54,6 @@ function ProviderFields({
   const adapter = getAdapter(provider.protocol)
   const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string; error?: boolean }>({})
 
-  // A preset can fill an empty name / base URL while this form is hidden; pick that up.
-  useEffect(() => {
-    setLocal((l) => ({ ...l, name: l.name || stored.name, baseUrl: l.baseUrl || stored.baseUrl }))
-  }, [stored.name, stored.baseUrl])
-
   const save = (patch: Partial<Provider>) => {
     setLocal((p) => ({ ...p, ...patch }))
     db.providers.update(provider.id, patch)

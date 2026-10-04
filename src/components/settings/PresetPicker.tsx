@@ -85,7 +85,6 @@ export function PresetPicker({
                       <span className="text-[13.5px] font-medium">{p.label}</span>
                       <span className="text-xs text-faint">{t('preset.official', { vendor: p.vendor })}</span>
                     </div>
-                    <div className="mt-0.5 truncate font-mono text-xs text-muted">{p.model}</div>
                     {p.notes && <div className="mt-1 text-xs leading-relaxed text-faint">{p.notes}</div>}
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1 pt-0.5">

@@ -4,18 +4,15 @@ import { PRESET_DATA } from './presetData'
 /**
  * Built-in model presets: a model's parameter config, echo-back choice and headers for one official
  * vendor API, researched from the vendor docs (see `presetData.ts`). Applying one replaces the model's
- * whole config.
+ * whole config; it never touches the model's name or the provider (owner's choice).
  */
 export interface ModelPreset {
-  /** `protocol/model`. */
+  /** Stable key stored in `ModelConfig.preset` (`protocol/model-id` at the time it was written). */
   id: string
   protocol: Protocol
   vendor: string
   /** Display name, e.g. "DeepSeek V4 Pro". */
   label: string
-  model: string
-  /** The vendor's base URL, written the way this protocol expects. */
-  baseUrl: string
   tags: string[]
   /** Parameter config items (format of `lib/params.ts`). */
   params: unknown[]
@@ -41,13 +38,13 @@ export function presetConfig(p: ModelPreset): ModelConfig {
   return c
 }
 
-/** Presets for `protocol` matching every word of `query` (name, model id, vendor, tags) and every tag. */
+/** Presets for `protocol` matching every word of `query` (name, vendor, tags) and every tag. */
 export function searchPresets(protocol: Protocol, query: string, tags: string[]) {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   return PRESETS.filter((p) => {
     if (p.protocol !== protocol) return false
     if (!tags.every((t) => p.tags.includes(t) || p.vendor === t)) return false
-    const hay = [p.label, p.model, p.vendor, ...p.tags].join(' ').toLowerCase()
+    const hay = [p.label, p.vendor, ...p.tags].join(' ').toLowerCase()
     return words.every((w) => hay.includes(w))
   })
 }

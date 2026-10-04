@@ -1,6 +1,6 @@
 import { ChevronLeft, Files, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { db, type ModelConfig, type Provider } from '../../db'
+import type { ModelConfig, Provider } from '../../db'
 import { useT } from '../../i18n'
 import { addModel, hasConfig, modelNameError, removeModel, renameModel, setModelConfig } from '../../lib/models'
 import { parseHeaders } from '../../lib/params'
@@ -70,18 +70,7 @@ export function ModelConfigPage({
   }
 
   const applyPreset = async (p: ModelPreset) => {
-    if (!(await replaceConfig(presetConfig(p), p.label))) return
-    setPickerOpen(false)
-    // A new model without a name takes the preset's model id; a blank provider gets the vendor's address.
-    if (!model && !name.trim() && !modelNameError(provider, p.model, null)) {
-      setName(p.model)
-      await addModel(provider.id, p.model, presetConfig(p))
-      setModel(p.model)
-    }
-    const fill: Partial<Provider> = {}
-    if (!provider.baseUrl.trim()) fill.baseUrl = p.baseUrl
-    if (!provider.name.trim()) fill.name = p.vendor
-    if (Object.keys(fill).length) await db.providers.update(provider.id, fill)
+    if (await replaceConfig(presetConfig(p), p.label)) setPickerOpen(false)
   }
 
   const copyFrom = (source: string) => replaceConfig({ ...provider.modelConfigs?.[source] }, source)

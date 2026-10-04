@@ -10,8 +10,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "DeepSeek",
     "label": "DeepSeek V4.1 Flash",
-    "model": "deepseek-flash",
-    "baseUrl": "https://api.deepseek.com",
     "tags": [
       "思考",
       "快速",
@@ -96,8 +94,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "DeepSeek",
     "label": "DeepSeek V4 Pro",
-    "model": "deepseek-v4-pro",
-    "baseUrl": "https://api.deepseek.com",
     "tags": [
       "思考",
       "旗舰",
@@ -180,8 +176,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Sol",
-    "model": "gpt-5.6-sol",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "旗舰",
@@ -264,8 +258,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Terra",
-    "model": "gpt-5.6-terra",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "均衡",
@@ -348,8 +340,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Luna",
-    "model": "gpt-5.6-luna",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "快速",
@@ -433,8 +423,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Astra",
-    "model": "gpt-6-astra",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "旗舰",
@@ -500,8 +488,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6.1 Sol",
-    "model": "gpt-6.1-sol",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "均衡",
@@ -567,8 +553,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Sol",
-    "model": "gpt-6-sol",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "编程",
@@ -651,8 +635,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Luna",
-    "model": "gpt-6-luna",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "快速",
@@ -736,8 +718,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Sol",
-    "model": "gpt-5.6-sol",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "旗舰",
@@ -865,8 +845,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Terra",
-    "model": "gpt-5.6-terra",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "均衡",
@@ -994,8 +972,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Luna",
-    "model": "gpt-5.6-luna",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "快速",
@@ -1124,8 +1100,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Astra",
-    "model": "gpt-6-astra",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "旗舰",
@@ -1218,8 +1192,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6.1 Sol",
-    "model": "gpt-6.1-sol",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "均衡",
@@ -1312,8 +1284,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Sol",
-    "model": "gpt-6-sol",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "编程",
@@ -1441,8 +1411,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Luna",
-    "model": "gpt-6-luna",
-    "baseUrl": "https://api.openai.com/v1",
     "tags": [
       "思考",
       "快速",
@@ -1571,8 +1539,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Fable 5.1",
-    "model": "claude-fable-5-1",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "最强",
@@ -1636,8 +1602,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 5.5",
-    "model": "claude-opus-5-5",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "旗舰",
@@ -1701,8 +1665,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 5.5",
-    "model": "claude-sonnet-5-5",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "均衡",
@@ -1787,8 +1749,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Fable 5",
-    "model": "claude-fable-5",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "长上下文",
@@ -1847,8 +1807,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 5",
-    "model": "claude-opus-5",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "长上下文",
@@ -1928,8 +1886,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 5",
-    "model": "claude-sonnet-5",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "长上下文",
@@ -2002,8 +1958,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.8",
-    "model": "claude-opus-4-8",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "长上下文",
@@ -2075,8 +2029,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.7",
-    "model": "claude-opus-4-7",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "长上下文",
@@ -2148,8 +2100,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.6",
-    "model": "claude-opus-4-6",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "长上下文",
@@ -2236,8 +2186,6 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 4.6",
-    "model": "claude-sonnet-4-6",
-    "baseUrl": "https://api.anthropic.com",
     "tags": [
       "思考",
       "均衡",
