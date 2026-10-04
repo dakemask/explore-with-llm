@@ -17,7 +17,7 @@ The owner can't review code, so check changes in a real browser before reporting
 run `pnpm dev` + `pnpm mock`, then drive the page with `playwright-core` using the locally installed
 Chrome (`C:/Program Files/Google/Chrome/Application/chrome.exe`) — install playwright-core in the
 session scratchpad, not in this project. Add a Custom provider with base URL `http://localhost:8787`;
-model `mock-chat` streams reasoning + markdown/code/math (prefixed with a request counter and the last user message, so branches differ), `mock-bad` returns 401. Take screenshots
+model `mock-chat` streams `reasoning_content` + markdown/code/math, `mock-think` streams OpenRouter-style summary + encrypted `reasoning_details`, `mock-tags` puts `<think>` in the content, `mock-bad` returns 401. Every reply starts with a line echoing the request counter, context size, extra fields echoed back on earlier assistant messages, and the last user message. Take screenshots
 and look at them; check both themes when touching styles.
 
 Shortcuts for scripts: seed the provider by writing straight into the `providers` store of the
@@ -63,7 +63,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 - Side questions: right drawer; context = root→node main path + selected text + question.
 - Protocols planned: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages.
 - Provider config should let users freely decide which request parameters are sent and their values; avoid per-vendor adaptation in the app (no OpenRouter-specific request params etc.). The app adapts per *protocol*, not per vendor. Planned: per-provider params template + custom headers + "which assistant fields to echo back" option (default: content only, since e.g. DeepSeek rejects echoed `reasoning_content`).
-- Reasoning / encrypted reasoning (agreed design, step 3b): store the assistant reply in its native protocol shape (the merged message / output items / content blocks, unknown fields included) and echo it back verbatim in context when the protocol matches; downgrade to plain text across protocols; only replace text when the user edited it. Display recognizes a small list of known fields (`reasoning_content`, `reasoning`, `reasoning_details`, Anthropic `thinking`/`redacted_thinking`, Responses `reasoning` summary/encrypted_content, `<think>` tags) and falls back to raw. In request details, history reasoning folds together with history messages.
+- Reasoning / encrypted reasoning: `attempt.message` holds the reply in native protocol shape (unknown fields included). `Provider.echoFields` picks which of its fields are sent back in context (empty = text only, `*` = all); only to the **same provider** that produced the reply (stricter than same-protocol: another vendor's encrypted blobs/signatures are useless or rejected). Text always comes from `assistant.content`, so edits win. Display (`lib/reasoning.ts`) recognizes `reasoning_content` / `reasoning`, OpenRouter `reasoning_details` (text / summary / encrypted → lock badge), and leading `<think>` blocks (moved out of `assistant.content`; raw stays in `rawText`). Add Anthropic `thinking`/`redacted_thinking` and Responses `reasoning` items with those adapters. In request details, history reasoning folds with history messages.
 - Images in user input (planned); no tool calling. Single-conversation export/import (planned).
 - UI languages: zh + en. Desktop only.
 - UI should be clean and polished but not complex.
@@ -74,6 +74,6 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 2. ✅ Branching: retry, edit user message, ‹n/m› switcher
 3. ✅ Node detail panel (request / response / error)
    - 3a ✅ raw capture: headers (key masked, reveal toggle), body with folded history, SSE events / merged / raw views
-   - 3b native reply storage + reasoning (incl. encrypted) display and echo-back
+   - 3b ✅ native reply storage, echo-back setting, reasoning (summary / encrypted / `<think>`) display
 4. Side questions + assistant message editing with locked anchors
 5. Images, export/import, other protocols

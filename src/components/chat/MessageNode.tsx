@@ -1,11 +1,12 @@
 import clsx from 'clsx'
-import { AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, Info, Pencil, RotateCcw } from 'lucide-react'
-import { memo, useRef, useState, type ReactNode } from 'react'
+import { AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, Info, Lock, Pencil, RotateCcw } from 'lucide-react'
+import { memo, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { useAutosize, useCopy } from '../../lib/hooks'
+import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
 import { useUi } from '../../store/ui'
-import { Button, IconButton } from '../ui/Button'
+import { Button, IconButton, Tip } from '../ui/Button'
 import { Markdown } from './Markdown'
 
 /** Callbacks from ChatView. Kept referentially stable so memoized nodes don't re-render. */
@@ -33,6 +34,7 @@ export const MessageNode = memo(function MessageNode({
   const streaming = node.attempt.status === 'streaming'
   const content = live?.content ?? node.assistant.content
   const reasoning = live?.reasoning ?? node.assistant.reasoning ?? ''
+  const thinking = useMemo(() => reasoningView(reasoning, node.attempt.message), [reasoning, node.attempt.message])
   const retry = canSend ? () => actions.retry(node) : undefined
   const detailOpen = useUi((s) => s.panel?.type === 'detail' && s.panel.nodeId === node.id)
   const toggleDetail = () => useUi.getState().setPanel(detailOpen ? null : { type: 'detail', nodeId: node.id })
@@ -54,11 +56,11 @@ export const MessageNode = memo(function MessageNode({
         }
       />
       <div className="group/assistant">
-        {reasoning && <Reasoning text={reasoning} live={streaming && !content} />}
+        {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
         {content ? (
           <Markdown text={content} className={clsx(streaming && 'streaming-caret')} />
         ) : (
-          streaming && !reasoning && <TypingDots />
+          streaming && !hasReasoning(thinking) && <TypingDots />
         )}
         {node.attempt.status === 'error' && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} />}
         {!streaming && (
@@ -199,27 +201,50 @@ function BranchSwitcher({
   )
 }
 
-function Reasoning({ text, live }: { text: string; live: boolean }) {
+function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const expanded = open || live
+  const expandable = !!view.text || view.summaries.length > 0
+  const expanded = expandable && (open || live)
+  const encryptedBytes = view.encrypted.reduce((a, b) => a + b, 0)
   return (
     <div className="mb-4">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-md py-1 pr-2 text-[13px] text-muted transition-colors hover:text-text"
-      >
-        <Brain size={14} className={clsx(live && 'animate-pulse text-accent')} />
-        {live ? t('msg.reasoningLive') : t('msg.reasoning')}
-        <ChevronRight size={14} className={clsx('transition-transform', expanded && 'rotate-90')} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setOpen(!open)}
+          disabled={!expandable}
+          className="flex items-center gap-1.5 rounded-md py-1 pr-1 text-[13px] text-muted transition-colors enabled:hover:text-text"
+        >
+          <Brain size={14} className={clsx(live && 'animate-pulse text-accent')} />
+          {live ? t('msg.reasoningLive') : view.isSummary ? t('msg.reasoningSummary') : t('msg.reasoning')}
+          {expandable && <ChevronRight size={14} className={clsx('transition-transform', expanded && 'rotate-90')} />}
+        </button>
+        {view.encrypted.length > 0 && (
+          <Tip content={t('msg.encryptedHint')}>
+            <span className="flex cursor-default items-center gap-1 rounded-md bg-subtle px-1.5 py-0.5 text-[11px] text-muted">
+              <Lock size={11} />
+              {t('msg.encrypted', { size: formatBytes(encryptedBytes) })}
+            </span>
+          </Tip>
+        )}
+      </div>
       {expanded && (
-        <div className="mt-1.5 max-h-80 overflow-y-auto border-l-2 border-border pl-4 text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
-          {text}
+        <div className="mt-1.5 max-h-80 space-y-3 overflow-y-auto border-l-2 border-border pl-4 text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
+          {view.text && <div>{view.text}</div>}
+          {view.summaries.map((s, i) => (
+            <div key={i}>
+              <div className="mb-0.5 text-[11px] font-medium text-faint">{t('msg.reasoningSummary')}</div>
+              {s}
+            </div>
+          ))}
         </div>
       )}
     </div>
   )
+}
+
+function formatBytes(n: number) {
+  return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`
 }
 
 function TypingDots() {

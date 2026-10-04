@@ -1,6 +1,17 @@
 import { nanoid } from 'nanoid'
-import { db, ROOT_KEY, type Attempt, type ChatNode, type Conversation, type Provider, type RawChunk } from '../db'
-import { prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import {
+  db,
+  ROOT_KEY,
+  type Attempt,
+  type ChatNode,
+  type Conversation,
+  type Protocol,
+  type Provider,
+  type RawChunk,
+} from '../db'
+import { getAdapter, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import { streamEvents } from './attempt'
+import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
 import { pathTo } from './tree'
 
@@ -29,15 +40,45 @@ export async function deleteConversation(id: string) {
 /**
  * Turns a root→leaf path into protocol messages, then appends the new user turn.
  * Nodes whose request produced no assistant text still contribute their user turn.
+ * Replies carry the native fields `provider` asks to be echoed back (see `Provider.echoFields`).
  */
-export function buildMessages(path: ChatNode[], userText: string): ChatMessage[] {
+export function buildMessages(path: ChatNode[], userText: string, provider?: Provider): ChatMessage[] {
   const messages: ChatMessage[] = []
   for (const n of path) {
     messages.push({ role: 'user', content: n.user.text })
-    if (n.assistant.content) messages.push({ role: 'assistant', content: n.assistant.content })
+    if (n.assistant.content) {
+      const extra = provider && echoFields(n, provider)
+      messages.push(extra ? { role: 'assistant', content: n.assistant.content, extra } : { role: 'assistant', content: n.assistant.content })
+    }
   }
   messages.push({ role: 'user', content: userText })
   return messages
+}
+
+/**
+ * The native reply fields to send back with `node`'s reply. Only for replies `provider` itself produced:
+ * another vendor's fields (encrypted reasoning, signatures…) would be meaningless or rejected.
+ * Text always comes from `assistant.content`, so in-place edits win over the original.
+ */
+function echoFields(node: ChatNode, provider: Provider): Record<string, unknown> | undefined {
+  const wanted = provider.echoFields ?? []
+  const msg = node.attempt.message
+  if (!msg || wanted.length === 0 || node.attempt.providerId !== provider.id) return undefined
+  const all = wanted.includes('*')
+  const picked = Object.entries(msg).filter(([k]) => k !== 'role' && k !== 'content' && (all || wanted.includes(k)))
+  return picked.length ? Object.fromEntries(picked) : undefined
+}
+
+/** Rebuilds the native reply message from the recorded stream. */
+function nativeReply(protocol: Protocol, chunks: RawChunk[]): Record<string, unknown> | undefined {
+  if (chunks.length === 0) return undefined
+  try {
+    const adapter = getAdapter(protocol)
+    const payloads = streamEvents(chunks).flatMap((e) => (e.json === undefined ? [] : [e.json]))
+    return adapter.replyMessage(adapter.aggregate(payloads))
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -57,7 +98,7 @@ export async function sendMessage(opts: {
 
   const allNodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
   const path = parentId ? pathTo(allNodes, parentId) : []
-  const messages = buildMessages(path, text)
+  const messages = buildMessages(path, text, provider)
 
   const nodeId = nanoid()
   const now = Date.now()
@@ -108,17 +149,23 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
   let response: Attempt['response']
   const rawChunks: RawChunk[] = []
   let flushTimer: ReturnType<typeof setTimeout> | null = null
+  /** Text as displayed: `<think>` blocks in the content move to reasoning. */
+  const visible = () => {
+    const split = splitThink(content)
+    return { content: split.content, reasoning: reasoning || split.reasoning }
+  }
   const flush = () => {
     flushTimer = null
-    setLive(node.id, { content, reasoning })
+    setLive(node.id, visible())
   }
-  setLive(node.id, { content, reasoning })
+  setLive(node.id, visible())
 
   const finish = async (patch: Partial<Attempt>) => {
     if (flushTimer) clearTimeout(flushTimer)
     controllers.delete(node.id)
+    const shown = visible()
     await db.nodes.update(node.id, {
-      assistant: { content, reasoning: reasoning || undefined },
+      assistant: { content: shown.content, reasoning: shown.reasoning || undefined },
       attempt: {
         ...node.attempt,
         ...patch,
@@ -129,6 +176,7 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
         firstTokenAt,
         response,
         rawChunks: rawChunks.length ? rawChunks : undefined,
+        message: nativeReply(provider.protocol, rawChunks),
         finishedAt: Date.now(),
       },
     })

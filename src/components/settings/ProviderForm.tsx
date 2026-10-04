@@ -15,6 +15,7 @@ export function ProviderForm({ provider: initial }: { provider: Provider }) {
   const [provider, setProvider] = useState(initial)
   const [showKey, setShowKey] = useState(false)
   const [modelsText, setModelsText] = useState(provider.models.join('\n'))
+  const [echoText, setEchoText] = useState((provider.echoFields ?? []).join(', '))
   const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string; error?: boolean }>({})
 
   const save = (patch: Partial<Provider>) => {
@@ -26,6 +27,11 @@ export function ProviderForm({ provider: initial }: { provider: Provider }) {
     setModelsText(text)
     const models = [...new Set(text.split('\n').map((s) => s.trim()).filter(Boolean))]
     save({ models })
+  }
+
+  const setEcho = (text: string) => {
+    setEchoText(text)
+    save({ echoFields: [...new Set(text.split(/[\s,，]+/).filter(Boolean))] })
   }
 
   const fetchModels = async () => {
@@ -140,6 +146,17 @@ export function ProviderForm({ provider: initial }: { provider: Provider }) {
             {fetchState.message}
           </div>
         )}
+      </div>
+
+      <div>
+        <Label hint={t('provider.echoHint')}>{t('provider.echo')}</Label>
+        <Input
+          value={echoText}
+          onChange={(e) => setEcho(e.target.value)}
+          placeholder="reasoning_details"
+          spellCheck={false}
+          className="font-mono text-[13px]"
+        />
       </div>
 
       <div className="border-t border-border pt-5">

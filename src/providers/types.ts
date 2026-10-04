@@ -3,6 +3,8 @@ import type { Provider } from '../db/types'
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
+  /** Native fields of an earlier reply to send back as-is (assistant only). */
+  extra?: Record<string, unknown>
 }
 
 export type StreamEvent =
@@ -25,6 +27,8 @@ export interface ProtocolAdapter {
    * Unknown vendor fields are kept, so nothing the model returned is lost.
    */
   aggregate(payloads: unknown[]): unknown
+  /** The reply message inside an aggregated response, in native shape. */
+  replyMessage(aggregated: unknown): Record<string, unknown> | undefined
   listModels(provider: Provider, signal?: AbortSignal): Promise<string[]>
 }
 

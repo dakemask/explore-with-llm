@@ -84,3 +84,21 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     </Tooltip.Root>
   )
 })
+
+/** Tooltip around any element. */
+export function Tip({ content, children }: { content: ReactNode; children: ReactNode }) {
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          side="top"
+          sideOffset={6}
+          className="anim-fade z-50 max-w-72 rounded-md bg-text px-2 py-1 text-xs leading-relaxed text-bg shadow-pop"
+        >
+          {content}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  )
+}

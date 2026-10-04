@@ -13,7 +13,7 @@ export const openaiChat: ProtocolAdapter = {
       },
       body: {
         model,
-        messages,
+        messages: messages.map(({ role, content, extra }) => (extra ? { role, content, ...extra } : { role, content })),
         stream: true,
         stream_options: { include_usage: true },
       },
@@ -66,6 +66,11 @@ export const openaiChat: ProtocolAdapter = {
     // Field order of a non-streamed response: …, choices, usage.
     const { usage, ...rest } = head
     return usage === undefined ? { ...rest, choices } : { ...rest, choices, usage }
+  },
+
+  replyMessage(aggregated) {
+    const msg = isObj(aggregated) && Array.isArray(aggregated.choices) ? aggregated.choices[0]?.message : undefined
+    return isObj(msg) ? msg : undefined
   },
 
   async listModels(provider, signal) {

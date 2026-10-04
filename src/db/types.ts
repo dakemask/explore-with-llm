@@ -7,6 +7,12 @@ export interface Provider {
   baseUrl: string
   apiKey: string
   models: string[]
+  /**
+   * Fields of earlier replies (beyond the text) to send back as context, e.g. `reasoning_content`,
+   * `reasoning_details`; `*` sends every field. Empty/missing: text only. Only applies to replies this
+   * provider produced — foreign fields (e.g. another vendor's encrypted reasoning) are never sent.
+   */
+  echoFields?: string[]
   createdAt: number
 }
 
@@ -68,6 +74,11 @@ export interface Attempt {
   /** Raw assistant text exactly as the model returned it (assistant.content may be edited later). */
   rawText: string
   rawReasoning?: string
+  /**
+   * The reply in its protocol's native shape, unknown vendor fields included
+   * (openai-chat: `choices[0].message` merged from the stream). Source for echo-back and reasoning display.
+   */
+  message?: Record<string, unknown>
   finishReason?: string
   usage?: Record<string, unknown>
   error?: { message: string; status?: number; body?: string; code?: 'network' }
