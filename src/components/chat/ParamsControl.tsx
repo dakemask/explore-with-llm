@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { AlertTriangle, Settings2, SlidersHorizontal } from 'lucide-react'
+import { AlertTriangle, CircleHelp, Settings2, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { Provider } from '../../db'
 import { useT } from '../../i18n'
@@ -21,6 +21,7 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
   const choices = useSettings((s) => s.paramChoices[key])
   const setChoice = useSettings((s) => s.setParamChoice)
   const state = useMemo(() => modelParams(provider, model, choices), [provider, model, choices])
+  const [helpOpen, setHelpOpen] = useState(false)
   const editConfig = () => openSettings('providers', { providerId: provider.id, model })
 
   // Nothing to adjust: a broken config or a missing required field links straight to the editor.
@@ -40,17 +41,13 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
   }
   const resolved = state.params
   const missing = state.missing
-
-  const shown = resolved.filter((r) => r.active && (r.param.type !== 'fixed' || r.param.toggle))
-  const summary = shown.map((r) => (r.param.type === 'fixed' ? r.param.name : display(r.value))).join(' · ')
-  const fullSummary = shown.map((r) => (r.param.type === 'fixed' ? r.param.name : `${r.param.name}: ${display(r.value)}`))
+  const hasSwitch = resolved.some((r) => r.param.toggle)
 
   return (
-    <PopoverRoot>
+    <PopoverRoot onOpenChange={() => setHelpOpen(false)}>
       <PopoverTrigger asChild>
         <button
           aria-label={t('params.title')}
-          title={fullSummary.join('\n')}
           className={clsx(
             'flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors',
             missing
@@ -59,12 +56,27 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
           )}
         >
           {missing ? <AlertTriangle size={14} className="shrink-0" /> : <SlidersHorizontal size={14} className="shrink-0" />}
-          <span className="truncate">{missing ? t('params.missing', { field: missing }) : summary}</span>
+          <span className="truncate">{missing ? t('params.missing', { field: missing }) : t('params.button')}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
         <div className="flex items-center justify-between border-b border-border py-2 pr-2 pl-4">
-          <span className="text-[13px] font-semibold">{t('params.title')}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-[13px] font-semibold">{t('params.title')}</span>
+            {hasSwitch && (
+              <button
+                onClick={() => setHelpOpen((o) => !o)}
+                aria-label={t('params.help')}
+                aria-expanded={helpOpen}
+                className={clsx(
+                  'flex size-6 items-center justify-center rounded-md transition-colors hover:bg-hover hover:text-text',
+                  helpOpen ? 'text-text' : 'text-faint',
+                )}
+              >
+                <CircleHelp size={14} />
+              </button>
+            )}
+          </div>
           <button
             onClick={editConfig}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted transition-colors hover:bg-hover hover:text-text"
@@ -73,6 +85,11 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
             {t('params.editConfig')}
           </button>
         </div>
+        {helpOpen && (
+          <div className="border-b border-border bg-subtle px-4 py-2.5 text-xs leading-relaxed text-muted">
+            {t('params.switchHelp')}
+          </div>
+        )}
         {missing && (
           <div className="flex items-start gap-1.5 border-b border-border bg-danger-soft px-4 py-2.5 text-xs leading-relaxed text-danger">
             <AlertTriangle size={13} className="mt-0.5 shrink-0" />

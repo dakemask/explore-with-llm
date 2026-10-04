@@ -98,7 +98,7 @@ export function ChatView() {
   return (
     <main ref={mainRef} className="flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-        <div className="min-w-0 flex-1 truncate text-center text-[13px] text-muted">{conversation?.title}</div>
+        <div className="min-w-0 flex-1 truncate px-2 text-sm font-medium">{conversation?.title}</div>
       </header>
 
       <div ref={scroll.containerRef} onClick={onContentClick} className="min-h-0 flex-1 overflow-y-auto">
