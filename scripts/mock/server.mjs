@@ -37,7 +37,13 @@ http
       return res.end(JSON.stringify({ error: { message: 'Authentication Fails (no such user)' } }))
     }
 
-    res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' })
+    res.writeHead(200, {
+      ...cors,
+      'Content-Type': 'text/event-stream',
+      'X-Request-Id': `mock-${count}`,
+      // Only exposed headers are readable from the page; the app's detail panel shows this one.
+      'Access-Control-Expose-Headers': 'X-Request-Id',
+    })
     const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`)
     for (const ch of reasoning) {
       send({ choices: [{ delta: { reasoning_content: ch } }] })

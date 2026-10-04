@@ -51,7 +51,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 - `ChatNode` = one user message + one assistant message + exactly one request `Attempt`.
   - `kind: 'main' | 'side'`. Side-question roots point `parentId` at the main node they were asked from and carry an `anchor` (offsets into the assistant content).
   - `assistant.content` is what's displayed and sent as context; `attempt.rawText` is the untouched model output.
-  - The API key is never stored on nodes.
+  - `Attempt` records the HTTP exchange verbatim: `requestHeaders` (**includes the API key** — owner's choice, so details show exactly what was sent; export must strip it), `requestBody`, `response` (status + CORS-readable headers), `rawChunks` (response body as received, with ms offsets). The detail panel derives events / merged view from these; adapters provide `aggregate()` (generic delta merge, keeps unknown vendor fields).
 - Streaming text lives in `useUi().live[nodeId]` and is written to IndexedDB once at the end. Nodes left `streaming` on reload are marked `aborted` at startup.
 
 ## Product decisions
@@ -62,6 +62,8 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 - Right side is one panel slot (`useUi().panel`), docked, pushes the chat. Node detail (ⓘ in the reply footer, "详情" on error boxes) lives there now; side questions will be another `panel` variant. Switching conversation closes it.
 - Side questions: right drawer; context = root→node main path + selected text + question.
 - Protocols planned: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages.
+- Provider config should let users freely decide which request parameters are sent and their values; avoid per-vendor adaptation in the app (no OpenRouter-specific request params etc.). The app adapts per *protocol*, not per vendor. Planned: per-provider params template + custom headers + "which assistant fields to echo back" option (default: content only, since e.g. DeepSeek rejects echoed `reasoning_content`).
+- Reasoning / encrypted reasoning (agreed design, step 3b): store the assistant reply in its native protocol shape (the merged message / output items / content blocks, unknown fields included) and echo it back verbatim in context when the protocol matches; downgrade to plain text across protocols; only replace text when the user edited it. Display recognizes a small list of known fields (`reasoning_content`, `reasoning`, `reasoning_details`, Anthropic `thinking`/`redacted_thinking`, Responses `reasoning` summary/encrypted_content, `<think>` tags) and falls back to raw. In request details, history reasoning folds together with history messages.
 - Images in user input (planned); no tool calling. Single-conversation export/import (planned).
 - UI languages: zh + en. Desktop only.
 - UI should be clean and polished but not complex.
@@ -71,5 +73,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 1. ✅ Base: layout, providers, streaming chat, persistence, themes, i18n
 2. ✅ Branching: retry, edit user message, ‹n/m› switcher
 3. ✅ Node detail panel (request / response / error)
+   - 3a ✅ raw capture: headers (key masked, reveal toggle), body with folded history, SSE events / merged / raw views
+   - 3b native reply storage + reasoning (incl. encrypted) display and echo-back
 4. Side questions + assistant message editing with locked anchors
 5. Images, export/import, other protocols

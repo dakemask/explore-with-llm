@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import { db, ROOT_KEY, type Attempt, type ChatNode, type Conversation, type Provider } from '../db'
+import { db, ROOT_KEY, type Attempt, type ChatNode, type Conversation, type Provider, type RawChunk } from '../db'
 import { prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
 import { useUi } from '../store/ui'
 import { pathTo } from './tree'
@@ -105,6 +105,8 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
   let finishReason: string | undefined
   let usage: Record<string, unknown> | undefined
   let firstTokenAt: number | undefined
+  let response: Attempt['response']
+  const rawChunks: RawChunk[] = []
   let flushTimer: ReturnType<typeof setTimeout> | null = null
   const flush = () => {
     flushTimer = null
@@ -125,6 +127,8 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
         finishReason,
         usage,
         firstTokenAt,
+        response,
+        rawChunks: rawChunks.length ? rawChunks : undefined,
         finishedAt: Date.now(),
       },
     })
@@ -133,10 +137,14 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
 
   try {
     const req = prepareChat(provider, model, messages)
-    node.attempt = { ...node.attempt, url: req.url, requestBody: req.body }
+    node.attempt = { ...node.attempt, url: req.url, requestHeaders: req.headers, requestBody: req.body }
     await db.nodes.update(node.id, { attempt: node.attempt })
 
-    const events = await sendChat(provider, req, controller.signal)
+    const startedAt = node.attempt.startedAt
+    const events = await sendChat(provider, req, controller.signal, {
+      onResponse: (r) => (response = r),
+      onChunk: (text) => rawChunks.push({ t: Date.now() - startedAt, text }),
+    })
     for await (const ev of events) {
       if (ev.type === 'text') content += ev.delta
       else if (ev.type === 'reasoning') reasoning += ev.delta

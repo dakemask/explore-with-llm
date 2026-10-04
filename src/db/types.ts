@@ -36,7 +36,17 @@ export interface SideAnchor {
 
 export type AttemptStatus = 'streaming' | 'done' | 'error' | 'aborted'
 
-/** Snapshot of the single request this node was produced by. API key is never stored here. */
+/** A piece of the response body exactly as the network delivered it. */
+export interface RawChunk {
+  /** Milliseconds since `startedAt`. */
+  t: number
+  text: string
+}
+
+/**
+ * Snapshot of the single request this node was produced by, kept exactly as sent and received.
+ * `requestHeaders` includes the API key; export must strip it.
+ */
 export interface Attempt {
   status: AttemptStatus
   providerId: string
@@ -44,7 +54,13 @@ export interface Attempt {
   protocol: Protocol
   model: string
   url: string
+  /** Missing on nodes created before raw capture existed. */
+  requestHeaders?: Record<string, string>
   requestBody: unknown
+  /** Status line and the response headers the browser lets us read (CORS hides the rest). */
+  response?: { status: number; statusText: string; headers: Record<string, string> }
+  /** Successful (streamed) response body. Error bodies live in `error.body`. */
+  rawChunks?: RawChunk[]
   startedAt: number
   /** When the first text or reasoning delta arrived. */
   firstTokenAt?: number

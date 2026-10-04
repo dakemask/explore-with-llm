@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { normalizeMath } from './components/chat/Markdown'
 import { ROOT_KEY, type ChatNode } from './db/types'
 import { db } from './db'
-import { prettyJson, requestMessages, summarizeUsage } from './lib/attempt'
+import { foldHistory, maskHeader, prettyJson, streamEvents, summarizeUsage } from './lib/attempt'
 import { buildMessages, createConversation, selectBranch } from './lib/chat'
 import { activePath, pathTo, siblingsOf } from './lib/tree'
 import { openaiChat } from './providers/openaiChat'
@@ -181,25 +181,90 @@ describe('attempt helpers', () => {
     expect(summarizeUsage(undefined)).toBeNull()
   })
 
-  it('extracts readable messages from request bodies', () => {
-    expect(
-      requestMessages({
-        system: 'be brief',
-        messages: [
-          { role: 'user', content: 'hi' },
-          { role: 'user', content: [{ type: 'text', text: 'look' }, { type: 'image_url' }] },
-        ],
-      }),
-    ).toEqual([
-      { role: 'system', text: 'be brief' },
-      { role: 'user', text: 'hi' },
-      { role: 'user', text: 'look\n[image_url]' },
+  it('folds all but the last message out of a request body', () => {
+    const body = {
+      model: 'm',
+      messages: [
+        { role: 'user', content: 'a' },
+        { role: 'assistant', content: 'b' },
+        { role: 'user', content: 'c' },
+      ],
+      stream: true,
+    }
+    const f = foldHistory(body)!
+    expect(f.hidden).toBe(2)
+    expect(f.indent).toBe('    ')
+    expect(f.before.endsWith('"messages": [\n')).toBe(true)
+    expect(f.after).toContain('"content": "c"')
+    expect(f.after).not.toContain('"content": "a"')
+    expect(f.before + f.after).not.toContain('__ewl_fold__')
+    expect(foldHistory({ messages: [{ role: 'user', content: 'only' }] })).toBeNull()
+  })
+
+  it('masks credential headers only', () => {
+    expect(maskHeader('Authorization', 'Bearer sk-1234567890abcd')).toBe('Bearer sk-…abcd')
+    expect(maskHeader('x-api-key', 'short')).toBe('•••••')
+    expect(maskHeader('Content-Type', 'application/json')).toBe('application/json')
+  })
+
+  it('splits recorded chunks into timed events', () => {
+    const evs = streamEvents([
+      { t: 5, text: 'data: {"a"' },
+      { t: 9, text: ':1}\n\ndata: [DONE]\n\n' },
     ])
-    expect(requestMessages(null)).toBeNull()
+    expect(evs).toEqual([
+      { t: 9, event: undefined, data: '{"a":1}', json: { a: 1 } },
+      { t: 9, event: undefined, data: '[DONE]', json: undefined },
+    ])
   })
 
   it('pretty-prints JSON and rejects non-JSON', () => {
     expect(prettyJson('{"a":1}')).toBe('{\n  "a": 1\n}')
     expect(prettyJson('<html>')).toBeNull()
+  })
+})
+
+describe('openaiChat.aggregate', () => {
+  it('rebuilds a non-streamed completion, keeping unknown vendor fields', () => {
+    const chunks = [
+      { id: 'x', object: 'chat.completion.chunk', model: 'm', choices: [{ index: 0, delta: { role: 'assistant', content: '' } }] },
+      { id: 'x', object: 'chat.completion.chunk', model: 'm', choices: [{ index: 0, delta: { reasoning_content: '想' } }] },
+      {
+        id: 'x',
+        choices: [{ index: 0, delta: { reasoning_details: [{ type: 'reasoning.text', index: 0, text: 'a' }] } }],
+      },
+      {
+        id: 'x',
+        choices: [{ index: 0, delta: { reasoning_details: [{ type: 'reasoning.text', index: 0, text: 'b' }] } }],
+      },
+      {
+        id: 'x',
+        choices: [{ index: 0, delta: { reasoning_details: [{ type: 'reasoning.encrypted', index: 1, data: 'ENC' }] } }],
+      },
+      { id: 'x', choices: [{ index: 0, delta: { role: 'assistant', content: '你' }, finish_reason: null }] },
+      { id: 'x', choices: [{ index: 0, delta: { content: '好' }, finish_reason: 'stop' }], usage: null },
+      { id: 'x', choices: [], usage: { total_tokens: 3 } },
+    ]
+    expect(openaiChat.aggregate(chunks)).toEqual({
+      id: 'x',
+      object: 'chat.completion',
+      model: 'm',
+      choices: [
+        {
+          index: 0,
+          finish_reason: 'stop',
+          message: {
+            role: 'assistant',
+            content: '你好',
+            reasoning_content: '想',
+            reasoning_details: [
+              { type: 'reasoning.text', index: 0, text: 'ab' },
+              { type: 'reasoning.encrypted', index: 1, data: 'ENC' },
+            ],
+          },
+        },
+      ],
+      usage: { total_tokens: 3 },
+    })
   })
 })

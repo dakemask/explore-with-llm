@@ -2,14 +2,23 @@ import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import hljs from 'highlight.js/lib/core'
 import jsonLang from 'highlight.js/lib/languages/json'
-import { AlertCircle, Info, X } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { AlertCircle, ChevronsDownUp, ChevronsUpDown, Eye, EyeOff, Info, X } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { db, type Attempt, type AttemptStatus, type ChatNode } from '../../db'
 import { useT, type TKey } from '../../i18n'
-import { formatMs, prettyJson, requestMessages, summarizeUsage, type DisplayMessage } from '../../lib/attempt'
+import {
+  foldHistory,
+  formatMs,
+  maskHeader,
+  prettyJson,
+  streamEvents,
+  summarizeUsage,
+  type TimedEvent,
+} from '../../lib/attempt'
+import { aggregateStream } from '../../providers'
 import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
-import { CodeBox } from '../ui/CodeBox'
+import { CodeBox, codeBoxAction } from '../ui/CodeBox'
 import { Segmented } from '../ui/Field'
 import { IconButton } from '../ui/Button'
 
@@ -21,7 +30,6 @@ type Tab = 'request' | 'response' | 'error'
 export function DetailPanel({ nodeId }: { nodeId: string }) {
   const t = useT()
   const setPanel = useUi((s) => s.setPanel)
-  const live = useUi((s) => s.live[nodeId])
   // `null` once the query has run and found nothing (node deleted), `undefined` while loading.
   const node = useLiveQuery(async () => (await db.nodes.get(nodeId)) ?? null, [nodeId])
   const close = () => setPanel(null)
@@ -58,7 +66,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div key={current} className="anim-fade">
             {current === 'request' && <RequestTab attempt={node.attempt} />}
-            {current === 'response' && <ResponseTab node={node} liveText={live?.content} liveReasoning={live?.reasoning} />}
+            {current === 'response' && <ResponseTab node={node} />}
             {current === 'error' && <ErrorTab attempt={node.attempt} />}
           </div>
         </div>
@@ -153,79 +161,211 @@ function useNow(active: boolean) {
 
 function RequestTab({ attempt: a }: { attempt: Attempt }) {
   const t = useT()
-  const messages = useMemo(() => requestMessages(a.requestBody), [a.requestBody])
+  const [reveal, setReveal] = useState(false)
+  const [unfolded, setUnfolded] = useState(false)
+  const headers = a.requestHeaders
   const body = useMemo(() => (a.requestBody == null ? '' : JSON.stringify(a.requestBody, null, 2)), [a.requestBody])
+  const fold = useMemo(() => foldHistory(a.requestBody), [a.requestBody])
 
   if (!a.url) return <Note>{t('detail.notSent')}</Note>
+  const entries = Object.entries(headers ?? {})
+  const hasSecret = entries.some(([k, v]) => maskHeader(k, v) !== v)
+  const headText = [`POST ${a.url}`, ...entries.map(([k, v]) => `${k}: ${v}`)].join('\n')
+
   return (
     <div className="space-y-5">
-      <Section title={t('detail.endpoint')}>
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-code-bg px-3 py-2 font-mono text-[12.5px]">
-          <span className="font-semibold text-accent">POST</span>
-          <span className="min-w-0 break-all">{a.url}</span>
-        </div>
+      <Section title={t('detail.requestHead')}>
+        <CodeBox
+          label="http"
+          copyText={headText}
+          wrap
+          actions={
+            hasSecret && (
+              <button className={codeBoxAction} onClick={() => setReveal(!reveal)}>
+                {reveal ? <EyeOff size={13} /> : <Eye size={13} />}
+                {reveal ? t('detail.hideKey') : t('detail.showKey')}
+              </button>
+            )
+          }
+        >
+          <span className="font-semibold text-accent">POST</span> <span className="break-all">{a.url}</span>
+          {entries.map(([k, v]) => (
+            <Fragment key={k}>
+              {'\n'}
+              <span className="text-muted">{k}:</span> <span className="break-all">{reveal ? v : maskHeader(k, v)}</span>
+            </Fragment>
+          ))}
+        </CodeBox>
+        {!headers && <Note className="mt-2">{t('detail.legacy')}</Note>}
       </Section>
-      {messages && (
-        <Section title={t('detail.messages', { n: messages.length })}>
-          <div className="space-y-2">
-            {messages.map((m, i) => (
-              <MessageCard key={i} message={m} />
-            ))}
-          </div>
-        </Section>
-      )}
-      <Section title={t('detail.rawBody')}>
-        <CodeBox label="json" copyText={body} maxHeight="420px" wrap>
-          <Json text={body} />
+      <Section title={t('detail.requestBody')}>
+        <CodeBox
+          label="json"
+          copyText={body}
+          maxHeight="60vh"
+          wrap
+          actions={
+            fold && (
+              <button className={codeBoxAction} onClick={() => setUnfolded(!unfolded)}>
+                {unfolded ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
+                {unfolded ? t('detail.collapseHistory') : t('detail.expandHistory')}
+              </button>
+            )
+          }
+        >
+          {fold && !unfolded ? (
+            <>
+              <Json text={fold.before} />
+              {fold.indent}
+              <button
+                onClick={() => setUnfolded(true)}
+                className="rounded bg-active px-1.5 font-sans text-[12px] text-muted transition-colors hover:text-text"
+              >
+                {t('detail.historyFolded', { n: fold.hidden })}
+              </button>
+              {'\n'}
+              <Json text={fold.after} />
+            </>
+          ) : (
+            <Json text={body} />
+          )}
         </CodeBox>
       </Section>
     </div>
   )
 }
 
-function ResponseTab({
-  node,
-  liveText,
-  liveReasoning,
-}: {
-  node: ChatNode
-  liveText?: string
-  liveReasoning?: string
-}) {
+type StreamView = 'events' | 'merged' | 'raw'
+/** Remembered across panel openings within a session. */
+let lastStreamView: StreamView = 'merged'
+
+function ResponseTab({ node }: { node: ChatNode }) {
   const t = useT()
   const a = node.attempt
-  const text = liveText ?? a.rawText
-  const reasoning = liveReasoning ?? a.rawReasoning ?? ''
-  const usage = useMemo(() => (a.usage ? JSON.stringify(a.usage, null, 2) : ''), [a.usage])
+  const [view, setViewState] = useState<StreamView>(lastStreamView)
+  const setView = (v: StreamView) => setViewState((lastStreamView = v))
 
-  if (!text && !reasoning && !usage) {
-    return a.status === 'streaming' ? null : <Note>{t('detail.noOutput')}</Note>
-  }
+  const events = useMemo(() => (a.rawChunks ? streamEvents(a.rawChunks) : null), [a.rawChunks])
+  const merged = useMemo(() => {
+    if (!events) return ''
+    try {
+      const payloads = events.filter((e) => e.json !== undefined).map((e) => e.json)
+      return JSON.stringify(aggregateStream(a.protocol, payloads), null, 2)
+    } catch (e) {
+      return String(e)
+    }
+  }, [events, a.protocol])
+  const raw = useMemo(() => a.rawChunks?.map((c) => c.text).join('') ?? '', [a.rawChunks])
+
+  const r = a.response
+  const headText = r
+    ? [`HTTP ${r.status} ${r.statusText}`.trim(), ...Object.entries(r.headers).map(([k, v]) => `${k}: ${v}`)].join('\n')
+    : ''
+  const errBody = !events && a.error?.body
+  const prettyErr = errBody ? prettyJson(errBody) : null
+  const legacy = !r && !events && a.status !== 'streaming' && a.error?.code !== 'network'
+
   return (
     <div className="space-y-5">
       {node.assistant.edited && <Note>{t('detail.editedNote')}</Note>}
-      {reasoning && (
-        <Section title={t('detail.rawReasoning')}>
-          <CodeBox label="text" copyText={reasoning} maxHeight="240px" wrap>
-            {reasoning}
+      {legacy && <Note>{t('detail.legacy')}</Note>}
+      {r && (
+        <Section title={t('detail.responseHead')}>
+          <CodeBox label="http" copyText={headText} wrap>
+            <span className={clsx('font-semibold', r.status < 400 ? 'text-success' : 'text-danger')}>
+              HTTP {r.status} {r.statusText}
+            </span>
+            {Object.entries(r.headers).map(([k, v]) => (
+              <Fragment key={k}>
+                {'\n'}
+                <span className="text-muted">{k}:</span> <span className="break-all">{v}</span>
+              </Fragment>
+            ))}
           </CodeBox>
+          <p className="mt-1.5 text-xs text-faint">{t('detail.corsNote')}</p>
         </Section>
       )}
-      {text && (
-        <Section title={t('detail.rawText')}>
-          <CodeBox label="markdown" copyText={text} maxHeight="60vh" wrap>
-            {text}
+      {!r && a.error?.code === 'network' && <Note>{t('detail.noResponse')}</Note>}
+
+      {a.status === 'streaming' ? (
+        <Note>{t('detail.streamingNote')}</Note>
+      ) : events ? (
+        <Section title={t('detail.responseBody')}>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <Segmented<StreamView>
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'events', label: t('detail.view.events') },
+                { value: 'merged', label: t('detail.view.merged') },
+                { value: 'raw', label: t('detail.view.raw') },
+              ]}
+            />
+            <span className="text-xs text-faint tabular-nums">{t('detail.eventsCount', { n: events.length })}</span>
+          </div>
+          <p className="mb-2.5 text-xs text-faint">{t(`detail.viewHint.${view}`)}</p>
+          {view === 'events' && <EventList events={events} raw={raw} />}
+          {view === 'merged' && (
+            <CodeBox label="json" copyText={merged} maxHeight="60vh" wrap>
+              <Json text={merged} />
+            </CodeBox>
+          )}
+          {view === 'raw' && (
+            <CodeBox label="text/event-stream" copyText={raw} maxHeight="60vh" wrap>
+              {raw}
+            </CodeBox>
+          )}
+        </Section>
+      ) : errBody ? (
+        <Section title={t('detail.responseBody')}>
+          <CodeBox label={prettyErr ? 'json' : 'text'} copyText={errBody} maxHeight="60vh" wrap>
+            {prettyErr ? <Json text={prettyErr} /> : errBody}
           </CodeBox>
         </Section>
-      )}
-      {usage && (
-        <Section title={t('detail.usage')}>
-          <CodeBox label="json" copyText={usage} wrap>
-            <Json text={usage} />
+      ) : legacy && a.rawText ? (
+        <Section title={t('detail.responseBody')}>
+          <CodeBox label="text" copyText={a.rawText} maxHeight="60vh" wrap>
+            {a.rawText}
           </CodeBox>
         </Section>
-      )}
+      ) : null}
     </div>
+  )
+}
+
+const EVENT_PAGE = 200
+
+/**
+ * Single-line JSON with spaces between tokens, so long lines wrap between tokens rather than inside words.
+ * Only structural newlines exist in the output (string contents escape theirs), so values are untouched.
+ */
+function oneLineJson(v: unknown) {
+  return JSON.stringify(v, null, 1).replace(/\n\s*/g, ' ')
+}
+
+function EventList({ events, raw }: { events: TimedEvent[]; raw: string }) {
+  const t = useT()
+  const [all, setAll] = useState(false)
+  const shown = all ? events : events.slice(0, EVENT_PAGE)
+  return (
+    <CodeBox label="sse" copyText={raw} maxHeight="60vh" wrap bodyClassName="!p-0 text-[12px]">
+      {shown.map((e, i) => (
+        <span key={i} className="flex gap-3 border-b border-border px-3 py-1.5 last:border-b-0">
+          <span className="w-12 shrink-0 text-right text-faint tabular-nums">+{e.t}</span>
+          <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+            {e.event && <span className="text-muted">event: {e.event} </span>}
+            {e.json !== undefined ? <Json text={oneLineJson(e.json)} /> : e.data}
+          </span>
+        </span>
+      ))}
+      {!all && events.length > EVENT_PAGE && (
+        <span className="flex justify-center p-2">
+          <button onClick={() => setAll(true)} className="font-sans text-xs text-accent hover:text-accent-hover">
+            {t('detail.showAll', { n: events.length })}
+          </button>
+        </span>
+      )}
+    </CodeBox>
   )
 }
 
@@ -269,45 +409,11 @@ function Section({ title, children }: { title: ReactNode; children: ReactNode })
   )
 }
 
-function Note({ children }: { children: ReactNode }) {
+function Note({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className="flex gap-2 rounded-lg bg-subtle px-3 py-2.5 text-[13px] text-muted">
+    <div className={clsx('flex gap-2 rounded-lg bg-subtle px-3 py-2.5 text-[13px] text-muted', className)}>
       <Info size={15} className="mt-0.5 shrink-0" />
       <div>{children}</div>
-    </div>
-  )
-}
-
-const CLAMP_CHARS = 280
-const CLAMP_LINES = 6
-
-function MessageCard({ message }: { message: DisplayMessage }) {
-  const t = useT()
-  const [expanded, setExpanded] = useState(false)
-  const long = message.text.length > CLAMP_CHARS || message.text.split('\n').length > CLAMP_LINES
-  const roleKey = `detail.role.${message.role}` as TKey
-  const role = ['system', 'user', 'assistant'].includes(message.role) ? t(roleKey) : message.role
-  return (
-    <div
-      className={clsx(
-        'rounded-lg border border-border px-3 py-2.5',
-        message.role === 'user' ? 'bg-user-bubble' : 'bg-surface',
-      )}
-    >
-      <div className="mb-1 text-[11px] font-medium tracking-wide text-faint">{role}</div>
-      <div
-        className={clsx('text-[13px] leading-relaxed break-words whitespace-pre-wrap', long && !expanded && 'line-clamp-6')}
-      >
-        {message.text}
-      </div>
-      {long && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="mt-1 text-xs text-accent transition-colors hover:text-accent-hover"
-        >
-          {expanded ? t('detail.showLess') : t('detail.showMore')}
-        </button>
-      )}
     </div>
   )
 }

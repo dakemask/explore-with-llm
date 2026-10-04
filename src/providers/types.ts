@@ -20,6 +20,11 @@ export interface PreparedRequest {
 export interface ProtocolAdapter {
   buildRequest(provider: Provider, model: string, messages: ChatMessage[]): PreparedRequest
   parseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<StreamEvent>
+  /**
+   * Rebuilds the response the server would have sent without streaming, from the parsed SSE data payloads.
+   * Unknown vendor fields are kept, so nothing the model returned is lost.
+   */
+  aggregate(payloads: unknown[]): unknown
   listModels(provider: Provider, signal?: AbortSignal): Promise<string[]>
 }
 
