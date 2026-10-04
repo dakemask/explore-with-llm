@@ -11,7 +11,10 @@ interface SettingsState {
   /** Last used provider/model, used as the default for new messages. */
   providerId: string | null
   model: string | null
-  /** Parameter choices last made for each model, keyed by `paramKey(providerId, model)`, then parameter name. */
+  /**
+   * Parameter choices last made for each model, keyed by `paramKey(providerId, model)` (chat) or
+   * `namingParamKey(providerId, model)` (the same model used for naming), then parameter name.
+   */
   paramChoices: Record<string, Record<string, ParamChoice>>
   /** Model that names conversations and side questions (`lib/naming.ts`); null = no automatic naming. */
   namingModel: { providerId: string; model: string } | null
@@ -25,6 +28,8 @@ interface SettingsState {
 }
 
 export const paramKey = (providerId: string, model: string) => `${providerId}/${model}`
+/** Naming keeps its own choices: a title needs far less (e.g. reasoning effort) than a chat reply. */
+export const namingParamKey = (providerId: string, model: string) => `naming:${providerId}/${model}`
 
 const defaultLang: Lang = typeof navigator !== 'undefined' && !navigator.language.startsWith('zh') ? 'en' : 'zh'
 
@@ -49,9 +54,11 @@ export const useSettings = create<SettingsState>()(
       renameModel: (providerId, from, to) =>
         set((s) => {
           const paramChoices = { ...s.paramChoices }
-          const old = paramKey(providerId, from)
-          if (paramChoices[old]) paramChoices[paramKey(providerId, to)] = paramChoices[old]
-          delete paramChoices[old]
+          for (const key of [paramKey, namingParamKey]) {
+            const old = key(providerId, from)
+            if (paramChoices[old]) paramChoices[key(providerId, to)] = paramChoices[old]
+            delete paramChoices[old]
+          }
           const selected = s.providerId === providerId && s.model === from
           const naming = s.namingModel?.providerId === providerId && s.namingModel.model === from
           return { paramChoices, ...(selected && { model: to }), ...(naming && { namingModel: { providerId, model: to } }) }

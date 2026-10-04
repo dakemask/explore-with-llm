@@ -1,7 +1,7 @@
 import { db, type ChatNode, type Provider } from '../db'
 import { translate, type Lang } from '../i18n'
 import { modelParams, prepareChat, ProviderError, sendChat } from '../providers'
-import { paramKey, useSettings } from '../store/settings'
+import { namingParamKey, useSettings } from '../store/settings'
 import { useUi } from '../store/ui'
 import { notifyError } from '../components/ui/Toast'
 import { splitThink } from './reasoning'
@@ -154,10 +154,10 @@ Only give the name, nothing else.
 The name is:`
 }
 
-/** Sends `prompt` to the naming model with its parameter config and returns the cleaned-up name. */
+/** Sends `prompt` to the naming model (its parameter config, with the choices made for naming) and returns the cleaned-up name. */
 async function requestName(provider: Provider, model: string, prompt: string): Promise<string> {
   const { lang, paramChoices } = useSettings.getState()
-  const params = modelParams(provider, model, paramChoices[paramKey(provider.id, model)])
+  const params = modelParams(provider, model, paramChoices[namingParamKey(provider.id, model)])
   if (!params.ok) throw new ProviderError(translate(lang, 'params.invalid'))
   const req = prepareChat(provider, model, [{ role: 'user', content: prompt }], params.body)
   const events = await sendChat(provider, req, new AbortController().signal)

@@ -14,11 +14,14 @@ import { Switch } from '../ui/Switch'
 
 const display = (v: ParamValue | undefined) => (v === undefined ? '' : String(v))
 
-/** The current model's adjustable request parameters: a summary button that opens their controls. */
-export function ParamsControl({ provider, model }: { provider: Provider; model: string }) {
+/**
+ * The current model's adjustable request parameters: a summary button that opens their controls.
+ * `choiceKey`: where the choices are remembered (default: the model's chat choices, `paramKey`).
+ */
+export function ParamsControl({ provider, model, choiceKey }: { provider: Provider; model: string; choiceKey?: string }) {
   const t = useT()
   const openSettings = useUi((s) => s.openSettings)
-  const key = paramKey(provider.id, model)
+  const key = choiceKey ?? paramKey(provider.id, model)
   const choices = useSettings((s) => s.paramChoices[key])
   const setChoice = useSettings((s) => s.setParamChoice)
   const state = useMemo(() => modelParams(provider, model, choices), [provider, model, choices])
