@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { Settings2, X } from 'lucide-react'
 import type { Provider } from '../../db'
 import { useT } from '../../i18n'
@@ -41,7 +40,7 @@ export function ModelList({ provider, onOpen }: { provider: Provider; onOpen: (m
             >
               <div className="min-w-0 flex-1">
                 <div className="truncate font-mono text-[13px]">{m}</div>
-                <div className={clsx('truncate text-[11.5px]', summary.error ? 'text-danger' : 'text-faint')}>
+                <div className="truncate text-[11.5px] text-faint">
                   {summary.text}
                 </div>
               </div>
@@ -74,15 +73,14 @@ export function ModelList({ provider, onOpen }: { provider: Provider; onOpen: (m
   )
 }
 
-/** One line about a model's config: its preset, or what's configured, or a problem with it. */
-function describe(provider: Provider, model: string, t: ReturnType<typeof useT>): { text: string; error?: boolean } {
+/** One line about a model's config: its preset, or what's configured. */
+function describe(provider: Provider, model: string, t: ReturnType<typeof useT>): { text: string } {
   const config = provider.modelConfigs?.[model]
   const state = modelParams(provider, model)
-  if (!state.ok) return { text: t('params.invalidShort'), error: true }
   const preset = presetById(config?.preset)
   const parts: string[] = []
   if (preset) parts.push(t('model.fromPreset', { name: preset.label }))
-  if (state.config.params.length) parts.push(t('model.nParams', { n: state.config.params.length }))
+  if (state.ok && state.config.params.length) parts.push(t('model.nParams', { n: state.config.params.length }))
   if (config?.echoReasoning) parts.push(t('provider.echo'))
   if (config?.headers?.trim()) parts.push(t('provider.headers'))
   return { text: parts.length ? parts.join(' · ') : t('model.unconfigured') }

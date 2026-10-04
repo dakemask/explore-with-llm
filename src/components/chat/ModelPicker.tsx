@@ -3,15 +3,14 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, ChevronDown, Plus } from 'lucide-react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
-import { paramKey, useSettings } from '../../store/settings'
+import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
-import { modelParams } from '../../providers'
 import { ParamsControl } from './ParamsControl'
 import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/Menu'
 
 /**
  * Resolves the provider/model to use, falling back to the first available one. `ready`: a model is
- * chosen and its parameter config is valid, so messages can be sent.
+ * chosen, so messages can be sent.
  */
 export function useCurrentModel(): {
   providers: Provider[] | undefined
@@ -20,14 +19,13 @@ export function useCurrentModel(): {
   ready: boolean
 } {
   const providers = useLiveQuery(() => db.providers.orderBy('createdAt').toArray(), [])
-  const { providerId, model, paramChoices } = useSettings()
+  const { providerId, model } = useSettings()
   if (!providers) return { providers, ready: false }
   const usable = providers.filter((p) => p.models.length > 0)
   const provider = usable.find((p) => p.id === providerId) ?? usable[0]
   if (!provider) return { providers, ready: false }
   const m = provider.models.includes(model ?? '') ? model! : provider.models[0]
-  const params = modelParams(provider, m, paramChoices[paramKey(provider.id, m)])
-  return { providers, provider, model: m, ready: params.ok }
+  return { providers, provider, model: m, ready: true }
 }
 
 /** Model picker plus the chosen model's parameters, for a composer's bottom bar. */

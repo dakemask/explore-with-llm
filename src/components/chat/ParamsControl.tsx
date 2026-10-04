@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { AlertTriangle, Settings2, SlidersHorizontal } from 'lucide-react'
+import { Settings2, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { Provider } from '../../db'
 import { useT } from '../../i18n'
@@ -27,19 +27,8 @@ export function ParamsControl({ provider, model, choiceKey }: { provider: Provid
   const state = useMemo(() => modelParams(provider, model, choices), [provider, model, choices])
   const editConfig = () => openSettings('providers', { providerId: provider.id, model })
 
-  // Nothing to adjust: a broken config links straight to the editor.
-  if (!state.ok || state.params.length === 0) {
-    if (state.ok) return null
-    return (
-      <button
-        onClick={editConfig}
-        className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-danger transition-colors hover:bg-danger-soft"
-      >
-        <AlertTriangle size={14} className="shrink-0" />
-        <span className="truncate">{t('params.invalidShort')}</span>
-      </button>
-    )
-  }
+  // Nothing to adjust. (Stored configs are checked when saved, so `!ok` doesn't happen.)
+  if (!state.ok || state.params.length === 0) return null
   const resolved = state.params
   const hasSwitch = resolved.some((r) => r.param.toggle)
 
