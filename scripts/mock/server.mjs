@@ -12,7 +12,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 
 const reply = fs.readFileSync(new URL('./reply.md', import.meta.url), 'utf8')
-const reasoning = '用户在问二分查找，先讲复杂度再给代码。'
+const reasoning = '用户在问**二分查找**，计划：\n\n1. 先讲复杂度 $O(\\log n)$\n2. 再给 `Python` 代码'
 const port = Number(process.env.PORT ?? 8787)
 const delay = Number(process.env.DELAY ?? 8)
 const cors = {
@@ -52,6 +52,8 @@ http
       'Access-Control-Expose-Headers': 'X-Request-Id',
     })
     const head = { id: `chatcmpl-${count}`, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model }
+    // OpenRouter repeats which upstream served the request on every chunk.
+    if (model === 'mock-think') head.provider = 'MockAI'
     const send = (o) => res.write(`data: ${JSON.stringify({ ...head, ...o })}\n\n`)
     const delta = (d) => send({ choices: [{ index: 0, delta: d, finish_reason: null }] })
 

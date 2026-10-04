@@ -180,6 +180,12 @@
   font-size: 15px;
   overflow-wrap: anywhere;
 }
+/* Smaller, muted variant for reasoning. */
+.prose.prose-reasoning {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--c-muted);
+}
 .prose > :first-child {
   margin-top: 0;
 }

@@ -80,6 +80,28 @@ describe('echo-back', () => {
     ])
   })
 
+  it('does not concatenate metadata repeated on every chunk (OpenRouter `provider`)', () => {
+    const chunk = (delta: object, extra: object = {}) => ({
+      id: 'gen-1',
+      provider: 'OpenAI',
+      model: 'openai/o4',
+      choices: [{ index: 0, delta, finish_reason: null, native_finish_reason: null, ...extra }],
+    })
+    const agg = openaiChat.aggregate([
+      chunk({ role: 'assistant', content: '', reasoning: 'Sum', reasoning_details: [{ type: 'reasoning.summary', summary: 'Sum', index: 0 }] }),
+      chunk({ content: 'Hi' }),
+      chunk({ content: '!' }, { finish_reason: 'stop', native_finish_reason: 'completed' }),
+    ]) as Record<string, any>
+    expect(agg.provider).toBe('OpenAI')
+    expect(agg.choices[0].native_finish_reason).toBe('completed')
+    expect(agg.choices[0].message).toEqual({
+      role: 'assistant',
+      content: 'Hi!',
+      reasoning: 'Sum',
+      reasoning_details: [{ type: 'reasoning.summary', summary: 'Sum', index: 0 }],
+    })
+  })
+
   it('finds the reply message in an aggregated response', () => {
     expect(openaiChat.replyMessage({ choices: [{ index: 0, message: { content: 'x' } }] })).toEqual({ content: 'x' })
     expect(openaiChat.replyMessage({})).toBeUndefined()

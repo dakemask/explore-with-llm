@@ -229,12 +229,12 @@ function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
         )}
       </div>
       {expanded && (
-        <div className="mt-1.5 max-h-80 space-y-3 overflow-y-auto border-l-2 border-border pl-4 text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
-          {view.text && <div>{view.text}</div>}
+        <div className="mt-1.5 max-h-80 space-y-3 overflow-y-auto border-l-2 border-border pl-4">
+          {view.text && <Markdown text={view.text} className="prose-reasoning" />}
           {view.summaries.map((s, i) => (
             <div key={i}>
               <div className="mb-0.5 text-[11px] font-medium text-faint">{t('msg.reasoningSummary')}</div>
-              {s}
+              <Markdown text={s} className="prose-reasoning" />
             </div>
           ))}
         </div>

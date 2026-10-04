@@ -51,14 +51,14 @@ export const openaiChat: ProtocolAdapter = {
     for (const p of payloads) {
       if (!isObj(p)) continue
       const { choices: parts, ...rest } = p
-      mergeDelta(head, rest)
+      mergeDelta(head, rest, false)
       if (!Array.isArray(parts)) continue
       for (const part of parts) {
         if (!isObj(part)) continue
         const { delta, index = 0, ...partRest } = part
         let choice = choices.find((c) => c.index === index)
         if (!choice) choices.push((choice = { index, message: {} }))
-        mergeDelta(choice, partRest)
+        mergeDelta(choice, partRest, false)
         if (isObj(delta)) mergeDelta(choice.message, delta)
       }
     }
