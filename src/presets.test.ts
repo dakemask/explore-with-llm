@@ -43,7 +43,7 @@ describe('presets', () => {
     expect(chat.every((p) => p.protocol === 'openai-chat')).toBe(true)
     expect(both.length).toBeGreaterThan(chat.length)
     const deepseekChat = searchPresets('', [
-      { group: 'channel', value: 'DeepSeek' },
+      { group: 'series', value: 'DeepSeek' },
       { group: 'protocol', value: 'openai-chat' },
     ])
     expect(deepseekChat.length).toBeGreaterThan(0)

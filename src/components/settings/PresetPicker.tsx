@@ -44,7 +44,7 @@ export function PresetPicker({
     setSelected((s) => (isOn(tag) ? s.filter((x) => x.group !== tag.group || x.value !== tag.value) : [...s, tag]))
   const tagLabel = (tag: PresetTag) =>
     tag.group === 'channel'
-      ? t('preset.official', { vendor: tag.value })
+      ? t('preset.official')
       : tag.group === 'protocol'
         ? t(`protocol.${tag.value as Protocol}`)
         : tag.value

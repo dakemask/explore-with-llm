@@ -13,7 +13,7 @@ export interface ModelPreset {
   vendor: string
   /** Display name, e.g. "DeepSeek V4 Pro". */
   label: string
-  /** Model series tag, e.g. "GPT-6". The other tags are the channel (official = `vendor`) and `protocol`. */
+  /** Model family tag: "DeepSeek", "GPT", "Claude". The other tags are the channel (official) and `protocol`. */
   series: string
   /** Parameter config items (format of `lib/params.ts`). */
   params: unknown[]
@@ -39,12 +39,12 @@ export function presetConfig(p: ModelPreset): ModelConfig {
   return c
 }
 
-/** A filter tag. Presets currently all come from the vendors' official APIs, so a channel is the vendor. */
+/** A filter tag. Every preset currently comes from a vendor's official API, so the only channel is `official`. */
 export type PresetTag = { group: 'channel' | 'series' | 'protocol'; value: string }
 
 export function tagsOf(p: ModelPreset): PresetTag[] {
   return [
-    { group: 'channel', value: p.vendor },
+    { group: 'channel', value: 'official' },
     { group: 'series', value: p.series },
     { group: 'protocol', value: p.protocol },
   ]

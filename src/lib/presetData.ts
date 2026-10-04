@@ -10,7 +10,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "DeepSeek",
     "label": "DeepSeek V4.1 Flash",
-    "series": "DeepSeek V4",
+    "series": "DeepSeek",
     "params": [
       {
         "name": "思考",
@@ -88,7 +88,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "DeepSeek",
     "label": "DeepSeek V4 Pro",
-    "series": "DeepSeek V4",
+    "series": "DeepSeek",
     "params": [
       {
         "name": "思考",
@@ -166,7 +166,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Sol",
-    "series": "GPT-5.6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -243,7 +243,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Terra",
-    "series": "GPT-5.6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -320,7 +320,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Luna",
-    "series": "GPT-5.6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -397,7 +397,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Astra",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -457,7 +457,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6.1 Sol",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -517,7 +517,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Sol",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -594,7 +594,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-chat",
     "vendor": "OpenAI",
     "label": "GPT-6 Luna",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -671,7 +671,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Sol",
-    "series": "GPT-5.6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -793,7 +793,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Terra",
-    "series": "GPT-5.6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -915,7 +915,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-5.6 Luna",
-    "series": "GPT-5.6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -1037,7 +1037,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Astra",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -1124,7 +1124,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6.1 Sol",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -1211,7 +1211,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Sol",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -1333,7 +1333,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "openai-responses",
     "vendor": "OpenAI",
     "label": "GPT-6 Luna",
-    "series": "GPT-6",
+    "series": "GPT",
     "params": [
       {
         "name": "思考强度",
@@ -1455,7 +1455,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Fable 5.1",
-    "series": "Claude 5",
+    "series": "Claude",
     "params": [
       {
         "name": "思考强度",
@@ -1513,7 +1513,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 5.5",
-    "series": "Claude 5",
+    "series": "Claude",
     "params": [
       {
         "name": "思考强度",
@@ -1571,7 +1571,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 5.5",
-    "series": "Claude 5",
+    "series": "Claude",
     "params": [
       {
         "name": "思考强度",
@@ -1650,7 +1650,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Fable 5",
-    "series": "Claude 5",
+    "series": "Claude",
     "params": [
       {
         "name": "思考强度",
@@ -1704,7 +1704,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 5",
-    "series": "Claude 5",
+    "series": "Claude",
     "params": [
       {
         "name": "思考强度",
@@ -1779,7 +1779,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 5",
-    "series": "Claude 5",
+    "series": "Claude",
     "params": [
       {
         "name": "思考强度",
@@ -1847,7 +1847,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.8",
-    "series": "Claude 4",
+    "series": "Claude",
     "params": [
       {
         "name": "思考",
@@ -1914,7 +1914,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.7",
-    "series": "Claude 4",
+    "series": "Claude",
     "params": [
       {
         "name": "思考",
@@ -1981,7 +1981,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Opus 4.6",
-    "series": "Claude 4",
+    "series": "Claude",
     "params": [
       {
         "name": "思考",
@@ -2063,7 +2063,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "protocol": "anthropic",
     "vendor": "Anthropic",
     "label": "Claude Sonnet 4.6",
-    "series": "Claude 4",
+    "series": "Claude",
     "params": [
       {
         "name": "思考",
