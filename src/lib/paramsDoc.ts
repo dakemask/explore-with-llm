@@ -18,13 +18,13 @@ const exampleZh = `[
     "requires": { "思考": true }
   },
   {
-    "name": "温度",
+    "name": "最大输出",
     "type": "range",
-    "body": { "temperature": "VALUE" },
-    "min": 0,
-    "max": 2,
-    "step": 0.1,
-    "default": 1,
+    "body": { "max_tokens": "VALUE" },
+    "min": 1000,
+    "max": 64000,
+    "step": 1000,
+    "default": 8000,
     "toggle": true,
     "defaultOn": false
   },
@@ -37,7 +37,7 @@ const exampleZh = `[
 const exampleEn = exampleZh
   .replace('"思考强度"', '"Effort"')
   .replace(/"思考"/g, '"Thinking"')
-  .replace('"温度"', '"Temperature"')
+  .replace('"最大输出"', '"Max output"')
 
 const zh = `# 模型参数配置格式
 

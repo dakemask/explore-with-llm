@@ -56,22 +56,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考": "disabled"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "stream_options": {
@@ -81,7 +65,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1M 上下文，最大输出 384K。默认开启思考（强度 high）；思考模式下温度无效，所以只在关闭思考时提供。旧名 deepseek-v4-flash 目前也会转到这个模型。"
+    "notes": "1M 上下文，最大输出 384K。默认开启思考（强度 high）。旧名 deepseek-v4-flash 目前也会转到这个模型。"
   },
   {
     "id": "openai-chat/deepseek-v4-pro",
@@ -134,22 +118,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考": "disabled"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "stream_options": {
@@ -159,7 +127,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1M 上下文，最大输出 384K，不支持图片。默认开启思考（强度 high）；思考模式下温度无效，所以只在关闭思考时提供。"
+    "notes": "1M 上下文，最大输出 384K，不支持图片。默认开启思考（强度 high）。"
   },
   {
     "id": "openai-chat/gpt-5.6-sol",
@@ -211,22 +179,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "stream_options": {
@@ -236,7 +188,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-5.6-terra",
@@ -288,22 +240,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "stream_options": {
@@ -313,7 +249,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-5.6-luna",
@@ -365,22 +301,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "stream_options": {
@@ -390,7 +310,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-6-astra",
@@ -450,7 +370,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），不支持自定义温度。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-6.1-sol",
@@ -510,7 +430,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），因此不提供温度。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-6-sol",
@@ -562,22 +482,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "stream_options": {
@@ -587,7 +491,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-6-luna",
@@ -639,22 +543,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "stream_options": {
@@ -664,7 +552,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。 Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-responses/gpt-5.6-sol",
@@ -760,22 +648,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "store": false,
@@ -786,7 +658,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
   },
   {
     "id": "openai-responses/gpt-5.6-terra",
@@ -882,22 +754,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "store": false,
@@ -908,7 +764,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
   },
   {
     "id": "openai-responses/gpt-5.6-luna",
@@ -1004,22 +860,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "store": false,
@@ -1030,7 +870,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
   },
   {
     "id": "openai-responses/gpt-6-astra",
@@ -1117,7 +957,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），不支持自定义温度。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
   },
   {
     "id": "openai-responses/gpt-6.1-sol",
@@ -1204,7 +1044,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none），因此不提供温度。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
   },
   {
     "id": "openai-responses/gpt-6-sol",
@@ -1300,22 +1140,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "store": false,
@@ -1326,7 +1150,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
   },
   {
     "id": "openai-responses/gpt-6-luna",
@@ -1422,22 +1246,6 @@ export const PRESET_DATA: ModelPreset[] = [
         "defaultOn": false
       },
       {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 2,
-        "step": 0.1,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考强度": "none"
-        }
-      },
-      {
         "type": "silent",
         "body": {
           "store": false,
@@ -1448,7 +1256,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。 以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
   },
   {
     "id": "anthropic/claude-fable-5-1",
@@ -1506,7 +1314,7 @@ export const PRESET_DATA: ModelPreset[] = [
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），不支持温度。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-opus-5-5",
@@ -1564,7 +1372,7 @@ export const PRESET_DATA: ModelPreset[] = [
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），默认强度 medium，不支持温度。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），默认强度 medium。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-sonnet-5-5",
@@ -1643,7 +1451,7 @@ export const PRESET_DATA: ModelPreset[] = [
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。“关闭思考”发送 between_tools（关闭前置思考），只能在 high 及以下强度使用。不支持温度。"
+    "notes": "1M 上下文，最大输出 128K。“关闭思考”发送 between_tools（关闭前置思考），只能在 high 及以下强度使用。"
   },
   {
     "id": "anthropic/claude-fable-5",
@@ -1697,7 +1505,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），不支持温度。已有更新的 Fable 5.1。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。已有更新的 Fable 5.1。"
   },
   {
     "id": "anthropic/claude-opus-5",
@@ -1772,7 +1580,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。默认思考（自适应）；只有 high 及以下强度可以关闭思考。不支持温度。"
+    "notes": "1M 上下文，最大输出 128K。默认思考（自适应）；只有 high 及以下强度可以关闭思考。"
   },
   {
     "id": "anthropic/claude-sonnet-5",
@@ -1840,7 +1648,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。默认思考（自适应），可关闭。不支持温度。"
+    "notes": "1M 上下文，最大输出 128K。默认思考（自适应），可关闭。"
   },
   {
     "id": "anthropic/claude-opus-4-8",
@@ -1907,7 +1715,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。不支持温度。"
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。"
   },
   {
     "id": "anthropic/claude-opus-4-7",
@@ -1974,7 +1782,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。不支持温度。"
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。"
   },
   {
     "id": "anthropic/claude-opus-4-6",
@@ -2037,26 +1845,10 @@ export const PRESET_DATA: ModelPreset[] = [
         "max": 128000,
         "step": 1000,
         "default": 64000
-      },
-      {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 1,
-        "step": 0.05,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考": false
-        }
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考；温度只能在关闭思考时使用。强度没有 xhigh。"
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。强度没有 xhigh。"
   },
   {
     "id": "anthropic/claude-sonnet-4-6",
@@ -2119,25 +1911,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "max": 128000,
         "step": 1000,
         "default": 64000
-      },
-      {
-        "name": "温度",
-        "type": "range",
-        "body": {
-          "temperature": "VALUE"
-        },
-        "min": 0,
-        "max": 1,
-        "step": 0.05,
-        "default": 1,
-        "toggle": true,
-        "defaultOn": false,
-        "requires": {
-          "思考": false
-        }
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考；温度只能在关闭思考时使用。强度没有 xhigh。"
+    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。强度没有 xhigh。"
   }
 ]
