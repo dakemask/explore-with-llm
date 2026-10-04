@@ -3,8 +3,17 @@ import type { Protocol, Provider } from '../db/types'
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
+  /** User only: images to send before the text. */
+  images?: ImagePayload[]
   /** Native parts of an earlier reply to send back (assistant only), as returned by the adapter's `echo`. */
   extra?: Record<string, unknown>
+}
+
+/** An image ready to send: base64 data without the `data:` prefix. */
+export interface ImagePayload {
+  id: string
+  mime: string
+  data: string
 }
 
 export type StreamEvent =
@@ -65,6 +74,20 @@ export class ProviderError extends Error {
     this.body = body
     this.code = code
   }
+}
+
+/**
+ * A user turn's content: plain text when there are no images (requests without images stay as they were),
+ * otherwise the images as `toPart` makes them, then the text (omitted when empty: some APIs reject empty text).
+ */
+export function userContent(
+  { content, images }: ChatMessage,
+  toPart: (image: ImagePayload) => unknown,
+  textType: string,
+): string | unknown[] {
+  if (!images?.length) return content
+  const parts = images.map(toPart)
+  return content ? [...parts, { type: textType, text: content }] : parts
 }
 
 export function joinUrl(base: string, path: string) {

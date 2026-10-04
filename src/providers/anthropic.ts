@@ -1,7 +1,9 @@
 import { mergeHeaders } from '../lib/params'
 import { isObj } from './merge'
 import { readSse } from './sse'
-import { fetchModelList, joinUrl, ProviderError, type ProtocolAdapter, type StreamEvent } from './types'
+import { fetchModelList, joinUrl, ProviderError, userContent, type ImagePayload, type ProtocolAdapter, type StreamEvent } from './types'
+
+const imageBlock = (img: ImagePayload) => ({ type: 'image', source: { type: 'base64', media_type: img.mime, data: img.data } })
 
 /** Content blocks that carry reasoning; both kinds belong to the same reasoning, so they're echoed together. */
 const REASONING_BLOCKS = ['thinking', 'redacted_thinking']
@@ -29,7 +31,9 @@ export const anthropic: ProtocolAdapter = {
       headers: { 'Content-Type': 'application/json', ...baseHeaders(provider.apiKey) },
       body: {
         model,
-        messages: messages.map(({ role, content, extra }) => {
+        messages: messages.map((m) => {
+          const { role, content, extra } = m
+          if (role === 'user') return { role, content: userContent(m, imageBlock, 'text') }
           // Echoed reasoning blocks come first, as the model produced them, then the (possibly edited) text.
           const blocks = Array.isArray(extra?.content) ? extra.content : []
           return blocks.length ? { role, content: [...blocks, { type: 'text', text: content }] } : { role, content }

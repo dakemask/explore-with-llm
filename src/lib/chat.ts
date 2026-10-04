@@ -11,9 +11,10 @@ import {
   type SideAnchor,
 } from '../db'
 import { translate } from '../i18n'
-import { getAdapter, modelConfig, modelParams, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import { getAdapter, modelConfig, modelParams, prepareChat, ProviderError, sendChat, type ChatMessage, type ImagePayload } from '../providers'
 import { paramKey, useSettings } from '../store/settings'
 import { streamEvents } from './attempt'
+import { loadPayloads, maskImages, pruneImages, saveImages, type ImageFile } from './images'
 import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
 import { forkKey, pathTo } from './tree'
@@ -32,11 +33,12 @@ export async function renameConversation(id: string, title: string) {
 }
 
 export async function deleteConversation(id: string) {
-  await db.transaction('rw', db.conversations, db.nodes, async () => {
+  await db.transaction('rw', db.conversations, db.nodes, db.images, async () => {
     const nodes = await db.nodes.where('conversationId').equals(id).toArray()
     for (const n of nodes) controllers.get(n.id)?.abort()
     await db.nodes.where('conversationId').equals(id).delete()
     await db.conversations.delete(id)
+    await db.images.where('conversationId').equals(id).delete()
   })
 }
 
@@ -44,17 +46,27 @@ export async function deleteConversation(id: string) {
  * Turns a root→leaf path into protocol messages, then appends the new user turn.
  * Nodes whose request produced no assistant text still contribute their user turn.
  * Replies carry the native fields the target model's config asks to be echoed back (see `ModelConfig.echoFields`).
+ * `images` supplies the data of every image the user turns refer to (`ChatNode.user.images`, `images.user`).
  */
-export function buildMessages(path: ChatNode[], userText: string, target?: { provider: Provider; model: string }): ChatMessage[] {
+export function buildMessages(
+  path: ChatNode[],
+  userText: string,
+  target?: { provider: Provider; model: string },
+  images?: { payloads: Map<string, ImagePayload>; user: string[] },
+): ChatMessage[] {
+  const userTurn = (content: string, ids: string[] | undefined): ChatMessage => {
+    const found = (ids ?? []).flatMap((id) => images?.payloads.get(id) ?? [])
+    return found.length ? { role: 'user', content, images: found } : { role: 'user', content }
+  }
   const messages: ChatMessage[] = []
   for (const n of path) {
-    messages.push({ role: 'user', content: n.user.text })
+    messages.push(userTurn(n.user.text, n.user.images))
     if (n.assistant.content) {
       const extra = target && echoFields(n, target.provider, target.model)
       messages.push(extra ? { role: 'assistant', content: n.assistant.content, extra } : { role: 'assistant', content: n.assistant.content })
     }
   }
-  messages.push({ role: 'user', content: userText })
+  messages.push(userTurn(userText, images?.user))
   return messages
 }
 
@@ -94,17 +106,23 @@ export async function sendMessage(opts: {
   conversationId: string
   parentId: string | null
   text: string
+  /** Images sent with the text (new ones are stored; retries pass the original's). */
+  images?: ImageFile[]
   provider: Provider
   model: string
   side?: { thread: string; anchor?: SideAnchor }
 }) {
   const { conversationId, parentId, text, provider, model, side } = opts
+  const images = opts.images ?? []
   const conv = await db.conversations.get(conversationId)
   if (!conv) return
 
+  await saveImages(conversationId, images)
   const allNodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
   const path = parentId ? pathTo(allNodes, parentId) : []
-  const messages = buildMessages(path, text, { provider, model })
+  const imageIds = images.map((i) => i.id)
+  const payloads = await loadPayloads([...path.flatMap((n) => n.user.images ?? []), ...imageIds])
+  const messages = buildMessages(path, text, { provider, model }, { payloads, user: imageIds })
 
   const nodeId = nanoid()
   const now = Date.now()
@@ -127,7 +145,7 @@ export async function sendMessage(opts: {
     ...(side && { thread: side.thread }),
     ...(side?.anchor && { anchor: side.anchor }),
     createdAt: now,
-    user: { text },
+    user: imageIds.length ? { text, images: imageIds } : { text },
     assistant: { content: '' },
     attempt,
   }
@@ -136,15 +154,21 @@ export async function sendMessage(opts: {
     await db.nodes.add(node)
     await db.conversations.update(conversationId, {
       updatedAt: now,
-      title: conv.title || summarizeTitle(text),
+      title: conv.title || summarizeTitle(text) || (images.length ? translate(useSettings.getState().lang, 'chat.imageTitle') : ''),
       selectedChild: { ...conv.selectedChild, [forkKey(node)]: nodeId },
     })
   })
 
-  await runAttempt(node, provider, model, messages)
+  await runAttempt(node, provider, model, messages, payloads.values())
 }
 
-async function runAttempt(node: ChatNode, provider: Provider, model: string, messages: ChatMessage[]) {
+async function runAttempt(
+  node: ChatNode,
+  provider: Provider,
+  model: string,
+  messages: ChatMessage[],
+  images: Iterable<ImagePayload>,
+) {
   const setLive = useUi.getState().setLive
   const controller = new AbortController()
   controllers.set(node.id, controller)
@@ -197,7 +221,7 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
     if (!params.ok) throw new ProviderError(translate(lang, 'params.invalid'))
     if (params.missing) throw new ProviderError(translate(lang, 'params.missingError', { field: params.missing }))
     const req = prepareChat(provider, model, messages, params.body)
-    node.attempt = { ...node.attempt, url: req.url, requestHeaders: req.headers, requestBody: req.body }
+    node.attempt = { ...node.attempt, url: req.url, requestHeaders: req.headers, requestBody: maskImages(req.body, images) }
     await db.nodes.update(node.id, { attempt: node.attempt })
 
     const startedAt = node.attempt.startedAt
@@ -227,11 +251,12 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
 }
 
 /** A new version of `node` (retry, or edited question): a sibling at the same fork, same thread/anchor. */
-export function resend(node: ChatNode, text: string, provider: Provider, model: string) {
+export function resend(node: ChatNode, text: string, images: ImageFile[], provider: Provider, model: string) {
   return sendMessage({
     conversationId: node.conversationId,
     parentId: node.parentId,
     text,
+    images,
     provider,
     model,
     side: node.thread ? { thread: node.thread, anchor: node.anchor } : undefined,
@@ -245,7 +270,7 @@ export async function selectBranch(conversationId: string, key: string | null, n
 
 /** Deletes a side question with all its versions and follow-ups, which unlocks its anchored text. */
 export async function deleteThread(conversationId: string, thread: string) {
-  await db.transaction('rw', db.conversations, db.nodes, async () => {
+  await db.transaction('rw', db.conversations, db.nodes, db.images, async () => {
     const nodes = (await db.nodes.where('conversationId').equals(conversationId).toArray()).filter(
       (n) => n.thread === thread,
     )
@@ -256,6 +281,7 @@ export async function deleteThread(conversationId: string, thread: string) {
     const gone = new Set([thread, ...nodes.map((n) => n.id)])
     const selectedChild = Object.fromEntries(Object.entries(conv.selectedChild).filter(([k]) => !gone.has(k)))
     await db.conversations.update(conversationId, { selectedChild })
+    await pruneImages(conversationId)
   })
 }
 

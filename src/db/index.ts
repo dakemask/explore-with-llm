@@ -1,10 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { ChatNode, Conversation, ModelConfig, Provider } from './types'
+import type { ChatNode, Conversation, ModelConfig, Provider, StoredImage } from './types'
 
 export const db = new Dexie('explore-with-llm') as Dexie & {
   providers: EntityTable<Provider, 'id'>
   conversations: EntityTable<Conversation, 'id'>
   nodes: EntityTable<ChatNode, 'id'>
+  images: EntityTable<StoredImage, 'id'>
 }
 
 db.version(1).stores({
@@ -58,6 +59,14 @@ db.version(3)
         delete p.headers
       }),
   )
+
+// v4: images attached to user messages.
+db.version(4).stores({
+  providers: 'id, createdAt',
+  conversations: 'id, updatedAt',
+  nodes: 'id, conversationId, parentId',
+  images: 'id, conversationId',
+})
 
 /** Requests can't survive a reload; mark anything left streaming as aborted. */
 export async function recoverInterruptedNodes() {

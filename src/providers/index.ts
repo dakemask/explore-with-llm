@@ -16,6 +16,7 @@ import { openaiResponses } from './openaiResponses'
 import {
   ProviderError,
   type ChatMessage,
+  type ImagePayload,
   type PreparedRequest,
   type ProtocolAdapter,
   type StreamEvent,
@@ -154,4 +155,4 @@ function extractErrorMessage(text: string): string | undefined {
 }
 
 export { ProviderError }
-export type { ChatMessage, StreamEvent }
+export type { ChatMessage, ImagePayload, StreamEvent }

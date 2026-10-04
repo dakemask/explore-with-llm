@@ -118,7 +118,11 @@ export interface ChatNode {
   /** Side nodes only: the side-question thread they belong to. */
   thread?: string
   createdAt: number
-  user: { text: string }
+  user: {
+    text: string
+    /** Attached images (`StoredImage` ids), sent before the text. Shared with retries / edits that keep them. */
+    images?: string[]
+  }
   assistant: {
     content: string
     /** Never set on edited nodes: an edit drops the reasoning. */
@@ -136,4 +140,19 @@ export interface ChatNode {
     at: number
   }
   attempt: Attempt
+}
+
+/**
+ * An image attached to a user message. Stored once per conversation and referenced by id from nodes; the
+ * recorded request body holds `[image:<id>]` in place of its base64 data (see `lib/images.ts`).
+ */
+export interface StoredImage {
+  id: string
+  conversationId: string
+  /** Bytes as sent (already converted / downscaled if the original wasn't sendable). */
+  blob: Blob
+  mime: string
+  width: number
+  height: number
+  createdAt: number
 }

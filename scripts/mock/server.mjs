@@ -13,6 +13,8 @@
 // Every reply starts with a line echoing the request (counter, protocol, context size, echoed reasoning found
 // in the context, body fields beyond the protocol's own, last user message) so branches, echo-back and
 // parameters are visible in tests. Anthropic requests without max_tokens get the API's 400 error.
+// User content may be a list of parts (images + text in the protocol's own shape): the echo line counts the
+// images in the whole context, and a part of unknown shape gets a 400 like a real API.
 import fs from 'node:fs'
 import http from 'node:http'
 
@@ -32,11 +34,47 @@ let count = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const blob = (n) => Buffer.from(`encrypted-reasoning-${n}-`.repeat(60)).toString('base64')
 
-/** First line of every reply. */
-function echoLine({ protocol, context, echoed, params, last }) {
-  const p = Object.keys(params).length ? JSON.stringify(params) : '无'
-  return `> 第 ${count} 次请求 · ${protocol} · 上下文 ${context} 条 · 回传 ${echoed.size ? [...echoed].join(', ') : '无'} · 参数 ${p} · 「${String(last).slice(0, 30)}」\n\n`
+/** Text / image part shapes per protocol; anything else in user content is rejected. */
+const DATA_URL = /^data:image\/[\w+.-]+;base64,./
+const PARTS = {
+  chat: {
+    text: (p) => p.type === 'text' && typeof p.text === 'string',
+    image: (p) => p.type === 'image_url' && DATA_URL.test(p.image_url?.url ?? ''),
+  },
+  anthropic: {
+    text: (p) => p.type === 'text' && !!p.text,
+    image: (p) => p.type === 'image' && p.source?.type === 'base64' && /^image\//.test(p.source.media_type ?? '') && !!p.source.data,
+  },
+  responses: {
+    text: (p) => p.type === 'input_text' && typeof p.text === 'string',
+    image: (p) => p.type === 'input_image' && DATA_URL.test(p.image_url ?? ''),
+  },
 }
+
+/** Text of a user message and its image count; throws on a part of unknown shape. */
+function userParts(protocol, content) {
+  if (typeof content === 'string') return { text: content, images: 0 }
+  let text = ''
+  let images = 0
+  for (const p of content ?? []) {
+    if (PARTS[protocol].text(p)) text += p.text
+    else if (PARTS[protocol].image(p)) images++
+    else throw new Error(`invalid content part: ${JSON.stringify(p).slice(0, 80)}`)
+  }
+  return { text, images }
+}
+
+/** First line of every reply. `users`: the content of every user message in the context. */
+function echoLine({ protocol, context, echoed, params, users }) {
+  const p = Object.keys(params).length ? JSON.stringify(params) : '无'
+  const parts = users.map((c) => userParts(protocol, c))
+  const images = parts.reduce((n, u) => n + u.images, 0)
+  const last = parts.at(-1)?.text ?? ''
+  return `> 第 ${count} 次请求 · ${protocol} · 上下文 ${context} 条 · 回传 ${echoed.size ? [...echoed].join(', ') : '无'} · 参数 ${p} · 图片 ${images} 张 · 「${String(last).slice(0, 30)}」\n\n`
+}
+
+const userContents = (protocol, body) =>
+  (protocol === 'responses' ? body.input : body.messages).filter((m) => m.role === 'user').map((m) => m.content)
 
 const replyText = (model, line) => (model === 'mock-tags' ? `<think>\n${reasoning}\n</think>\n\n` : '') + line + reply
 
@@ -72,7 +110,7 @@ async function chat(res, body) {
       await sleep(15)
     }
   }
-  const line = echoLine({ protocol: 'chat', context: messages.length, echoed, params, last: messages.at(-1)?.content ?? '' })
+  const line = echoLine({ protocol: 'chat', context: messages.length, echoed, params, users: userContents('chat', body) })
   await streamText(replyText(model, line), (t) => delta({ content: t }))
   send({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
   send({
@@ -109,8 +147,7 @@ async function anthropic(res, body) {
     send({ type: 'content_block_stop', index: index++ })
   }
   send({ type: 'content_block_start', index, content_block: { type: 'text', text: '' } })
-  const last = messages.at(-1)?.content
-  const line = echoLine({ protocol: 'anthropic', context: messages.length, echoed, params, last: typeof last === 'string' ? last : '' })
+  const line = echoLine({ protocol: 'anthropic', context: messages.length, echoed, params, users: userContents('anthropic', body) })
   await streamText(replyText(model, line), (t) => send({ type: 'content_block_delta', index, delta: { type: 'text_delta', text: t } }))
   send({ type: 'content_block_stop', index })
   send({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 100 } })
@@ -150,8 +187,7 @@ async function responses(res, body) {
   const id = `msg_${count}`
   send({ type: 'response.output_item.added', output_index: oi, item: { id, type: 'message', status: 'in_progress', role: 'assistant', content: [] } })
   send({ type: 'response.content_part.added', item_id: id, output_index: oi, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } })
-  const lastUser = [...input].reverse().find((it) => it.role === 'user')?.content
-  const line = echoLine({ protocol: 'responses', context: input.length, echoed, params, last: typeof lastUser === 'string' ? lastUser : '' })
+  const line = echoLine({ protocol: 'responses', context: input.length, echoed, params, users: userContents('responses', body) })
   const text = replyText(model, line)
   await streamText(text, (t) => send({ type: 'response.output_text.delta', item_id: id, output_index: oi, content_index: 0, delta: t }))
   send({ type: 'response.output_text.done', item_id: id, output_index: oi, content_index: 0, text })
@@ -195,6 +231,12 @@ http
     if (body.model === 'mock-bad') return json(401, { error: { message: 'Authentication Fails (no such user)' } })
     if (protocol === 'anthropic' && body.max_tokens === undefined) {
       return json(400, { type: 'error', error: { type: 'invalid_request_error', message: 'max_tokens: Field required' } })
+    }
+
+    try {
+      for (const c of userContents(protocol, body)) userParts(protocol, c)
+    } catch (e) {
+      return json(400, { error: { type: 'invalid_request_error', message: e.message } })
     }
 
     res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream', 'X-Request-Id': `mock-${count}` })

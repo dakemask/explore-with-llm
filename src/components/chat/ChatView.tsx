@@ -6,6 +6,7 @@ import { db, type ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import type { AnchorMark } from '../../lib/anchor'
 import { createConversation, sendMessage, stopGeneration } from '../../lib/chat'
+import type { ImageFile } from '../../lib/images'
 import { activePath, sideThreads, siblingsOf, threadPath } from '../../lib/tree'
 import { useAutoScroll } from '../../lib/hooks'
 import { useUi, type Panel } from '../../store/ui'
@@ -43,7 +44,7 @@ export function ChatView() {
   const canSend = ready
 
   /** A new node always ends the active path, so keep the view pinned to the bottom. */
-  const send = async (parentId: string | null, text: string) => {
+  const send = async (parentId: string | null, text: string, images: ImageFile[]) => {
     if (!provider || !model) return
     scroll.pin()
     let id = conversationId
@@ -51,9 +52,10 @@ export function ChatView() {
       id = await createConversation()
       setConversation(id)
     }
-    await sendMessage({ conversationId: id, parentId, text, provider, model })
+    await sendMessage({ conversationId: id, parentId, text, images, provider, model })
   }
 
+  const mainRef = useRef<HTMLElement>(null)
   const scroll = useAutoScroll(conversationId)
   const actions = useNodeActions(nodes, scroll.pin)
   const anchors = useAnchors(path, nodes, panel)
@@ -84,7 +86,7 @@ export function ChatView() {
         nodeId,
         items: threads.map((thread) => ({
           thread,
-          question: threadPath(all, thread, conversation?.selectedChild ?? {})[0]?.user.text ?? '',
+          question: threadPath(all, thread, conversation?.selectedChild ?? {})[0]?.user.text || t('image.only'),
         })),
       })
     }
@@ -94,7 +96,7 @@ export function ChatView() {
   const noProvider = providers && !provider
 
   return (
-    <main className="flex h-full min-w-0 flex-1 flex-col bg-bg">
+    <main ref={mainRef} className="flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
         <div className="min-w-0 flex-1 truncate text-center text-[13px] text-muted">{conversation?.title}</div>
       </header>
@@ -156,7 +158,8 @@ export function ChatView() {
       <div className="shrink-0 px-6 pb-5">
         <div className="mx-auto w-full max-w-3xl">
           <Composer
-            onSend={(text) => send(last?.id ?? null, text)}
+            onSend={(text, images) => send(last?.id ?? null, text, images)}
+            dropTarget={mainRef}
             onStop={() => last && stopGeneration(last.id)}
             generating={generating}
             disabled={!canSend}

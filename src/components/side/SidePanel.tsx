@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { MessagesSquare, Trash2, X } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { db } from '../../db'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
 import { deleteThread, sendMessage, stopGeneration } from '../../lib/chat'
+import type { ImageFile } from '../../lib/images'
 import { useAutoScroll } from '../../lib/hooks'
 import { siblingsOf, threadPath } from '../../lib/tree'
 import { useUi, type SidePanel as SidePanelState } from '../../store/ui'
@@ -48,13 +49,15 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
   const actions = useNodeActions(nodes, scroll.pin)
   const canSend = ready
 
-  const send = (text: string) => {
+  const asideRef = useRef<HTMLElement>(null)
+  const send = (text: string, images: ImageFile[]) => {
     if (!provider || !model || !conversationId) return
     scroll.pin()
     void sendMessage({
       conversationId,
       parentId: last?.id ?? panel.nodeId,
       text,
+      images,
       provider,
       model,
       side: last ? { thread: panel.thread } : { thread: panel.thread, anchor: panel.draft },
@@ -68,7 +71,7 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
   }
 
   return (
-    <aside className="anim-drawer flex h-full w-[460px] shrink-0 flex-col border-l border-border bg-surface">
+    <aside ref={asideRef} className="anim-drawer flex h-full w-[460px] shrink-0 flex-col border-l border-border bg-surface">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border pr-3 pl-5">
         <MessagesSquare size={16} className="text-muted" />
         <h2 className="flex-1 text-[15px] font-semibold">{t('side.title')}</h2>
@@ -116,6 +119,7 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
           placeholder={t('side.placeholder')}
           initialText={panel.draft && !root ? quoteForInput(panel.draft.text) : ''}
           leading={<ModelControls />}
+          dropTarget={asideRef}
         />
       </div>
     </aside>

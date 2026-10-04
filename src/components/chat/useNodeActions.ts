@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
-import type { ChatNode } from '../../db'
+import { db, type ChatNode } from '../../db'
 import { resend, selectBranch } from '../../lib/chat'
+import type { ImageFile } from '../../lib/images'
 import { forkKey, siblingsOf } from '../../lib/tree'
 import type { NodeActions } from './MessageNode'
 import { useCurrentModel } from './ModelPicker'
@@ -14,14 +15,17 @@ export function useNodeActions(nodes: ChatNode[] | undefined, beforeSend?: () =>
   const latest = useRef({ nodes, provider, model, beforeSend })
   latest.current = { nodes, provider, model, beforeSend }
   return useMemo<NodeActions>(() => {
-    const again = (node: ChatNode, text: string) => {
+    const again = (node: ChatNode, text: string, images: ImageFile[]) => {
       const { provider, model, beforeSend } = latest.current
       if (!provider || !model) return
       beforeSend?.()
-      void resend(node, text, provider, model)
+      void resend(node, text, images, provider, model)
     }
     return {
-      retry: (node) => again(node, node.user.text),
+      retry: async (node) => {
+        const images = (await db.images.bulkGet(node.user.images ?? [])).filter((i) => !!i)
+        again(node, node.user.text, images)
+      },
       edit: again,
       switchBranch: (node, delta) => {
         const sibs = siblingsOf(latest.current.nodes ?? [], node)

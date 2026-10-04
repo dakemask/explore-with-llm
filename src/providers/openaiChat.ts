@@ -1,10 +1,12 @@
 import { mergeHeaders } from '../lib/params'
 import { readSse } from './sse'
 import { isObj, mergeDelta } from './merge'
-import { fetchModelList, joinUrl, ProviderError, type ProtocolAdapter, type StreamEvent } from './types'
+import { fetchModelList, joinUrl, ProviderError, userContent, type ImagePayload, type ProtocolAdapter, type StreamEvent } from './types'
 
 /** Reasoning fields of a Chat Completions reply, best first; they repeat the same reasoning, so only one is echoed. */
 const REASONING_FIELDS = ['reasoning_details', 'reasoning_content', 'reasoning']
+
+const imageUrlPart = (img: ImagePayload) => ({ type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.data}` } })
 
 /** OpenAI Chat Completions protocol (also used by DeepSeek and most compatible vendors). */
 export const openaiChat: ProtocolAdapter = {
@@ -20,7 +22,13 @@ export const openaiChat: ProtocolAdapter = {
       },
       body: {
         model,
-        messages: messages.map(({ role, content, extra }) => (extra ? { role, content, ...extra } : { role, content })),
+        messages: messages.map((m) =>
+          m.role === 'user'
+            ? { role: m.role, content: userContent(m, imageUrlPart, 'text') }
+            : m.extra
+              ? { role: m.role, content: m.content, ...m.extra }
+              : { role: m.role, content: m.content },
+        ),
         ...params,
         stream: true,
       },

@@ -1,8 +1,10 @@
 import clsx from 'clsx'
 import { ArrowUp, Square } from 'lucide-react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useT } from '../../i18n'
 import { useAutosize } from '../../lib/hooks'
+import type { ImageFile } from '../../lib/images'
+import { AttachButton, AttachmentStrip, DropHint, useAttachments } from './Images'
 
 export function Composer({
   onSend,
@@ -12,8 +14,9 @@ export function Composer({
   placeholder,
   leading,
   initialText = '',
+  dropTarget,
 }: {
-  onSend: (text: string) => void
+  onSend: (text: string, images: ImageFile[]) => void
   onStop: () => void
   generating: boolean
   disabled?: boolean
@@ -22,27 +25,35 @@ export function Composer({
   leading?: ReactNode
   /** Text to start with (read on mount); the cursor goes after it. */
   initialText?: string
+  /** Where dropped image files are accepted (e.g. the whole chat column); the box itself by default. */
+  dropTarget?: RefObject<HTMLElement | null>
 }) {
   const t = useT()
   const [text, setText] = useState(initialText)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const attachments = useAttachments(dropTarget ?? box)
 
   useAutosize(ref, text)
 
-  const canSend = !disabled && !generating && text.trim().length > 0
+  const canSend = !disabled && !generating && (text.trim().length > 0 || attachments.images.length > 0)
   const submit = () => {
     if (!canSend) return
-    onSend(text.trim())
+    onSend(text.trim(), attachments.images)
     setText('')
+    attachments.clear()
   }
 
   return (
     <div
+      ref={box}
       className={clsx(
-        'rounded-2xl border border-border bg-surface shadow-composer transition-colors',
+        'relative rounded-2xl border border-border bg-surface shadow-composer transition-colors',
         'focus-within:border-border-strong',
       )}
     >
+      <DropHint show={attachments.dragging} className="rounded-2xl" />
+      <AttachmentStrip attachments={attachments} className="px-3.5 pt-3.5" />
       <textarea
         ref={ref}
         rows={1}
@@ -53,6 +64,7 @@ export function Composer({
           if (initialText && e.currentTarget.selectionStart === 0) e.currentTarget.setSelectionRange(end, end)
         }}
         onChange={(e) => setText(e.target.value)}
+        onPaste={attachments.onPaste}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault()
@@ -62,7 +74,8 @@ export function Composer({
         placeholder={placeholder ?? t('chat.placeholder')}
         className="block max-h-60 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-relaxed placeholder:text-faint focus:outline-none"
       />
-      <div className="flex items-center gap-2 px-2.5 pb-2.5">
+      <div className="flex items-center gap-1 px-2.5 pb-2.5">
+        <AttachButton onFiles={attachments.add} />
         <div className="min-w-0 flex-1">{leading}</div>
         {generating ? (
           <button

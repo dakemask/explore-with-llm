@@ -1,7 +1,9 @@
 import { mergeHeaders } from '../lib/params'
 import { isObj } from './merge'
 import { readSse } from './sse'
-import { fetchModelList, joinUrl, ProviderError, type ProtocolAdapter, type StreamEvent } from './types'
+import { fetchModelList, joinUrl, ProviderError, userContent, type ImagePayload, type ProtocolAdapter, type StreamEvent } from './types'
+
+const inputImage = (img: ImagePayload) => ({ type: 'input_image', image_url: `data:${img.mime};base64,${img.data}` })
 
 /**
  * OpenAI Responses protocol. A reply is a list of output items (`reasoning`, `message`…); the native
@@ -13,7 +15,12 @@ export const openaiResponses: ProtocolAdapter = {
 
   buildRequest(provider, model, messages, params) {
     const input: unknown[] = []
-    for (const { role, content, extra } of messages) {
+    for (const m of messages) {
+      const { role, content, extra } = m
+      if (role === 'user') {
+        input.push({ role, content: userContent(m, inputImage, 'input_text') })
+        continue
+      }
       const items = Array.isArray(extra?.items) ? extra.items : []
       if (role !== 'assistant' || !isObj(extra?.message)) {
         input.push(...items, { role, content })

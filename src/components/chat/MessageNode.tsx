@@ -6,16 +6,18 @@ import { useT } from '../../i18n'
 import { useAutosize, useCopy } from '../../lib/hooks'
 import type { AnchorMark } from '../../lib/anchor'
 import { editAssistant } from '../../lib/chat'
+import { useStoredImages, type ImageFile } from '../../lib/images'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
 import { useUi } from '../../store/ui'
 import { Button, IconButton, Tip } from '../ui/Button'
 import { AssistantEditor } from './AssistantEditor'
+import { AttachButton, AttachmentStrip, DropHint, MessageImages, useAttachments } from './Images'
 import { Markdown } from './Markdown'
 
 /** Callbacks from ChatView. Kept referentially stable so memoized nodes don't re-render. */
 export interface NodeActions {
   retry: (node: ChatNode) => void
-  edit: (node: ChatNode, text: string) => void
+  edit: (node: ChatNode, text: string, images: ImageFile[]) => void
   switchBranch: (node: ChatNode, delta: -1 | 1) => void
 }
 
@@ -66,7 +68,8 @@ export const MessageNode = memo(function MessageNode({
     <div className="space-y-3">
       <UserMessage
         text={node.user.text}
-        onEdit={canSend ? (text) => actions.edit(node, text) : undefined}
+        images={node.user.images}
+        onEdit={canSend ? (text, images) => actions.edit(node, text, images) : undefined}
         branch={
           branchCount > 1 && (
             <BranchSwitcher
@@ -114,12 +117,14 @@ export const DRAFT_PREFIX = 'draft:'
 
 function UserMessage({
   text,
+  images,
   branch,
   onEdit,
 }: {
   text: string
+  images?: string[]
   branch: ReactNode
-  onEdit?: (text: string) => void
+  onEdit?: (text: string, images: ImageFile[]) => void
 }) {
   const t = useT()
   const [editing, setEditing] = useState(false)
@@ -129,10 +134,11 @@ function UserMessage({
     return (
       <UserEditor
         initial={text}
+        initialImages={images}
         onCancel={() => setEditing(false)}
-        onSend={(next) => {
+        onSend={(next, nextImages) => {
           setEditing(false)
-          onEdit(next)
+          onEdit(next, nextImages)
         }}
       />
     )
@@ -140,14 +146,19 @@ function UserMessage({
 
   return (
     <div className="group/user flex flex-col items-end">
-      <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5">
-        <Markdown text={text} className="prose-user" breaks />
-      </div>
+      {images && images.length > 0 && <MessageImages ids={images} />}
+      {text && (
+        <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5">
+          <Markdown text={text} className="prose-user" breaks />
+        </div>
+      )}
       <div className="mt-1 flex h-7 items-center gap-1">
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/user:opacity-100 focus-within:opacity-100">
-          <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={() => copy(text)}>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </IconButton>
+          {text && (
+            <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={() => copy(text)}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </IconButton>
+          )}
           {onEdit && (
             <IconButton label={t('msg.edit')} size="sm" onClick={() => setEditing(true)}>
               <Pencil size={14} />
@@ -160,33 +171,49 @@ function UserMessage({
   )
 }
 
-/** Inline editor for a user message. Sending creates a new sibling branch. */
+/** Inline editor for a user message (text and images). Sending creates a new sibling branch. */
 function UserEditor({
   initial,
+  initialImages,
   onCancel,
   onSend,
 }: {
   initial: string
+  initialImages?: string[]
   onCancel: () => void
-  onSend: (text: string) => void
+  onSend: (text: string, images: ImageFile[]) => void
 }) {
   const t = useT()
   const [text, setText] = useState(initial)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const attachments = useAttachments(box)
+  const stored = useStoredImages(initialImages)
+  const loaded = useRef(false)
+  if (stored && !loaded.current) {
+    loaded.current = true
+    if (stored.length) attachments.reset(stored)
+  }
   useAutosize(ref, text, 400)
-  const canSend = text.trim().length > 0
+  const canSend = text.trim().length > 0 || attachments.images.length > 0
   const submit = () => {
-    if (canSend) onSend(text.trim())
+    if (canSend) onSend(text.trim(), attachments.images)
   }
 
   return (
-    <div className="anim-fade ml-auto w-[85%] rounded-2xl border border-border-strong bg-surface shadow-composer">
+    <div
+      ref={box}
+      className="anim-fade relative ml-auto w-[85%] rounded-2xl border border-border-strong bg-surface shadow-composer"
+    >
+      <DropHint show={attachments.dragging} className="rounded-2xl" />
+      <AttachmentStrip attachments={attachments} className="px-3.5 pt-3.5" />
       <textarea
         ref={ref}
         value={text}
         autoFocus
         onFocus={(e) => e.currentTarget.setSelectionRange(text.length, text.length)}
         onChange={(e) => setText(e.target.value)}
+        onPaste={attachments.onPaste}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onCancel()
           else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -196,7 +223,8 @@ function UserEditor({
         }}
         className="block w-full resize-none bg-transparent px-4 pt-3 pb-1 text-[15px] leading-relaxed focus:outline-none"
       />
-      <div className="flex items-center gap-2 py-2.5 pr-2.5 pl-4">
+      <div className="flex items-center gap-2 py-2.5 pr-2.5 pl-2.5">
+        <AttachButton onFiles={attachments.add} />
         <span className="min-w-0 flex-1 truncate text-xs text-faint">{t('msg.editHint')}</span>
         <Button size="sm" variant="ghost" onClick={onCancel}>
           {t('common.cancel')}
