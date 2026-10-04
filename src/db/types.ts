@@ -121,16 +121,19 @@ export interface ChatNode {
   user: { text: string }
   assistant: {
     content: string
+    /** Never set on edited nodes: an edit drops the reasoning. */
     reasoning?: string
-    /** True once the user edited the assistant text in place. */
-    edited?: boolean
-    /** When the current `content` was saved by an edit. */
-    editedAt?: number
-    /**
-     * Earlier versions of `content`, oldest first (the model's reply, then each edit), with when each was
-     * written. Missing on replies edited before history was kept.
-     */
-    history?: { content: string; at: number }[]
+  }
+  /**
+   * Set on a node made by editing another node's reply. Its `attempt` is a copy of the source's (shown
+   * as the source's in details) and is never echoed; its reasoning is dropped.
+   */
+  edit?: {
+    /** The node whose reply was edited (a sibling). */
+    from: string
+    /** Earlier versions of the reply, oldest first: the model's reply, then each edit before this one. */
+    history: { content: string; at: number }[]
+    at: number
   }
   attempt: Attempt
 }

@@ -35,7 +35,7 @@ export const MessageNode = memo(function MessageNode({
   actions: NodeActions
   /**
    * Main-line nodes only: side-question anchors on the reply. Makes the reply selectable for new side
-   * questions (the root carries `data-anchor-root`) and locks the anchored text when editing.
+   * questions (the root carries `data-anchor-root`).
    */
   anchors?: AnchorMark[]
 }) {
@@ -43,7 +43,9 @@ export const MessageNode = memo(function MessageNode({
   const streaming = node.attempt.status === 'streaming'
   const content = live?.content ?? node.assistant.content
   const reasoning = live?.reasoning ?? node.assistant.reasoning ?? ''
-  const thinking = useMemo(() => reasoningView(reasoning, node.attempt.message), [reasoning, node.attempt.message])
+  // An edited version carries its source's response, but not its reasoning.
+  const message = node.edit ? undefined : node.attempt.message
+  const thinking = useMemo(() => reasoningView(reasoning, message), [reasoning, message])
   const retry = canSend ? () => actions.retry(node) : undefined
   const detailOpen = useUi((s) => s.panel?.type === 'detail' && s.panel.nodeId === node.id)
   const toggleDetail = () => {
@@ -52,13 +54,13 @@ export const MessageNode = memo(function MessageNode({
     else setPanel({ type: 'detail', nodeId: node.id, back: panel?.type === 'side' ? panel : undefined })
   }
   const [editing, setEditing] = useState(false)
-  const startEdit = () => {
-    // An unsent side question's offsets would go stale; drop it.
+  const saveEdit = async (text: string) => {
+    setEditing(false)
+    // The edit is shown in this node's place; an unsent side question on this node would be left behind.
     const { panel, setPanel } = useUi.getState()
     if (panel?.type === 'side' && panel.draft && panel.nodeId === node.id) setPanel(null)
-    setEditing(true)
+    await editAssistant(node, text)
   }
-  const locks = useMemo(() => anchors?.filter((a) => !isDraft(a)) ?? [], [anchors])
 
   return (
     <div className="space-y-3">
@@ -79,15 +81,7 @@ export const MessageNode = memo(function MessageNode({
       <div className="group/assistant">
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
         {editing ? (
-          <AssistantEditor
-            initial={node.assistant.content}
-            locks={locks}
-            onCancel={() => setEditing(false)}
-            onSave={async (text, moved) => {
-              setEditing(false)
-              await editAssistant(node, text, Object.fromEntries(moved.map((l) => [l.id, { start: l.start, end: l.end }])))
-            }}
-          />
+          <AssistantEditor initial={node.assistant.content} onCancel={() => setEditing(false)} onSave={saveEdit} />
         ) : content ? (
           <div data-anchor-root={anchors && !streaming ? node.id : undefined}>
             <Markdown
@@ -99,13 +93,13 @@ export const MessageNode = memo(function MessageNode({
         ) : (
           streaming && !hasReasoning(thinking) && <TypingDots />
         )}
-        {node.attempt.status === 'error' && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} />}
+        {node.attempt.status === 'error' && !node.edit && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} />}
         {!streaming && !editing && (
           <AssistantFooter
             node={node}
             content={content}
             onRetry={retry}
-            onEdit={content ? startEdit : undefined}
+            onEdit={content ? () => setEditing(true) : undefined}
             detailOpen={detailOpen}
             onDetail={toggleDetail}
           />
@@ -115,11 +109,8 @@ export const MessageNode = memo(function MessageNode({
   )
 })
 
-/** The highlight of a side question not sent yet (see ChatView); not a real anchor, so never a lock. */
+/** The highlight of a side question not sent yet (see ChatView); not a real anchor. */
 export const DRAFT_PREFIX = 'draft:'
-function isDraft(a: AnchorMark) {
-  return a.id.startsWith(DRAFT_PREFIX)
-}
 
 function UserMessage({
   text,
@@ -352,8 +343,8 @@ function AssistantFooter({
   const t = useT()
   const { copied, copy } = useCopy()
   const tags = [
-    node.attempt.status === 'aborted' && t('msg.aborted'),
-    node.assistant.edited && t('msg.edited'),
+    node.attempt.status === 'aborted' && !node.edit && t('msg.aborted'),
+    node.edit && t('msg.edited'),
   ].filter(Boolean)
   return (
     <div className="mt-2 flex h-7 items-center gap-1 text-xs text-faint">

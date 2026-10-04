@@ -287,42 +287,6 @@ export function rangeToSource(root: HTMLElement, range: Range, source: string): 
   return end > start ? { start, end } : null
 }
 
-// ---------- Editing around locked ranges ----------
-
-export interface Lock {
-  start: number
-  end: number
-}
-
-/**
- * Part of `prev` replaced to produce `next`. `caret` (the cursor after the edit) disambiguates
- * repeated characters: typing and deleting leave the cursor right after the changed text.
- */
-export function editRegion(prev: string, next: string, caret: number) {
-  const delta = next.length - prev.length
-  let tail = next.length - caret
-  if (tail < 0 || tail > prev.length || prev.slice(prev.length - tail) !== next.slice(caret)) {
-    tail = 0
-    while (tail < Math.min(prev.length, next.length) && prev[prev.length - 1 - tail] === next[next.length - 1 - tail]) tail++
-  }
-  let head = 0
-  const max = Math.min(prev.length, next.length) - tail
-  while (head < max && prev[head] === next[head]) head++
-  return { from: head, to: prev.length - tail, delta }
-}
-
-/** Locks shifted for the edit `prev` → `next`, or null if the edit touches the inside of a lock. */
-export function shiftLocks<T extends Lock>(locks: T[], prev: string, next: string, caret: number): T[] | null {
-  const { from, to, delta } = editRegion(prev, next, caret)
-  const out: T[] = []
-  for (const l of locks) {
-    const touches = from === to ? from > l.start && from < l.end : from < l.end && to > l.start
-    if (touches) return null
-    out.push(to <= l.start ? { ...l, start: l.start + delta, end: l.end + delta } : l)
-  }
-  return out
-}
-
 /** Quoted Markdown made readable (drops emphasis/code markers and line prefixes, keeps math). */
 export function plainQuote(md: string) {
   return md

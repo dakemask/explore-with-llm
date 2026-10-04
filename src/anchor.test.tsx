@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Markdown } from './components/chat/Markdown'
 import type { ChatNode } from './db/types'
-import { editRegion, normalizeMathMapped, quoteForInput, shiftLocks, type AnchorMark } from './lib/anchor'
+import { normalizeMathMapped, quoteForInput, type AnchorMark } from './lib/anchor'
 import { db } from './db'
 import { buildMessages, editAssistant, replyVersions } from './lib/chat'
 import { activePath, forkKey, siblingsOf, sideThreads, threadPath } from './lib/tree'
@@ -79,26 +79,6 @@ describe('rehypeAnchors', () => {
   })
 })
 
-describe('locks', () => {
-  it('uses the caret to place an edit among repeated characters', () => {
-    // "xab" → "xaab", typed an "a" at index 1 (caret ends at 2)
-    expect(editRegion('xab', 'xaab', 2)).toEqual({ from: 1, to: 1, delta: 1 })
-  })
-
-  it('allows edits outside and at the edges of a lock, shifting it', () => {
-    const locks = [{ start: 4, end: 9 }] // "abc [LOCK] def"
-    expect(shiftLocks(locks, 'abc LOCKED def', 'abcX LOCKED def', 4)).toEqual([{ start: 5, end: 10 }])
-    expect(shiftLocks(locks, 'abc LOCKED def', 'abc LOCKED defX', 15)).toEqual(locks)
-    expect(shiftLocks([{ start: 4, end: 10 }], 'abc LOCKED def', 'abc ZLOCKED def', 5)).toEqual([{ start: 5, end: 11 }])
-  })
-
-  it('rejects edits inside a lock', () => {
-    const locks = [{ start: 4, end: 10 }]
-    expect(shiftLocks(locks, 'abc LOCKED def', 'abc LOCKXED def', 9)).toBeNull()
-    expect(shiftLocks(locks, 'abc LOCKED def', 'abc def', 4)).toBeNull()
-  })
-})
-
 function node(id: string, parentId: string | null, createdAt: number, extra: Partial<ChatNode> = {}): ChatNode {
   return {
     id,
@@ -160,28 +140,44 @@ describe('side threads', () => {
   })
 })
 
-describe('reply versions', () => {
-  it('keeps every earlier version when editing, newest first', async () => {
-    const n = node('v', null, 1, { assistant: { content: 'one' } })
+describe('editing a reply', () => {
+  it('makes a shown sibling with the edit history, no reasoning and no echo', async () => {
+    const anchor = { start: 0, end: 3, text: 'one' }
+    const n = node('v', 'p0', 1, {
+      kind: 'side',
+      thread: 'T',
+      anchor,
+      assistant: { content: 'one', reasoning: 'r' },
+    })
     n.attempt.finishedAt = 100
+    n.attempt.message = { role: 'assistant', content: 'one', reasoning_content: 'r' }
+    await db.conversations.put({ id: 'c', title: '', createdAt: 0, updatedAt: 0, selectedChild: {} })
     await db.nodes.put(n)
-    await editAssistant(n, 'two', {})
-    await editAssistant((await db.nodes.get('v'))!, 'three', {})
-    const saved = (await db.nodes.get('v'))!
-    expect(replyVersions(saved).map((v) => [v.kind, v.content])).toEqual([
+
+    const id2 = await editAssistant(n, 'two')
+    const id3 = await editAssistant((await db.nodes.get(id2))!, 'three')
+    const [v, e2, e3] = [(await db.nodes.get('v'))!, (await db.nodes.get(id2))!, (await db.nodes.get(id3))!]
+
+    expect(v.assistant).toEqual({ content: 'one', reasoning: 'r' })
+    expect(e3).toMatchObject({ parentId: 'p0', kind: 'side', thread: 'T', anchor, assistant: { content: 'three' } })
+    expect(e3.attempt).toEqual(n.attempt)
+    expect(e3.edit).toMatchObject({ from: id2, history: [{ content: 'one', at: 100 }, { content: 'two', at: e2.edit!.at }] })
+    expect(replyVersions(e3).map((x) => [x.kind, x.content])).toEqual([
       ['current', 'three'],
       ['edit', 'two'],
       ['original', 'one'],
     ])
-    expect(saved.assistant.history).toEqual([
-      { content: 'one', at: 100 },
-      { content: 'two', at: expect.any(Number) },
-    ])
-  })
+    expect(replyVersions(v)).toEqual([])
+    expect((await db.conversations.get('c'))!.selectedChild).toEqual({ T: id3 })
 
-  it('recovers the original of replies edited before history was kept', () => {
-    const n = node('w', null, 1, { assistant: { content: 'edited', edited: true } })
-    n.attempt.rawText = '<think>x</think>original'
-    expect(replyVersions(n).map((v) => v.content)).toEqual(['edited', 'original'])
+    const target = {
+      provider: {
+        id: 'p', name: 'P', protocol: 'openai-chat' as const, baseUrl: '', apiKey: '', models: ['m'],
+        modelConfigs: { m: { echoReasoning: true } }, createdAt: 0,
+      },
+      model: 'm',
+    }
+    expect(buildMessages([v], 'q', target)[1]).toMatchObject({ extra: { reasoning_content: 'r' } })
+    expect(buildMessages([e3], 'q', target)[1]).toEqual({ role: 'assistant', content: 'three' })
   })
 })

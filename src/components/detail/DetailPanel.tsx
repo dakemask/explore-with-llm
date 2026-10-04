@@ -15,7 +15,8 @@ import {
   summarizeUsage,
   type TimedEvent,
 } from '../../lib/attempt'
-import { replyVersions, type ReplyVersion } from '../../lib/chat'
+import { replyVersions, selectBranch, type ReplyVersion } from '../../lib/chat'
+import { forkKey } from '../../lib/tree'
 import { useCopy } from '../../lib/hooks'
 import { aggregateStream } from '../../providers'
 import { Markdown } from '../chat/Markdown'
@@ -65,6 +66,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
       </header>
       {node && (
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-8">
+          {node.edit && <EditedNote node={node} />}
           <Summary attempt={node.attempt} />
           <div className="mt-5 mb-4">
             <Segmented<Tab>
@@ -74,7 +76,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
                 { value: 'request', label: t('detail.tab.request') },
                 { value: 'response', label: t('detail.tab.response') },
                 ...(hasError ? [{ value: 'error' as const, label: t('detail.tab.error') }] : []),
-                ...(node.assistant.edited ? [{ value: 'versions' as const, label: t('detail.tab.versions') }] : []),
+                ...(node.edit ? [{ value: 'versions' as const, label: t('detail.tab.versions') }] : []),
               ]}
             />
           </div>
@@ -282,7 +284,6 @@ function ResponseTab({ node }: { node: ChatNode }) {
 
   return (
     <div className="space-y-5">
-      {node.assistant.edited && <Note>{t('detail.editedNote')}</Note>}
       {legacy && <Note>{t('detail.legacy')}</Note>}
       {r && (
         <Section title={t('detail.responseHead')}>
@@ -469,6 +470,28 @@ function VersionCard({ label, version }: { label: string; version: ReplyVersion 
         <Markdown text={version.content} className="prose-compact" />
       </div>
     </div>
+  )
+}
+
+/** An edited version shows its source's exchange; says so, and leads back to the source. */
+function EditedNote({ node }: { node: ChatNode }) {
+  const t = useT()
+  const source = useLiveQuery(() => db.nodes.get(node.edit!.from), [node.edit!.from])
+  const show = async () => {
+    if (!source) return
+    await selectBranch(source.conversationId, forkKey(source), source.id)
+    const { panel, setPanel } = useUi.getState()
+    setPanel({ type: 'detail', nodeId: source.id, back: panel?.type === 'detail' ? panel.back : undefined })
+  }
+  return (
+    <Note className="mb-4">
+      {t('detail.editedNote')}
+      {source && (
+        <button onClick={show} className="mt-1.5 block font-medium text-accent hover:underline">
+          {t('detail.showSource')}
+        </button>
+      )}
+    </Note>
   )
 }
 

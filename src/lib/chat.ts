@@ -66,7 +66,8 @@ export function buildMessages(path: ChatNode[], userText: string, target?: { pro
 function echoFields(node: ChatNode, provider: Provider, model: string): Record<string, unknown> | undefined {
   const msg = node.attempt.message
   const config = modelConfig(provider, model)
-  if (!msg || !config.echoReasoning || node.attempt.providerId !== provider.id) return undefined
+  // An edited reply has no reasoning of its own; the copied source's would not match the new text.
+  if (!msg || node.edit || !config.echoReasoning || node.attempt.providerId !== provider.id) return undefined
   // A reply from before a protocol switch has another protocol's shape; it can't be echoed.
   if (node.attempt.protocol !== provider.protocol) return undefined
   return getAdapter(provider.protocol).echo(msg, config.echoFields ?? [])
@@ -259,26 +260,36 @@ export async function deleteThread(conversationId: string, thread: string) {
 }
 
 /**
- * Edits an assistant reply in place. `anchors` gives the new offsets of each side-question thread's
- * anchored text (the text itself can't change; the editor locks it).
+ * Edits `node`'s reply: a new sibling (same fork, thread and anchor) with the edited text and no
+ * reasoning, carrying a copy of the source's request and response, and shown in its place.
  */
-export async function editAssistant(
-  node: ChatNode,
-  content: string,
-  anchors: Record<string, { start: number; end: number }>,
-) {
-  await db.transaction('rw', db.nodes, async () => {
-    const history = replyVersions(node)
-      .reverse()
-      .map(({ content, at }) => ({ content, at }))
-    const assistant = { ...node.assistant, content, edited: true, editedAt: Date.now(), history }
-    await db.nodes.update(node.id, { assistant })
-    const roots = await db.nodes.where('parentId').equals(node.id).toArray()
-    for (const r of roots) {
-      const moved = r.anchor && r.thread && anchors[r.thread]
-      if (moved) await db.nodes.update(r.id, { anchor: { ...r.anchor!, ...moved } })
-    }
+export async function editAssistant(node: ChatNode, content: string): Promise<string> {
+  const now = Date.now()
+  const replyAt = node.attempt.finishedAt ?? node.attempt.startedAt
+  const id = nanoid()
+  const edited: ChatNode = {
+    id,
+    conversationId: node.conversationId,
+    parentId: node.parentId,
+    kind: node.kind,
+    ...(node.thread && { thread: node.thread }),
+    ...(node.anchor && { anchor: node.anchor }),
+    createdAt: now,
+    user: node.user,
+    assistant: { content },
+    edit: {
+      from: node.id,
+      history: [...(node.edit?.history ?? []), { content: node.assistant.content, at: node.edit?.at ?? replyAt }],
+      at: now,
+    },
+    attempt: node.attempt,
+  }
+  await db.transaction('rw', db.nodes, db.conversations, async () => {
+    await db.nodes.add(edited)
+    await db.conversations.update(node.conversationId, { [`selectedChild.${forkKey(node)}`]: id })
+    await db.conversations.update(node.conversationId, { updatedAt: now })
   })
+  return id
 }
 
 export function stopGeneration(nodeId: string) {
@@ -296,13 +307,9 @@ export interface ReplyVersion {
   kind: 'current' | 'edit' | 'original'
 }
 
-/** Every version of an assistant reply, newest (current) first, down to the model's original. */
+/** Every version of an edited reply, newest (this node's) first, down to the model's original. */
 export function replyVersions(node: ChatNode): ReplyVersion[] {
-  const a = node.assistant
-  const replyAt = node.attempt.finishedAt ?? node.attempt.startedAt
-  // Edited before history was kept: the original is still derivable from the raw output.
-  const history = a.history ?? (a.edited ? [{ content: splitThink(node.attempt.rawText).content, at: replyAt }] : [])
-  const earlier = history.map((v, i) => ({ ...v, kind: i === 0 ? ('original' as const) : ('edit' as const) }))
-  const current = { content: a.content, at: a.editedAt ?? replyAt, kind: a.edited ? ('current' as const) : ('original' as const) }
-  return [...earlier, current].reverse()
+  if (!node.edit) return []
+  const earlier = node.edit.history.map((v, i) => ({ ...v, kind: i === 0 ? ('original' as const) : ('edit' as const) }))
+  return [...earlier, { content: node.assistant.content, at: node.edit.at, kind: 'current' as const }].reverse()
 }

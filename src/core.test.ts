@@ -140,7 +140,7 @@ describe('buildMessages', () => {
   })
 
   it('uses edited assistant content, not the raw response', () => {
-    const n = node('a', null, 1, { assistant: { content: 'edited', edited: true } })
+    const n = node('a', null, 1, { assistant: { content: 'edited' }, edit: { from: 'x', history: [], at: 0 } })
     n.attempt.rawText = 'original'
     expect(buildMessages([n], 'q')[1]).toEqual({ role: 'assistant', content: 'edited' })
   })
