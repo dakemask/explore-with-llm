@@ -35,18 +35,22 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
+  disabled,
+  className,
 }: {
   value: T
   options: { value: T; label: ReactNode; disabled?: boolean }[]
   onChange: (v: T) => void
+  disabled?: boolean
+  className?: string
 }) {
   return (
-    <div className="inline-flex rounded-lg bg-subtle p-0.5">
+    <div className={clsx('inline-flex rounded-lg bg-subtle p-0.5', className)}>
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
-          disabled={o.disabled}
+          disabled={disabled || o.disabled}
           onClick={() => onChange(o.value)}
           className={clsx(
             'rounded-md px-3 py-1 text-[13px] transition-all disabled:opacity-40',

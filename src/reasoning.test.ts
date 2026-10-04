@@ -54,26 +54,44 @@ describe('echo-back', () => {
     expect(a).toEqual({ role: 'assistant', content: 'answer' })
   })
 
+  it('sends nothing extra when switched off, even with fields listed', () => {
+    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: false, echoFields: ['*'] }))
+    expect(a).toEqual({ role: 'assistant', content: 'answer' })
+  })
+
+  it('picks only the best reasoning field automatically', () => {
+    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: true }))
+    expect(a.extra).toEqual({ reasoning_details: native.reasoning_details })
+    const plain = { role: 'assistant', content: 'x', reasoning_content: 'thought', reasoning: 'thought' }
+    const [, b] = buildMessages([node(plain)], 'next', provider({ echoReasoning: true }))
+    expect(b.extra).toEqual({ reasoning_content: 'thought' })
+  })
+
   it('sends the listed native fields, with current (possibly edited) text', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ echoFields: ['reasoning_details', 'missing'] }))
+    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: true, echoFields: ['reasoning_details', 'missing'] }))
     expect(a).toEqual({ role: 'assistant', content: 'answer', extra: { reasoning_details: native.reasoning_details } })
   })
 
   it('sends every native field with *', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ echoFields: ['*'] }))
+    const [, a] = buildMessages([node(native)], 'next', provider({ echoReasoning: true, echoFields: ['*'] }))
     expect(a.extra).toEqual({ reasoning_content: 'thought', reasoning_details: native.reasoning_details })
   })
 
   it('never sends fields to a different provider', () => {
-    const [, a] = buildMessages([node(native)], 'next', provider({ id: 'other', echoFields: ['*'] }))
+    const [, a] = buildMessages([node(native)], 'next', provider({ id: 'other', echoReasoning: true, echoFields: ['*'] }))
     expect(a).toEqual({ role: 'assistant', content: 'answer' })
   })
 
   it('puts extra fields on the wire message', () => {
-    const req = openaiChat.buildRequest(provider(), 'm', [
-      { role: 'user', content: 'q' },
-      { role: 'assistant', content: 'a', extra: { reasoning_details: [1] } },
-    ])
+    const req = openaiChat.buildRequest(
+      provider(),
+      'm',
+      [
+        { role: 'user', content: 'q' },
+        { role: 'assistant', content: 'a', extra: { reasoning_details: [1] } },
+      ],
+      {},
+    )
     expect((req.body as { messages: unknown[] }).messages).toEqual([
       { role: 'user', content: 'q' },
       { role: 'assistant', content: 'a', reasoning_details: [1] },

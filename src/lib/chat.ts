@@ -10,7 +10,10 @@ import {
   type RawChunk,
   type SideAnchor,
 } from '../db'
-import { getAdapter, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import { translate } from '../i18n'
+import { getAdapter, paramConfig, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import { paramKey, useSettings } from '../store/settings'
+import { resolveParams } from './params'
 import { streamEvents } from './attempt'
 import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
@@ -62,9 +65,14 @@ export function buildMessages(path: ChatNode[], userText: string, provider?: Pro
  * Text always comes from `assistant.content`, so in-place edits win over the original.
  */
 function echoFields(node: ChatNode, provider: Provider): Record<string, unknown> | undefined {
-  const wanted = provider.echoFields ?? []
   const msg = node.attempt.message
-  if (!msg || wanted.length === 0 || node.attempt.providerId !== provider.id) return undefined
+  if (!msg || !provider.echoReasoning || node.attempt.providerId !== provider.id) return undefined
+  const wanted = provider.echoFields ?? []
+  if (wanted.length === 0) {
+    // Automatic: the best reasoning field this reply has.
+    const key = getAdapter(provider.protocol).echoPriority.find((k) => msg[k] != null && msg[k] !== '')
+    return key ? { [key]: msg[key] } : undefined
+  }
   const all = wanted.includes('*')
   const picked = Object.entries(msg).filter(([k]) => k !== 'role' && k !== 'content' && (all || wanted.includes(k)))
   return picked.length ? Object.fromEntries(picked) : undefined
@@ -189,7 +197,10 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
   }
 
   try {
-    const req = prepareChat(provider, model, messages)
+    const config = paramConfig(provider, model)
+    if (!config.ok) throw new ProviderError(translate(useSettings.getState().lang, 'params.invalid'))
+    const choices = useSettings.getState().paramChoices[paramKey(provider.id, model)]
+    const req = prepareChat(provider, model, messages, resolveParams(config.config, choices).body)
     node.attempt = { ...node.attempt, url: req.url, requestHeaders: req.headers, requestBody: req.body }
     await db.nodes.update(node.id, { attempt: node.attempt })
 

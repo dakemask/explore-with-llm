@@ -13,7 +13,7 @@ import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { Button } from '../ui/Button'
 import { Composer } from './Composer'
 import { DRAFT_PREFIX, MessageNode } from './MessageNode'
-import { ModelPicker, useCurrentModel } from './ModelPicker'
+import { ModelControls, useCurrentModel } from './ModelPicker'
 import { useNodeActions } from './useNodeActions'
 
 export function ChatView() {
@@ -23,7 +23,7 @@ export function ChatView() {
   const openSettings = useUi((s) => s.openSettings)
   const panel = useUi((s) => s.panel)
   const setPanel = useUi((s) => s.setPanel)
-  const { providers, provider, model } = useCurrentModel()
+  const { providers, provider, model, ready } = useCurrentModel()
 
   const conversation = useLiveQuery(
     () => (conversationId ? db.conversations.get(conversationId) : undefined),
@@ -40,7 +40,7 @@ export function ChatView() {
   const last = path[path.length - 1]
   const generating = last?.attempt.status === 'streaming'
 
-  const canSend = !!provider && !!model
+  const canSend = ready
 
   /** A new node always ends the active path, so keep the view pinned to the bottom. */
   const send = async (parentId: string | null, text: string) => {
@@ -96,9 +96,7 @@ export function ChatView() {
   return (
     <main className="flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-        <ModelPicker />
         <div className="min-w-0 flex-1 truncate text-center text-[13px] text-muted">{conversation?.title}</div>
-        <div className="w-24" />
       </header>
 
       <div ref={scroll.containerRef} onClick={onContentClick} className="min-h-0 flex-1 overflow-y-auto">
@@ -162,6 +160,7 @@ export function ChatView() {
             onStop={() => last && stopGeneration(last.id)}
             generating={generating}
             disabled={!canSend}
+            leading={<ModelControls />}
           />
         </div>
       </div>

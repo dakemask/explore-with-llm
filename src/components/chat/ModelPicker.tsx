@@ -5,17 +5,39 @@ import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
 import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
+import { paramConfig } from '../../providers'
+import { ParamsControl } from './ParamsControl'
 import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/Menu'
 
-/** Resolves the provider/model to use, falling back to the first available one. */
-export function useCurrentModel(): { providers: Provider[] | undefined; provider?: Provider; model?: string } {
+/**
+ * Resolves the provider/model to use, falling back to the first available one. `ready`: a model is
+ * chosen and its parameter config is valid, so messages can be sent.
+ */
+export function useCurrentModel(): {
+  providers: Provider[] | undefined
+  provider?: Provider
+  model?: string
+  ready: boolean
+} {
   const providers = useLiveQuery(() => db.providers.orderBy('createdAt').toArray(), [])
   const { providerId, model } = useSettings()
-  if (!providers) return { providers }
+  if (!providers) return { providers, ready: false }
   const usable = providers.filter((p) => p.models.length > 0)
   const provider = usable.find((p) => p.id === providerId) ?? usable[0]
-  if (!provider) return { providers }
-  return { providers, provider, model: provider.models.includes(model ?? '') ? model! : provider.models[0] }
+  if (!provider) return { providers, ready: false }
+  const m = provider.models.includes(model ?? '') ? model! : provider.models[0]
+  return { providers, provider, model: m, ready: paramConfig(provider, m).ok }
+}
+
+/** Model picker plus the chosen model's parameters, for a composer's bottom bar. */
+export function ModelControls() {
+  const { provider, model } = useCurrentModel()
+  return (
+    <div className="flex min-w-0 items-center gap-0.5">
+      <ModelPicker />
+      {provider && model && <ParamsControl provider={provider} model={model} />}
+    </div>
+  )
 }
 
 export function ModelPicker() {
@@ -28,7 +50,7 @@ export function ModelPicker() {
   return (
     <MenuRoot>
       <MenuTrigger asChild>
-        <button className="flex h-8 max-w-72 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors hover:bg-hover data-[state=open]:bg-hover">
+        <button className="flex h-8 max-w-64 min-w-0 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors hover:bg-hover data-[state=open]:bg-hover">
           <span className="truncate">{model ?? t('chat.selectModel')}</span>
           {provider && <span className="truncate font-normal text-faint">{provider.name}</span>}
           <ChevronDown size={14} className="shrink-0 text-faint" />

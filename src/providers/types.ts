@@ -20,7 +20,23 @@ export interface PreparedRequest {
 }
 
 export interface ProtocolAdapter {
-  buildRequest(provider: Provider, model: string, messages: ChatMessage[]): PreparedRequest
+  /**
+   * `params` is the user's merged parameter body for this model (see `lib/params.ts`); it never contains
+   * `reserved` fields. Custom headers are added by the caller.
+   */
+  buildRequest(
+    provider: Provider,
+    model: string,
+    messages: ChatMessage[],
+    params: Record<string, unknown>,
+  ): PreparedRequest
+  /** Top-level body fields the protocol sets itself; parameter configs may not use them. */
+  reserved: string[]
+  /**
+   * Reply fields that carry reasoning, best first. When echo-back is on without explicit fields, the first
+   * one present in a reply is sent back (sending several would duplicate the same reasoning).
+   */
+  echoPriority: string[]
   parseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<StreamEvent>
   /**
    * Rebuilds the response the server would have sent without streaming, from the parsed SSE data payloads.
@@ -29,7 +45,7 @@ export interface ProtocolAdapter {
   aggregate(payloads: unknown[]): unknown
   /** The reply message inside an aggregated response, in native shape. */
   replyMessage(aggregated: unknown): Record<string, unknown> | undefined
-  listModels(provider: Provider, signal?: AbortSignal): Promise<string[]>
+  listModels(provider: Provider, headers: Record<string, string>, signal?: AbortSignal): Promise<string[]>
 }
 
 export class ProviderError extends Error {

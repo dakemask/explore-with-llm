@@ -7,7 +7,7 @@
 //   mock-tags   thinking inline in content as <think>…</think>
 //   mock-bad    returns HTTP 401
 // Every reply starts with a line echoing the request (counter, context size, extra fields found on
-// earlier assistant messages, last user message) so branches and echo-back are visible in tests.
+// earlier assistant messages, body fields beyond model/messages/stream, last user message) so branches and echo-back are visible in tests.
 import fs from 'node:fs'
 import http from 'node:http'
 
@@ -37,7 +37,7 @@ http
 
     let body = ''
     for await (const c of req) body += c
-    const { model, messages } = JSON.parse(body)
+    const { model, messages, stream, ...params } = JSON.parse(body)
     count++
     if (model === 'mock-bad') {
       res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
@@ -77,8 +77,9 @@ http
       if (m.role === 'assistant') for (const k of Object.keys(m)) if (k !== 'role' && k !== 'content') extras.add(k)
     }
     const last = messages.at(-1)?.content ?? ''
+    const paramText = Object.keys(params).length ? JSON.stringify(params) : '无'
     let text =
-      `> 第 ${count} 次请求 · 上下文 ${messages.length} 条 · 回传 ${extras.size ? [...extras].join(', ') : '无'} · 「${last.slice(0, 30)}」\n\n` +
+      `> 第 ${count} 次请求 · 上下文 ${messages.length} 条 · 回传 ${extras.size ? [...extras].join(', ') : '无'} · 参数 ${paramText} · 「${last.slice(0, 30)}」\n\n` +
       reply
     if (model === 'mock-tags') text = `<think>\n${reasoning}\n</think>\n\n` + text
     for (let i = 0; i < text.length; i += 4) {

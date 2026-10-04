@@ -13,6 +13,22 @@ db.version(1).stores({
   nodes: 'id, conversationId, parentId',
 })
 
+// v2: echo-back got its own switch; a non-empty field list used to mean "on".
+db.version(2)
+  .stores({
+    providers: 'id, createdAt',
+    conversations: 'id, updatedAt',
+    nodes: 'id, conversationId, parentId',
+  })
+  .upgrade((tx) =>
+    tx
+      .table<Provider>('providers')
+      .toCollection()
+      .modify((p) => {
+        p.echoReasoning = (p.echoFields?.length ?? 0) > 0
+      }),
+  )
+
 /** Requests can't survive a reload; mark anything left streaming as aborted. */
 export async function recoverInterruptedNodes() {
   const all = await db.nodes.toArray()

@@ -1,4 +1,5 @@
 import type { Protocol, Provider } from '../db/types'
+import { mergeHeaders, parseHeaders, parseParamConfig, type ParseResult } from '../lib/params'
 import { openaiChat } from './openaiChat'
 import {
   ProviderError,
@@ -24,8 +25,29 @@ export function getAdapter(protocol: Protocol): ProtocolAdapter {
   return a
 }
 
-export function prepareChat(provider: Provider, model: string, messages: ChatMessage[]): PreparedRequest {
-  return getAdapter(provider.protocol).buildRequest(provider, model, messages)
+/** The request for one turn: protocol body + the model's parameters, protocol headers + custom headers. */
+export function prepareChat(
+  provider: Provider,
+  model: string,
+  messages: ChatMessage[],
+  params: Record<string, unknown> = {},
+): PreparedRequest {
+  const req = getAdapter(provider.protocol).buildRequest(provider, model, messages, params)
+  return { ...req, headers: mergeHeaders(req.headers, customHeaders(provider)) }
+}
+
+/** The parameter config the user wrote for `model`, parsed against the protocol's reserved fields. */
+export function paramConfig(provider: Provider, model: string): ParseResult {
+  const adapter = adapters[provider.protocol]
+  return parseParamConfig(provider.modelParams?.[model] ?? '', adapter?.reserved)
+}
+
+export function customHeaders(provider: Provider): Record<string, string> {
+  return parseHeaders(provider.headers ?? '').headers
+}
+
+export function listModels(provider: Provider, signal?: AbortSignal) {
+  return getAdapter(provider.protocol).listModels(provider, customHeaders(provider), signal)
 }
 
 /** The non-streamed equivalent of a streamed response, rebuilt from its SSE data payloads. */

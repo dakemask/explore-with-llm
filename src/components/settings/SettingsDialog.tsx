@@ -2,15 +2,14 @@ import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Globe, Plug, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
-import { db } from '../../db'
+import { nanoid } from 'nanoid'
+import { db, type Provider } from '../../db'
 import { useT, type Lang } from '../../i18n'
 import { useSettings, type Theme } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { Dialog } from '../ui/Dialog'
 import { Label, Segmented } from '../ui/Field'
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
 import { ProviderForm } from './ProviderForm'
-import { createProvider, PRESETS } from './presets'
 
 export function SettingsDialog() {
   const t = useT()
@@ -69,7 +68,9 @@ function TabButton({
 function ProvidersTab() {
   const t = useT()
   const providers = useLiveQuery(() => db.providers.orderBy('createdAt').toArray(), [])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Opened for a specific provider/model (e.g. from the composer's parameter button).
+  const focus = useUi((s) => s.settingsFocus)
+  const [selectedId, setSelectedId] = useState<string | null>(focus?.providerId ?? null)
 
   // Keep a valid selection as providers are added / removed.
   useEffect(() => {
@@ -79,8 +80,16 @@ function ProvidersTab() {
 
   const selected = providers?.find((p) => p.id === selectedId)
 
-  const add = async (presetId: string) => {
-    const p = createProvider(presetId)
+  const add = async () => {
+    const p: Provider = {
+      id: nanoid(),
+      name: '',
+      protocol: 'openai-chat',
+      baseUrl: '',
+      apiKey: '',
+      models: [],
+      createdAt: Date.now(),
+    }
     await db.providers.add(p)
     setSelectedId(p.id)
   }
@@ -105,26 +114,22 @@ function ProvidersTab() {
           ))}
         </ul>
         <div className="border-t border-border p-2">
-          <MenuRoot>
-            <MenuTrigger asChild>
-              <button className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border-strong text-[13px] text-muted transition-colors hover:bg-hover hover:text-text">
-                <Plus size={14} />
-                {t('provider.add')}
-              </button>
-            </MenuTrigger>
-            <MenuContent className="w-48">
-              {PRESETS.map((p) => (
-                <MenuItem key={p.id} onSelect={() => add(p.id)}>
-                  {p.id === 'custom' ? t('provider.custom') : p.name}
-                </MenuItem>
-              ))}
-            </MenuContent>
-          </MenuRoot>
+          <button
+            onClick={add}
+            className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border-strong text-[13px] text-muted transition-colors hover:bg-hover hover:text-text"
+          >
+            <Plus size={14} />
+            {t('provider.add')}
+          </button>
         </div>
       </div>
       <div className="min-w-0 flex-1 overflow-y-auto">
         {selected ? (
-          <ProviderForm key={selected.id} provider={selected} />
+          <ProviderForm
+            key={selected.id}
+            provider={selected}
+            initialModel={focus?.providerId === selected.id ? focus.model : undefined}
+          />
         ) : (
           providers && (
             <div className="flex h-full items-center justify-center text-[13px] text-faint">{t('provider.empty')}</div>

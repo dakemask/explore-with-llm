@@ -3,19 +3,25 @@ import { Eye, EyeOff, Loader2, RefreshCw, ShieldCheck, Trash2 } from 'lucide-rea
 import { useState } from 'react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
-import { getAdapter, PROTOCOLS, ProviderError } from '../../providers'
+import { parseHeaders } from '../../lib/params'
+import { getAdapter, listModels, PROTOCOLS, ProviderError } from '../../providers'
 import { Button } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
 import { Input, Label, Textarea } from '../ui/Field'
+import { Switch } from '../ui/Switch'
+import { ParamsEditor } from './ParamsEditor'
 
 /** Edits a provider in place; every change is saved immediately. */
-export function ProviderForm({ provider: initial }: { provider: Provider }) {
+export function ProviderForm({ provider: initial, initialModel }: { provider: Provider; initialModel?: string }) {
   const t = useT()
   // Local copy so inputs stay responsive; IndexedDB writes are async.
   const [provider, setProvider] = useState(initial)
   const [showKey, setShowKey] = useState(false)
   const [modelsText, setModelsText] = useState(provider.models.join('\n'))
   const [echoText, setEchoText] = useState((provider.echoFields ?? []).join(', '))
+  const [headersText, setHeadersText] = useState(provider.headers ?? '')
+  const badHeaderLine = parseHeaders(headersText).badLine
+  const echoPriority = getAdapter(provider.protocol).echoPriority
   const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string; error?: boolean }>({})
 
   const save = (patch: Partial<Provider>) => {
@@ -37,7 +43,7 @@ export function ProviderForm({ provider: initial }: { provider: Provider }) {
   const fetchModels = async () => {
     setFetchState({ loading: true })
     try {
-      const models = await getAdapter(provider.protocol).listModels(provider)
+      const models = await listModels(provider)
       if (models.length === 0) throw new ProviderError('Empty model list')
       setModels(models.join('\n'))
       setFetchState({ message: t('provider.fetched', { n: models.length }) })
@@ -55,7 +61,7 @@ export function ProviderForm({ provider: initial }: { provider: Provider }) {
     <div className="space-y-5 p-6">
       <div>
         <Label>{t('provider.name')}</Label>
-        <Input value={provider.name} onChange={(e) => save({ name: e.target.value })} placeholder="DeepSeek" />
+        <Input value={provider.name} onChange={(e) => save({ name: e.target.value })} placeholder={t('provider.namePlaceholder')} />
       </div>
 
       <div>
@@ -148,15 +154,54 @@ export function ProviderForm({ provider: initial }: { provider: Provider }) {
         )}
       </div>
 
+      <ParamsEditor provider={provider} initialModel={initialModel} onSave={(modelParams) => save({ modelParams })} />
+
       <div>
-        <Label hint={t('provider.echoHint')}>{t('provider.echo')}</Label>
-        <Input
-          value={echoText}
-          onChange={(e) => setEcho(e.target.value)}
-          placeholder="reasoning_details"
+        <Label
+          hint={t('provider.echoHint')}
+          action={
+            <Switch
+              checked={!!provider.echoReasoning}
+              onChange={(echoReasoning) => save({ echoReasoning })}
+              label={t('provider.echo')}
+            />
+          }
+        >
+          {t('provider.echo')}
+        </Label>
+        {provider.echoReasoning && (
+          <div className="mt-3 rounded-lg bg-subtle p-3">
+            <div className="mb-1.5 text-xs font-medium text-muted">{t('provider.echoFields')}</div>
+            <Input
+              value={echoText}
+              onChange={(e) => setEcho(e.target.value)}
+              placeholder={t('provider.echoAuto')}
+              spellCheck={false}
+              className="font-mono text-[13px]"
+            />
+            <div className="mt-1.5 text-xs leading-relaxed text-faint">
+              {t('provider.echoFieldsHint', { list: echoPriority.join(' › ') })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <Label hint={t('provider.headersHint')}>{t('provider.headers')}</Label>
+        <Textarea
+          rows={3}
+          value={headersText}
+          onChange={(e) => {
+            setHeadersText(e.target.value)
+            save({ headers: e.target.value })
+          }}
+          placeholder="X-Title: Explore"
           spellCheck={false}
           className="font-mono text-[13px]"
         />
+        {badHeaderLine && (
+          <div className="mt-1.5 text-xs text-danger">{t('provider.headersBad', { n: badHeaderLine })}</div>
+        )}
       </div>
 
       <div className="border-t border-border pt-5">

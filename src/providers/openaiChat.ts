@@ -1,10 +1,11 @@
+import { mergeHeaders } from '../lib/params'
 import { readSse } from './sse'
 import { isObj, mergeDelta } from './merge'
 import { joinUrl, ProviderError, type ProtocolAdapter, type StreamEvent } from './types'
 
 /** OpenAI Chat Completions protocol (also used by DeepSeek and most compatible vendors). */
 export const openaiChat: ProtocolAdapter = {
-  buildRequest(provider, model, messages) {
+  buildRequest(provider, model, messages, params) {
     return {
       url: joinUrl(provider.baseUrl, '/chat/completions'),
       headers: {
@@ -14,11 +15,14 @@ export const openaiChat: ProtocolAdapter = {
       body: {
         model,
         messages: messages.map(({ role, content, extra }) => (extra ? { role, content, ...extra } : { role, content })),
+        ...params,
         stream: true,
-        stream_options: { include_usage: true },
       },
     }
   },
+
+  reserved: ['model', 'messages', 'stream'],
+  echoPriority: ['reasoning_details', 'reasoning_content', 'reasoning'],
 
   async *parseStream(body): AsyncGenerator<StreamEvent> {
     for await (const ev of readSse(body)) {
@@ -73,9 +77,9 @@ export const openaiChat: ProtocolAdapter = {
     return isObj(msg) ? msg : undefined
   },
 
-  async listModels(provider, signal) {
+  async listModels(provider, headers, signal) {
     const res = await fetch(joinUrl(provider.baseUrl, '/models'), {
-      headers: { Authorization: `Bearer ${provider.apiKey}` },
+      headers: mergeHeaders({ Authorization: `Bearer ${provider.apiKey}` }, headers),
       signal,
     })
     const text = await res.text()

@@ -8,11 +8,22 @@ export interface Provider {
   apiKey: string
   models: string[]
   /**
-   * Fields of earlier replies (beyond the text) to send back as context, e.g. `reasoning_content`,
-   * `reasoning_details`; `*` sends every field. Empty/missing: text only. Only applies to replies this
-   * provider produced — foreign fields (e.g. another vendor's encrypted reasoning) are never sent.
+   * Per-model request parameters: the user's JSON config text (format in `lib/params.ts`), keyed by
+   * model name. Kept as typed so mistakes stay visible; parsed when used.
+   */
+  modelParams?: Record<string, string>
+  /**
+   * Send the reasoning of earlier replies back as context. Only applies to replies this provider
+   * produced — foreign fields (e.g. another vendor's encrypted reasoning) are never sent.
+   */
+  echoReasoning?: boolean
+  /**
+   * With `echoReasoning`: which native reply fields to send back (`*` = every field). Empty/missing:
+   * the first field present from the protocol's priority list (`ProtocolAdapter.echoPriority`).
    */
   echoFields?: string[]
+  /** Extra request headers, one `Name: value` per line, sent as typed (may replace built-in ones). */
+  headers?: string
   createdAt: number
 }
 

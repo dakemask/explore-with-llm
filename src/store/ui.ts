@@ -21,9 +21,11 @@ interface UiState {
   panel: Panel | null
   settingsOpen: boolean
   settingsTab: 'providers' | 'general'
+  /** Provider (and model) the providers tab should show when it opens. */
+  settingsFocus: { providerId: string; model?: string } | null
   live: Record<string, LiveStream>
   setConversation: (id: string | null) => void
-  openSettings: (tab?: UiState['settingsTab']) => void
+  openSettings: (tab?: UiState['settingsTab'], focus?: UiState['settingsFocus']) => void
   closeSettings: () => void
   setLive: (nodeId: string, live: LiveStream | null) => void
   setPanel: (panel: Panel | null) => void
@@ -34,9 +36,10 @@ export const useUi = create<UiState>()((set) => ({
   panel: null,
   settingsOpen: false,
   settingsTab: 'providers',
+  settingsFocus: null,
   live: {},
   setConversation: (conversationId) => set({ conversationId, panel: null }),
-  openSettings: (tab = 'providers') => set({ settingsOpen: true, settingsTab: tab }),
+  openSettings: (tab = 'providers', focus = null) => set({ settingsOpen: true, settingsTab: tab, settingsFocus: focus }),
   closeSettings: () => set({ settingsOpen: false }),
   setLive: (nodeId, live) =>
     set((s) => {

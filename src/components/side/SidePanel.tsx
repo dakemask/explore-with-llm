@@ -10,7 +10,7 @@ import { siblingsOf, threadPath } from '../../lib/tree'
 import { useUi, type SidePanel as SidePanelState } from '../../store/ui'
 import { Composer } from '../chat/Composer'
 import { MessageNode } from '../chat/MessageNode'
-import { ModelPicker, useCurrentModel } from '../chat/ModelPicker'
+import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
 import { useNodeActions } from '../chat/useNodeActions'
 import { IconButton } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
@@ -20,7 +20,7 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
   const t = useT()
   const setPanel = useUi((s) => s.setPanel)
   const conversationId = useUi((s) => s.conversationId)
-  const { provider, model } = useCurrentModel()
+  const { provider, model, ready } = useCurrentModel()
   const conversation = useLiveQuery(
     async () => (conversationId ? ((await db.conversations.get(conversationId)) ?? null) : null),
     [conversationId],
@@ -46,7 +46,7 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
 
   const scroll = useAutoScroll(panel.thread)
   const actions = useNodeActions(nodes, scroll.pin)
-  const canSend = !!provider && !!model
+  const canSend = ready
 
   const send = (text: string) => {
     if (!provider || !model || !conversationId) return
@@ -115,7 +115,7 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
           disabled={!canSend}
           placeholder={t('side.placeholder')}
           initialText={panel.draft && !root ? quoteForInput(panel.draft.text) : ''}
-          leading={<ModelPicker />}
+          leading={<ModelControls />}
         />
       </div>
     </aside>
