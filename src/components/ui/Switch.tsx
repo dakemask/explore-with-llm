@@ -22,7 +22,7 @@ export function Switch({
       onClick={() => onChange(!checked)}
       className={clsx(
         'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
-        'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none disabled:cursor-not-allowed',
+        'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40',
         checked ? 'bg-accent' : 'bg-border-strong',
       )}
     >

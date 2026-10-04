@@ -97,6 +97,19 @@ describe('resolveParams', () => {
     // A stored value the config no longer offers falls back to the default.
     expect(resolveParams(cfg, { effort: { value: 'gone' } }).params[1].value).toBe('high')
   })
+
+  it('gives every parameter with dependencies a switch, which it can turn off', () => {
+    expect(cfg.params.map((p) => p.toggle)).toEqual([true, true, true])
+    const { body, params } = resolveParams(cfg, { effort: { on: false } })
+    expect(params.map((p) => p.active)).toEqual([true, false, false])
+    expect(body).toEqual({ thinking: { type: 'enabled' }, stream_options: { include_usage: true } })
+  })
+
+  it('keeps the switch position while dependencies are unmet', () => {
+    const off = resolveParams(cfg, { think: { on: false }, effort: { on: true } }).params[1]
+    expect(off).toMatchObject({ on: true, available: false, active: false })
+    expect(resolveParams(cfg, { think: { on: true }, effort: { on: true } }).params[1].active).toBe(true)
+  })
 })
 
 describe('helpers', () => {

@@ -116,12 +116,15 @@ function build(json: unknown, reserved: string[]): ParamConfig {
     const name = typeof raw.name === 'string' ? raw.name.trim() : ''
     if (!name) throw new Fail({ key: 'params.err.name', vars: { n } })
     if (params.some((p) => p.name === name)) throw new Fail({ key: 'params.err.dupName', vars: { name } })
+    const requires = parseRequires(raw.requires, name)
     const base: ParamBase = {
       name,
       body,
-      toggle: raw.toggle === true,
+      // A switch means "optional". A parameter with dependencies isn't always sent, so it always has one;
+      // unmet dependencies grey the switch out.
+      toggle: raw.toggle === true || requires.length > 0,
       defaultOn: raw.defaultOn !== false,
-      requires: parseRequires(raw.requires, name),
+      requires,
     }
 
     let param: Param
@@ -198,10 +201,10 @@ export interface ParamChoice {
 
 export interface ResolvedParam {
   param: Param
-  /** Switch position (always true without a toggle). */
+  /** The user's switch position (always true without a toggle), kept while dependencies are unmet. */
   on: boolean
   value?: ParamValue
-  /** Dependencies are met; otherwise the control is disabled and nothing is sent. */
+  /** Dependencies are met; otherwise the switch is greyed out (shown off) and nothing is sent. */
   available: boolean
   /** Will be sent. */
   active: boolean

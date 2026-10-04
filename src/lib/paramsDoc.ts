@@ -65,7 +65,7 @@ const zh = `# 模型参数配置格式
 | \`min\` / \`max\` | range | 是 | 下限和上限 |
 | \`step\` | range | 否 | 步长，默认 1，可以是小数 |
 | \`default\` | choice / range | 否 | 默认值；省略时取第一个选项 / 下限 |
-| \`toggle\` | 前三种 | 否 | \`true\` 表示可以开关，关闭时不发送；默认 \`false\` |
+| \`toggle\` | 前三种 | 否 | \`true\` 表示带开关（可选参数）；默认 \`false\`，有 \`requires\` 时总是带开关 |
 | \`defaultOn\` | 前三种 | 否 | 可开关时默认是否打开；默认 \`true\` |
 | \`requires\` | 前三种 | 否 | 依赖，见下文 |
 
@@ -77,7 +77,16 @@ const zh = `# 模型参数配置格式
 - \`false\`：那个参数没有启用
 - 一个值或值的数组：那个参数启用，并且当前取值是其中之一（不能用于 fixed）
 
-依赖不满足时，控件变灰、不能操作，参数也不发送。依赖可以连锁，但不能循环。
+依赖可以连锁，但不能循环。
+
+## 开关的含义
+
+- 有开关：这个参数是可选的。带依赖的参数一定有开关。
+- 开关可操作：目前没有依赖限制它。
+- 开关变灰：依赖不满足，这个参数不能发送，开关显示为关闭。依赖重新满足后，开关回到用户之前的位置。
+- 开关打开：发送这个参数，并显示它的档位、数值或固定内容。
+- 开关关闭：不发送，也不显示它的档位、数值或固定内容。
+- 没有开关：每次都发送。
 
 ## 合并规则
 
@@ -123,7 +132,7 @@ The config is a JSON array; each item describes one parameter. It must be strict
 | \`min\` / \`max\` | range | yes | Lower and upper bound |
 | \`step\` | range | no | Step, default 1, may be fractional |
 | \`default\` | choice / range | no | Default value; first option / min when omitted |
-| \`toggle\` | first three | no | \`true\` makes it switchable; switched off means not sent. Default \`false\` |
+| \`toggle\` | first three | no | \`true\` gives it a switch (an optional parameter). Default \`false\`; always \`true\` when it has \`requires\` |
 | \`defaultOn\` | first three | no | Whether a switchable parameter starts on. Default \`true\` |
 | \`requires\` | first three | no | Dependencies, see below |
 
@@ -135,7 +144,16 @@ The config is a JSON array; each item describes one parameter. It must be strict
 - \`false\`: that parameter is not active
 - a value or an array of values: that parameter is active and its value is one of them (not for fixed)
 
-When dependencies aren't met the control is greyed out and the parameter isn't sent. Dependencies may chain but not loop.
+Dependencies may chain but not loop.
+
+## What the switch means
+
+- A switch: the parameter is optional. A parameter with dependencies always has one.
+- Switch usable: no dependency restricts it right now.
+- Switch greyed out: a dependency isn't met, so it can't be sent; the switch shows off. Once the dependency holds again, the switch returns to where the user left it.
+- Switch on: sent, and its level, number or fixed content is shown.
+- Switch off: not sent, and its level, number or fixed content is hidden.
+- No switch: always sent.
 
 ## Merging
 

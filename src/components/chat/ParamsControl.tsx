@@ -89,37 +89,37 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
   )
 }
 
+/**
+ * A switch means the parameter is optional; a greyed switch, that its dependencies keep it from being sent.
+ * Only a parameter that will be sent shows its value control.
+ */
 function ParamRow({ r, onChange }: { r: ResolvedParam; onChange: (c: { on?: boolean; value?: ParamValue }) => void }) {
   const t = useT()
-  const { param: p, available } = r
-  const usable = available && r.on
+  const { param: p, available, active } = r
   return (
-    <div className={clsx('px-4 py-3', !available && 'pointer-events-none opacity-45')} aria-disabled={!available}>
+    <div className="px-4 py-3">
       <div className="flex min-h-5 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{p.name}</span>
+        <span className={clsx('min-w-0 flex-1 truncate text-[13px] font-medium', !active && 'text-muted')}>{p.name}</span>
         {p.toggle ? (
-          <Switch checked={r.on} onChange={(on) => onChange({ on })} disabled={!available} label={p.name} />
+          <Switch checked={active} onChange={(on) => onChange({ on })} disabled={!available} label={p.name} />
         ) : (
           p.type === 'fixed' && <span className="text-xs text-faint">{t('params.fixedOnly')}</span>
         )}
       </div>
       {!available && <div className="mt-1 text-xs text-faint">{t('params.needs', { cond: conditionText(p, t) })}</div>}
-      {p.type === 'choice' && (
+      {active && p.type === 'choice' && (
         <Segmented
           className="mt-2 flex flex-wrap"
           value={display(r.value)}
-          disabled={!usable}
           onChange={(v) => onChange({ value: p.options.find((o) => display(o) === v) })}
           options={p.options.map((o) => ({ value: display(o), label: display(o) }))}
         />
       )}
-      {p.type === 'range' && (
-        <RangeInput param={p} value={r.value as number} disabled={!usable} onChange={(value) => onChange({ value })} />
+      {active && p.type === 'range' && (
+        <RangeInput param={p} value={r.value as number} onChange={(value) => onChange({ value })} />
       )}
-      {p.type === 'fixed' && (
-        <pre className={clsx('mt-1.5 truncate font-mono text-[11px] text-faint', !usable && 'opacity-60')}>
-          {JSON.stringify(p.body)}
-        </pre>
+      {active && p.type === 'fixed' && (
+        <pre className="mt-1.5 truncate font-mono text-[11px] text-faint">{JSON.stringify(p.body)}</pre>
       )}
     </div>
   )
@@ -128,12 +128,10 @@ function ParamRow({ r, onChange }: { r: ResolvedParam; onChange: (c: { on?: bool
 function RangeInput({
   param: p,
   value,
-  disabled,
   onChange,
 }: {
   param: Extract<Param, { type: 'range' }>
   value: number
-  disabled: boolean
   onChange: (v: number) => void
 }) {
   // Typed text is kept while editing and committed (snapped onto the range) on blur / Enter.
@@ -149,26 +147,24 @@ function RangeInput({
     }
   }
   return (
-    <div className={clsx('mt-2 flex items-center gap-3', disabled && 'opacity-50')}>
+    <div className="mt-2 flex items-center gap-3">
       <input
         type="range"
         min={p.min}
         max={p.max}
         step={p.step}
         value={value}
-        disabled={disabled}
         onChange={(e) => onChange(snap(Number(e.target.value), p.min, p.max, p.step))}
-        className="h-1.5 min-w-0 flex-1 accent-accent disabled:cursor-not-allowed"
+        className="h-1.5 min-w-0 flex-1 accent-accent"
       />
       <input
         type="text"
         inputMode="decimal"
         value={text}
-        disabled={disabled}
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && commit()}
-        className="h-7 w-20 rounded-md border border-border bg-surface px-2 text-right font-mono text-xs transition-colors hover:border-border-strong focus:border-accent focus:outline-none disabled:cursor-not-allowed"
+        className="h-7 w-20 rounded-md border border-border bg-surface px-2 text-right font-mono text-xs transition-colors hover:border-border-strong focus:border-accent focus:outline-none"
       />
     </div>
   )
