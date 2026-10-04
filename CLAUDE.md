@@ -20,9 +20,15 @@ session scratchpad, not in this project. Add a Custom provider with base URL `ht
 model `mock-chat` streams reasoning + markdown/code/math (prefixed with a request counter and the last user message, so branches differ), `mock-bad` returns 401. Take screenshots
 and look at them; check both themes when touching styles.
 
+Shortcuts for scripts: seed the provider by writing straight into the `providers` store of the
+`explore-with-llm` IndexedDB and reloading (faster than clicking through Settings). To wait for a
+reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear — the Send button exists
+(disabled) even while streaming.
+
 ## Gotchas
 
-- Git Bash heredocs on this machine can eat backslashes. Write files containing `\` (LaTeX, regex) with the Write tool, not heredocs.
+- Git Bash heredocs on this machine can eat backslashes. Write files containing `\` (LaTeX, regex) with the Write tool, not heredocs. Long multi-edit Python heredocs also tend to fail to parse; use Write/Edit.
+- Python's `open(..., 'w')` on Windows writes CRLF; the repo is LF (`.gitattributes`). Pass `newline='\n'`.
 - Tailwind v4 `translate-*` utilities use the CSS `translate` property, which stacks with `transform` in keyframes. Animations on centered elements must not use `translate()` in `transform`.
 - Radix Dialog autofocuses the first button, which opens its tooltip. `Dialog` focuses the panel instead (`onOpenAutoFocus`); keep that for new dialogs.
 - Inputs bound to Dexie data must keep local state (IndexedDB writes are async; binding directly drops keystrokes). See `ProviderForm`.
