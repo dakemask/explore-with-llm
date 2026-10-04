@@ -1,0 +1,159 @@
+import { nanoid } from 'nanoid'
+import { db, ROOT_KEY, type Attempt, type ChatNode, type Conversation, type Provider } from '../db'
+import { prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
+import { useUi } from '../store/ui'
+import { pathTo } from './tree'
+
+const controllers = new Map<string, AbortController>()
+
+export async function createConversation(): Promise<string> {
+  const now = Date.now()
+  const conv: Conversation = { id: nanoid(), title: '', createdAt: now, updatedAt: now, selectedChild: {} }
+  await db.conversations.add(conv)
+  return conv.id
+}
+
+export async function renameConversation(id: string, title: string) {
+  await db.conversations.update(id, { title })
+}
+
+export async function deleteConversation(id: string) {
+  await db.transaction('rw', db.conversations, db.nodes, async () => {
+    const nodes = await db.nodes.where('conversationId').equals(id).toArray()
+    for (const n of nodes) controllers.get(n.id)?.abort()
+    await db.nodes.where('conversationId').equals(id).delete()
+    await db.conversations.delete(id)
+  })
+}
+
+/**
+ * Turns a root→leaf path into protocol messages, then appends the new user turn.
+ * Nodes whose request produced no assistant text still contribute their user turn.
+ */
+export function buildMessages(path: ChatNode[], userText: string): ChatMessage[] {
+  const messages: ChatMessage[] = []
+  for (const n of path) {
+    messages.push({ role: 'user', content: n.user.text })
+    if (n.assistant.content) messages.push({ role: 'assistant', content: n.assistant.content })
+  }
+  messages.push({ role: 'user', content: userText })
+  return messages
+}
+
+export async function sendMessage(opts: {
+  conversationId: string
+  parentId: string | null
+  text: string
+  provider: Provider
+  model: string
+}) {
+  const { conversationId, parentId, text, provider, model } = opts
+  const conv = await db.conversations.get(conversationId)
+  if (!conv) return
+
+  const allNodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
+  const path = parentId ? pathTo(allNodes, parentId) : []
+  const messages = buildMessages(path, text)
+
+  const nodeId = nanoid()
+  const now = Date.now()
+  const attempt: Attempt = {
+    status: 'streaming',
+    providerId: provider.id,
+    providerName: provider.name,
+    protocol: provider.protocol,
+    model,
+    url: '',
+    requestBody: null,
+    startedAt: now,
+    rawText: '',
+  }
+  const node: ChatNode = {
+    id: nodeId,
+    conversationId,
+    parentId,
+    kind: 'main',
+    createdAt: now,
+    user: { text },
+    assistant: { content: '' },
+    attempt,
+  }
+
+  await db.transaction('rw', db.nodes, db.conversations, async () => {
+    await db.nodes.add(node)
+    await db.conversations.update(conversationId, {
+      updatedAt: now,
+      title: conv.title || summarizeTitle(text),
+      selectedChild: { ...conv.selectedChild, [parentId ?? ROOT_KEY]: nodeId },
+    })
+  })
+
+  await runAttempt(node, provider, model, messages)
+}
+
+async function runAttempt(node: ChatNode, provider: Provider, model: string, messages: ChatMessage[]) {
+  const setLive = useUi.getState().setLive
+  const controller = new AbortController()
+  controllers.set(node.id, controller)
+
+  let content = ''
+  let reasoning = ''
+  let finishReason: string | undefined
+  let usage: Record<string, unknown> | undefined
+  let flushTimer: ReturnType<typeof setTimeout> | null = null
+  const flush = () => {
+    flushTimer = null
+    setLive(node.id, { content, reasoning })
+  }
+  setLive(node.id, { content, reasoning })
+
+  const finish = async (patch: Partial<Attempt>) => {
+    if (flushTimer) clearTimeout(flushTimer)
+    controllers.delete(node.id)
+    await db.nodes.update(node.id, {
+      assistant: { content, reasoning: reasoning || undefined },
+      attempt: {
+        ...node.attempt,
+        ...patch,
+        rawText: content,
+        rawReasoning: reasoning || undefined,
+        finishReason,
+        usage,
+        finishedAt: Date.now(),
+      },
+    })
+    setLive(node.id, null)
+  }
+
+  try {
+    const req = prepareChat(provider, model, messages)
+    node.attempt = { ...node.attempt, url: req.url, requestBody: req.body }
+    await db.nodes.update(node.id, { attempt: node.attempt })
+
+    const events = await sendChat(provider, req, controller.signal)
+    for await (const ev of events) {
+      if (ev.type === 'text') content += ev.delta
+      else if (ev.type === 'reasoning') reasoning += ev.delta
+      else if (ev.type === 'finish') finishReason = ev.reason
+      else if (ev.type === 'usage') usage = ev.usage
+      if ((ev.type === 'text' || ev.type === 'reasoning') && !flushTimer) flushTimer = setTimeout(flush, 40)
+    }
+    await finish({ status: 'done' })
+  } catch (e) {
+    if (controller.signal.aborted) {
+      await finish({ status: 'aborted' })
+    } else {
+      const err = e instanceof ProviderError ? e : new ProviderError((e as Error)?.message ?? String(e))
+      await finish({ status: 'error', error: { message: err.message, status: err.status, body: err.body, code: err.code } })
+    }
+  }
+}
+
+export function stopGeneration(nodeId: string) {
+  controllers.get(nodeId)?.abort()
+}
+
+function summarizeTitle(text: string) {
+  const line = text.trim().split('\n')[0]
+  return line.length > 40 ? line.slice(0, 40) + '…' : line
+}
