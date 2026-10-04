@@ -11,6 +11,7 @@ export function Composer({
   disabled,
   placeholder,
   leading,
+  initialText = '',
 }: {
   onSend: (text: string) => void
   onStop: () => void
@@ -19,9 +20,11 @@ export function Composer({
   placeholder?: string
   /** Shown at the left of the bottom bar. */
   leading?: ReactNode
+  /** Text to start with (read on mount); the cursor goes after it. */
+  initialText?: string
 }) {
   const t = useT()
-  const [text, setText] = useState('')
+  const [text, setText] = useState(initialText)
   const ref = useRef<HTMLTextAreaElement>(null)
 
   useAutosize(ref, text)
@@ -45,6 +48,10 @@ export function Composer({
         rows={1}
         value={text}
         autoFocus
+        onFocus={(e) => {
+          const end = e.currentTarget.value.length
+          if (initialText && e.currentTarget.selectionStart === 0) e.currentTarget.setSelectionRange(end, end)
+        }}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {

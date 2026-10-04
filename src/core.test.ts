@@ -149,7 +149,8 @@ describe('buildMessages', () => {
 describe('normalizeMath', () => {
   it('converts \\( \\) and \\[ \\] delimiters', () => {
     expect(normalizeMath('a \\(x^2\\) b')).toBe('a $x^2$ b')
-    expect(normalizeMath('\\[y\\]')).toBe('\n$$\ny\n$$\n')
+    expect(normalizeMath('\\[y\\]')).toBe('$$\ny\n$$')
+    expect(normalizeMath('a \\[y\\] b')).toBe('a \n$$\ny\n$$\n b')
   })
 
   it('leaves code untouched', () => {

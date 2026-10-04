@@ -90,6 +90,7 @@
   --color-user-bubble: var(--c-user-bubble);
   --color-code-bg: var(--c-code-bg);
   --color-anchor: var(--c-anchor);
+  --color-anchor-active: var(--c-anchor-active);
   --color-anchor-line: var(--c-anchor-line);
   --shadow-pop: var(--shadow-pop);
   --shadow-composer: var(--shadow-composer);
@@ -187,6 +188,11 @@
   line-height: 1.75;
   font-size: 15px;
   overflow-wrap: anywhere;
+}
+/* Smaller variant for side panels. */
+.prose.prose-compact {
+  font-size: 13.5px;
+  line-height: 1.7;
 }
 /* Smaller, muted variant for reasoning. */
 .prose.prose-reasoning {

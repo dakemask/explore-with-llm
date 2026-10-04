@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import hljs from 'highlight.js/lib/core'
 import jsonLang from 'highlight.js/lib/languages/json'
-import { AlertCircle, ChevronLeft, ChevronsDownUp, ChevronsUpDown, Eye, EyeOff, Info, X } from 'lucide-react'
+import { AlertCircle, Check, ChevronLeft, ChevronsDownUp, Copy, ChevronsUpDown, Eye, EyeOff, Info, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { db, type Attempt, type AttemptStatus, type ChatNode } from '../../db'
 import { useT, type TKey } from '../../i18n'
@@ -15,7 +15,10 @@ import {
   summarizeUsage,
   type TimedEvent,
 } from '../../lib/attempt'
+import { replyVersions, type ReplyVersion } from '../../lib/chat'
+import { useCopy } from '../../lib/hooks'
 import { aggregateStream } from '../../providers'
+import { Markdown } from '../chat/Markdown'
 import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { CodeBox, codeBoxAction } from '../ui/CodeBox'
@@ -24,7 +27,7 @@ import { IconButton } from '../ui/Button'
 
 hljs.registerLanguage('json', jsonLang)
 
-type Tab = 'request' | 'response' | 'error'
+type Tab = 'request' | 'response' | 'error' | 'versions'
 
 /** Right-hand panel showing the single request behind a node: what was sent, what came back, and any error. */
 export function DetailPanel({ nodeId }: { nodeId: string }) {
@@ -71,6 +74,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
                 { value: 'request', label: t('detail.tab.request') },
                 { value: 'response', label: t('detail.tab.response') },
                 ...(hasError ? [{ value: 'error' as const, label: t('detail.tab.error') }] : []),
+                ...(node.assistant.edited ? [{ value: 'versions' as const, label: t('detail.tab.versions') }] : []),
               ]}
             />
           </div>
@@ -78,6 +82,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
             {current === 'request' && <RequestTab attempt={node.attempt} />}
             {current === 'response' && <ResponseTab node={node} />}
             {current === 'error' && <ErrorTab attempt={node.attempt} />}
+            {current === 'versions' && <VersionsTab node={node} />}
           </div>
         </div>
       )}
@@ -416,6 +421,54 @@ function Section({ title, children }: { title: ReactNode; children: ReactNode })
       <h3 className="mb-2 text-xs font-medium text-muted">{title}</h3>
       {children}
     </section>
+  )
+}
+
+function VersionsTab({ node }: { node: ChatNode }) {
+  const t = useT()
+  const versions = replyVersions(node)
+  const edits = versions.length - 1
+  return (
+    <div className="space-y-4">
+      <Note>{t('detail.versionsNote', { n: edits })}</Note>
+      {versions.map((v, i) => (
+        <VersionCard
+          key={i}
+          label={
+            v.kind === 'current'
+              ? t('detail.version.current')
+              : v.kind === 'original'
+                ? t('detail.version.original')
+                : t('detail.version.edit', { n: versions.length - 1 - i })
+          }
+          version={v}
+        />
+      ))}
+    </div>
+  )
+}
+
+function VersionCard({ label, version }: { label: string; version: ReplyVersion }) {
+  const t = useT()
+  const lang = useSettings((s) => s.lang)
+  const { copied, copy } = useCopy()
+  const current = version.kind === 'current'
+  return (
+    <div className={clsx('overflow-hidden rounded-lg border', current ? 'border-border-strong' : 'border-border')}>
+      <div className="flex h-9 items-center gap-2 border-b border-border bg-bg px-3 text-xs">
+        <span className={clsx('font-medium', current ? 'text-accent' : 'text-text')}>{label}</span>
+        <span className="flex-1 text-faint">
+          {new Date(version.at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false })}
+        </span>
+        <button onClick={() => copy(version.content)} className={clsx(codeBoxAction, 'text-faint')}>
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          {copied ? t('msg.copied') : t('msg.copy')}
+        </button>
+      </div>
+      <div className="max-h-80 overflow-y-auto px-4 py-3">
+        <Markdown text={version.content} className="prose-compact" />
+      </div>
+    </div>
   )
 }
 

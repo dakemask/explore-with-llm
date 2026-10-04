@@ -3,10 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Markdown } from './components/chat/Markdown'
 import type { ChatNode } from './db/types'
-import { editRegion, normalizeMathMapped, shiftLocks, type AnchorMark } from './lib/anchor'
-import { buildMessages } from './lib/chat'
+import { editRegion, normalizeMathMapped, quoteForInput, shiftLocks, type AnchorMark } from './lib/anchor'
+import { db } from './db'
+import { buildMessages, editAssistant, replyVersions } from './lib/chat'
 import { activePath, forkKey, siblingsOf, sideThreads, threadPath } from './lib/tree'
-import { useSettings } from './store/settings'
 
 /** [text, data-s, data-e] of every source-mapped run, in document order. */
 function runs(src: string, anchors: AnchorMark[] = []) {
@@ -26,6 +26,25 @@ describe('normalizeMathMapped', () => {
     expect(src[map[text.indexOf('x')]]).toBe('x')
     expect(src[map[text.indexOf('y')]]).toBe('y')
     expect(src.slice(map[text.indexOf(' c')])).toBe(' c')
+  })
+})
+
+describe('display math in containers', () => {
+  it('stays inside a blockquote', () => {
+    const src = '> 如果\n> \\[\n> \\det x\n> \\]\n>\n> 是常数\n'
+    expect(normalizeMathMapped(src).text).toBe('> 如果\n> $$\n> \\det x\n> $$\n>\n> 是常数\n')
+    const html = renderToStaticMarkup(<Markdown text={src} />)
+    expect(html.match(/<blockquote>/g)?.length).toBe(1)
+    expect(html).toContain('katex-display')
+    expect(html).not.toContain('&gt;')
+  })
+
+  it('stays inside a list item, and splits inline-placed display math onto its own lines', () => {
+    const src = '1. 设\n   \\[ x = 1 \\] 于是'
+    expect(normalizeMathMapped(src).text).toBe('1. 设\n   $$\n   x = 1\n   $$\n    于是')
+    const html = renderToStaticMarkup(<Markdown text={src} />)
+    expect(html.match(/<li>/g)?.length).toBe(1)
+    expect(html).toContain('katex-display')
   })
 })
 
@@ -131,15 +150,38 @@ describe('side threads', () => {
     expect(threadPath(nodes, 'T', { T: 's1' }).map((n) => n.id)).toEqual(['s1', 's3'])
   })
 
-  it('sends the main path, then the quoted text with the question', () => {
-    useSettings.setState({ lang: 'en' })
+  it('sends the main path, then the side thread, as typed', () => {
     const msgs = buildMessages([nodes[0], nodes[2]], 'more?')
-    expect(msgs.map((m) => m.content)).toEqual([
-      'u-a',
-      'a-a',
-      'About this part of your answer above:\n\n> a-a\n\nu-s1',
-      'a-s1',
-      'more?',
+    expect(msgs.map((m) => m.content)).toEqual(['u-a', 'a-a', 'u-s1', 'a-s1', 'more?'])
+  })
+
+  it('prefills the input with the selection as a blockquote', () => {
+    expect(quoteForInput('1. **缩小**一半\n\n公式 $x$')).toBe('> 缩小一半\n>\n> 公式 $x$\n\n')
+  })
+})
+
+describe('reply versions', () => {
+  it('keeps every earlier version when editing, newest first', async () => {
+    const n = node('v', null, 1, { assistant: { content: 'one' } })
+    n.attempt.finishedAt = 100
+    await db.nodes.put(n)
+    await editAssistant(n, 'two', {})
+    await editAssistant((await db.nodes.get('v'))!, 'three', {})
+    const saved = (await db.nodes.get('v'))!
+    expect(replyVersions(saved).map((v) => [v.kind, v.content])).toEqual([
+      ['current', 'three'],
+      ['edit', 'two'],
+      ['original', 'one'],
     ])
+    expect(saved.assistant.history).toEqual([
+      { content: 'one', at: 100 },
+      { content: 'two', at: expect.any(Number) },
+    ])
+  })
+
+  it('recovers the original of replies edited before history was kept', () => {
+    const n = node('w', null, 1, { assistant: { content: 'edited', edited: true } })
+    n.attempt.rawText = '<think>x</think>original'
+    expect(replyVersions(n).map((v) => v.content)).toEqual(['edited', 'original'])
   })
 })

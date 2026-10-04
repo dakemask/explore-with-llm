@@ -109,7 +109,8 @@ export function AssistantEditor({
           }}
           className={clsx(
             shared,
-            'absolute inset-0 block size-full resize-none overflow-hidden bg-transparent text-transparent caret-text focus:outline-none',
+            // Translucent selection: an opaque one would hide the mirrored text underneath.
+            'absolute inset-0 block size-full resize-none overflow-hidden bg-transparent text-transparent caret-text selection:bg-anchor-active focus:outline-none',
           )}
         />
       </div>

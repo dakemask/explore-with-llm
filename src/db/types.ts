@@ -102,6 +102,13 @@ export interface ChatNode {
     reasoning?: string
     /** True once the user edited the assistant text in place. */
     edited?: boolean
+    /** When the current `content` was saved by an edit. */
+    editedAt?: number
+    /**
+     * Earlier versions of `content`, oldest first (the model's reply, then each edit), with when each was
+     * written. Missing on replies edited before history was kept.
+     */
+    history?: { content: string; at: number }[]
   }
   attempt: Attempt
 }

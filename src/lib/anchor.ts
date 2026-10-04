@@ -28,6 +28,32 @@ export function normalizeMathMapped(src: string): Normalized {
     text += s
     for (let i = 0; i < s.length; i++) map.push(at)
   }
+  /**
+   * `\[ … \]` → `$$` fences on their own lines. Lines it adds repeat the container prefix (`> ` of a
+   * blockquote, list indentation) of the line the math starts on, so the math stays inside it.
+   */
+  const displayMath = (open: number, close: number) => {
+    const lineStart = src.lastIndexOf('\n', open - 1) + 1
+    const before = src.slice(lineStart, open)
+    const prefix = /^[ \t>]*/.exec(before)![0]
+    const nl = '\n' + prefix
+    insert(before === prefix ? '$$' : nl + '$$', open)
+    let a = open + 2
+    let b = close - 1
+    const body = src.slice(a, b)
+    const firstLine = body.split('\n')[0]
+    if (firstLine.trim()) {
+      insert(nl, open + 1)
+      a += firstLine.length - firstLine.trimStart().length
+    }
+    // A closing delimiter alone on its line (after the prefix) leaves that line out.
+    const tail = /\n[ \t>]*$/.exec(body)
+    b = tail ? b - tail[0].length : a + src.slice(a, b).trimEnd().length
+    if (b > a) copy(a, b)
+    insert(nl + '$$', close)
+    const rest = src.slice(close + 1).split('\n')[0]
+    if (rest.trim()) insert(nl, close)
+  }
   const mathRe = /\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)/g
   const codeRe = /```[\s\S]*?(?:```|$)|`[^`\n]*`/g
   let pos = 0
@@ -35,17 +61,17 @@ export function normalizeMathMapped(src: string): Normalized {
     mathRe.lastIndex = pos
     for (let m = mathRe.exec(src); m && m.index < end; m = mathRe.exec(src)) {
       if (m.index + m[0].length > end) break
-      const display = m[1] !== undefined
-      const inner = (display ? m[1] : m[2])!
-      const lead = inner.length - inner.trimStart().length
-      const innerStart = m.index + 2 + lead
-      const innerEnd = m.index + 2 + inner.trimEnd().length
+      const open = m.index
       const close = m.index + m[0].length - 1 // last char of the closing delimiter
-      copy(pos, m.index)
-      insert(display ? '\n$$\n' : '$', m.index)
-      copy(innerStart, innerEnd)
-      insert(display ? '\n$$\n' : '$', close)
-      pos = m.index + m[0].length
+      copy(pos, open)
+      if (m[1] !== undefined) displayMath(open, close)
+      else {
+        const inner = m[2]
+        insert('$', open)
+        copy(open + 2 + inner.length - inner.trimStart().length, open + 2 + inner.trimEnd().length)
+        insert('$', close)
+      }
+      pos = close + 1
     }
     copy(pos, end)
     pos = end
@@ -297,7 +323,7 @@ export function shiftLocks<T extends Lock>(locks: T[], prev: string, next: strin
   return out
 }
 
-/** Quoted Markdown made readable for display (the model still gets the source): drops markers, keeps math. */
+/** Quoted Markdown made readable (drops emphasis/code markers and line prefixes, keeps math). */
 export function plainQuote(md: string) {
   return md
     .split('\n')
@@ -305,4 +331,12 @@ export function plainQuote(md: string) {
     .map((l) => l.replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)/, ''))
     .join('\n')
     .replace(/\*\*|`+/g, '')
+}
+
+/** Starting text of a side question's input: the quote as a Markdown blockquote, then a blank line. */
+export function quoteForInput(md: string) {
+  const lines = plainQuote(md)
+    .split('\n')
+    .map((l) => (l.trim() ? `> ${l}` : '>'))
+  return lines.join('\n') + '\n\n'
 }

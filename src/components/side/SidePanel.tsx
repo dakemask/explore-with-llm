@@ -1,15 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Locate, MessagesSquare, Trash2, X } from 'lucide-react'
+import { MessagesSquare, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { db } from '../../db'
 import { useT } from '../../i18n'
-import { plainQuote } from '../../lib/anchor'
+import { quoteForInput } from '../../lib/anchor'
 import { deleteThread, sendMessage, stopGeneration } from '../../lib/chat'
 import { useAutoScroll } from '../../lib/hooks'
 import { siblingsOf, threadPath } from '../../lib/tree'
 import { useUi, type SidePanel as SidePanelState } from '../../store/ui'
 import { Composer } from '../chat/Composer'
-import { DRAFT_PREFIX, MessageNode } from '../chat/MessageNode'
+import { MessageNode } from '../chat/MessageNode'
 import { ModelPicker, useCurrentModel } from '../chat/ModelPicker'
 import { useNodeActions } from '../chat/useNodeActions'
 import { IconButton } from '../ui/Button'
@@ -35,7 +35,6 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
   )
   const root = path[0]
   const last = path[path.length - 1]
-  const anchor = root?.anchor ?? panel.draft
   const loaded = nodes !== undefined && conversation !== undefined
 
   useEffect(() => {
@@ -68,14 +67,6 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
     await deleteThread(conversationId, panel.thread)
   }
 
-  const locate = () => {
-    const ids = [panel.thread, DRAFT_PREFIX + panel.thread]
-    const el = document.querySelector(
-      ids.map((id) => `[data-anchor-root="${panel.nodeId}"] [data-threads~="${id}"]`).join(','),
-    )
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }
-
   return (
     <aside className="anim-drawer flex h-full w-[460px] shrink-0 flex-col border-l border-border bg-surface">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border pr-3 pl-5">
@@ -93,25 +84,10 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
 
       <div ref={scroll.containerRef} className="min-h-0 flex-1 overflow-y-auto">
         <div ref={scroll.contentRef} className="px-5 pt-4 pb-8">
-          {anchor && (
-            <div className="group/quote rounded-lg bg-anchor px-3.5 py-2.5 shadow-[inset_3px_0_0_var(--c-anchor-line)]">
-              <div className="mb-1 flex items-center justify-between text-[11px] font-medium text-muted">
-                {t('side.quote')}
-                <button
-                  onClick={locate}
-                  className="flex items-center gap-1 rounded px-1 opacity-0 transition-opacity group-hover/quote:opacity-100 hover:text-text focus-visible:opacity-100"
-                >
-                  <Locate size={12} />
-                  {t('side.locate')}
-                </button>
-              </div>
-              <div className="line-clamp-6 text-[13px] leading-relaxed whitespace-pre-wrap">{plainQuote(anchor.text)}</div>
-            </div>
-          )}
           {path.length === 0 ? (
-            <p className="mt-6 px-2 text-center text-[13px] text-faint">{t('side.draftHint')}</p>
+            <p className="mt-2 px-4 text-center text-[13px] leading-relaxed text-faint">{t('side.draftHint')}</p>
           ) : (
-            <div className="mt-6 space-y-8">
+            <div className="space-y-8">
               {path.map((n) => {
                 const sibs = siblingsOf(nodes ?? [], n)
                 return (
@@ -138,6 +114,7 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
           generating={last?.attempt.status === 'streaming'}
           disabled={!canSend}
           placeholder={t('side.placeholder')}
+          initialText={panel.draft && !root ? quoteForInput(panel.draft.text) : ''}
           leading={<ModelPicker />}
         />
       </div>

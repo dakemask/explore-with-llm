@@ -10,11 +10,9 @@ import {
   type RawChunk,
   type SideAnchor,
 } from '../db'
-import { translate } from '../i18n'
 import { getAdapter, prepareChat, ProviderError, sendChat, type ChatMessage } from '../providers'
 import { streamEvents } from './attempt'
 import { splitThink } from './reasoning'
-import { useSettings } from '../store/settings'
 import { useUi } from '../store/ui'
 import { forkKey, pathTo } from './tree'
 
@@ -40,16 +38,6 @@ export async function deleteConversation(id: string) {
   })
 }
 
-/** What the model sees for a user turn: side-question roots quote the anchored text before the question. */
-export function userPrompt(text: string, anchor?: SideAnchor): string {
-  if (!anchor) return text
-  const quote = anchor.text
-    .split('\n')
-    .map((l) => (l ? `> ${l}` : '>'))
-    .join('\n')
-  return translate(useSettings.getState().lang, 'side.prompt', { quote, question: text })
-}
-
 /**
  * Turns a root→leaf path into protocol messages, then appends the new user turn.
  * Nodes whose request produced no assistant text still contribute their user turn.
@@ -58,7 +46,7 @@ export function userPrompt(text: string, anchor?: SideAnchor): string {
 export function buildMessages(path: ChatNode[], userText: string, provider?: Provider): ChatMessage[] {
   const messages: ChatMessage[] = []
   for (const n of path) {
-    messages.push({ role: 'user', content: userPrompt(n.user.text, n.anchor) })
+    messages.push({ role: 'user', content: n.user.text })
     if (n.assistant.content) {
       const extra = provider && echoFields(n, provider)
       messages.push(extra ? { role: 'assistant', content: n.assistant.content, extra } : { role: 'assistant', content: n.assistant.content })
@@ -113,7 +101,7 @@ export async function sendMessage(opts: {
 
   const allNodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
   const path = parentId ? pathTo(allNodes, parentId) : []
-  const messages = buildMessages(path, userPrompt(text, side?.anchor), provider)
+  const messages = buildMessages(path, text, provider)
 
   const nodeId = nanoid()
   const now = Date.now()
@@ -274,7 +262,11 @@ export async function editAssistant(
   anchors: Record<string, { start: number; end: number }>,
 ) {
   await db.transaction('rw', db.nodes, async () => {
-    await db.nodes.update(node.id, { assistant: { ...node.assistant, content, edited: true } })
+    const history = replyVersions(node)
+      .reverse()
+      .map(({ content, at }) => ({ content, at }))
+    const assistant = { ...node.assistant, content, edited: true, editedAt: Date.now(), history }
+    await db.nodes.update(node.id, { assistant })
     const roots = await db.nodes.where('parentId').equals(node.id).toArray()
     for (const r of roots) {
       const moved = r.anchor && r.thread && anchors[r.thread]
@@ -290,4 +282,21 @@ export function stopGeneration(nodeId: string) {
 function summarizeTitle(text: string) {
   const line = text.trim().split('\n')[0]
   return line.length > 40 ? line.slice(0, 40) + '…' : line
+}
+
+export interface ReplyVersion {
+  content: string
+  at: number
+  kind: 'current' | 'edit' | 'original'
+}
+
+/** Every version of an assistant reply, newest (current) first, down to the model's original. */
+export function replyVersions(node: ChatNode): ReplyVersion[] {
+  const a = node.assistant
+  const replyAt = node.attempt.finishedAt ?? node.attempt.startedAt
+  // Edited before history was kept: the original is still derivable from the raw output.
+  const history = a.history ?? (a.edited ? [{ content: splitThink(node.attempt.rawText).content, at: replyAt }] : [])
+  const earlier = history.map((v, i) => ({ ...v, kind: i === 0 ? ('original' as const) : ('edit' as const) }))
+  const current = { content: a.content, at: a.editedAt ?? replyAt, kind: a.edited ? ('current' as const) : ('original' as const) }
+  return [...earlier, current].reverse()
 }
