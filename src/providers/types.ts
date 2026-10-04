@@ -61,11 +61,14 @@ export interface ProtocolAdapter {
   listModels(provider: Provider, headers: Record<string, string>, signal?: AbortSignal): Promise<string[]>
 }
 
+/** `network`: the request got no response; `interrupted`: the connection broke while the reply streamed. */
+export type ErrorCode = 'network' | 'interrupted'
+
 export class ProviderError extends Error {
   status?: number
   body?: string
-  code?: 'network'
-  constructor(message: string, status?: number, body?: string, code?: 'network') {
+  code?: ErrorCode
+  constructor(message: string, status?: number, body?: string, code?: ErrorCode) {
     super(message)
     this.name = 'ProviderError'
     this.status = status
@@ -94,7 +97,13 @@ export function joinUrl(base: string, path: string) {
 
 /** Model ids from a `{ data: [{ id }] }` (or bare array) model list. */
 export async function fetchModelList(url: string, headers: Record<string, string>, signal?: AbortSignal) {
-  const res = await fetch(url, { headers, signal })
+  let res: Response
+  try {
+    res = await fetch(url, { headers, signal })
+  } catch (e) {
+    if (signal?.aborted) throw e
+    throw new ProviderError((e as Error).message, undefined, undefined, 'network')
+  }
   const text = await res.text()
   if (!res.ok) throw new ProviderError(`HTTP ${res.status}`, res.status, text)
   const json = JSON.parse(text)

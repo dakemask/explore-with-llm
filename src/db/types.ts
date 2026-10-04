@@ -105,7 +105,7 @@ export interface Attempt {
   message?: Record<string, unknown>
   finishReason?: string
   usage?: Record<string, unknown>
-  error?: { message: string; status?: number; body?: string; code?: 'network' }
+  error?: { message: string; status?: number; body?: string; code?: 'network' | 'interrupted' }
 }
 
 export interface ChatNode {

@@ -400,7 +400,7 @@ function ErrorTab({ attempt: a }: { attempt: Attempt }) {
             {err.status ? ` · HTTP ${err.status}` : ''}
           </div>
           <div className="mt-0.5 break-words text-muted">{err.message}</div>
-          {err.code === 'network' && <div className="mt-1.5 break-words text-muted">{t('error.network')}</div>}
+          {err.code && <div className="mt-1.5 break-words text-muted">{t(`error.${err.code}`)}</div>}
         </div>
       </div>
       {err.body && (

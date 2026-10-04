@@ -238,12 +238,18 @@ async function runAttempt(
         if (!flushTimer) flushTimer = setTimeout(flush, 40)
       }
     }
+    const shown = visible()
+    if (!shown.content.trim() && !shown.reasoning.trim()) throw new ProviderError(translate(useSettings.getState().lang, 'error.empty'))
     await finish({ status: 'done' })
   } catch (e) {
     if (controller.signal.aborted) {
       await finish({ status: 'aborted' })
     } else {
-      const err = e instanceof ProviderError ? e : new ProviderError((e as Error)?.message ?? String(e))
+      // Anything else thrown after the response arrived is the body stream failing (e.g. the connection dropped).
+      const err =
+        e instanceof ProviderError
+          ? e
+          : new ProviderError((e as Error)?.message ?? String(e), undefined, undefined, response ? 'interrupted' : undefined)
       await finish({ status: 'error', error: { message: err.message, status: err.status, body: err.body, code: err.code } })
     }
   }

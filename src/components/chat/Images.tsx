@@ -5,29 +5,23 @@ import { useEffect, useRef, useState, type ClipboardEvent, type RefObject } from
 import { useT } from '../../i18n'
 import { imageUrl, prepareImage, useStoredImages, type ImageFile } from '../../lib/images'
 import { IconButton } from '../ui/Button'
+import { notifyError } from '../ui/Toast'
 
 /**
  * Images attached in an input box: added by the button, pasting or dropping files on `dropTarget`.
- * Unreadable files show a short error instead.
+ * Unreadable files are reported in an error notification.
  */
 export function useAttachments(dropTarget: RefObject<HTMLElement | null>, initial: ImageFile[] = []) {
   const t = useT()
   const [images, setImages] = useState<ImageFile[]>(initial)
-  const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
-  const errorTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(errorTimer.current), [])
 
   const add = async (files: File[]) => {
     const prepared = await Promise.all(files.map(prepareImage))
     const ok = prepared.filter((p): p is ImageFile => !!p)
     if (ok.length) setImages((list) => [...list, ...ok])
     const bad = files.filter((_, i) => !prepared[i])
-    if (bad.length) {
-      setError(t('image.unreadable', { name: bad.map((f) => f.name || f.type).join(', ') }))
-      clearTimeout(errorTimer.current)
-      errorTimer.current = setTimeout(() => setError(''), 4000)
-    }
+    if (bad.length) notifyError(t('image.unreadable'), bad.map((f) => f.name || f.type))
   }
   const latestAdd = useRef(add)
   latestAdd.current = add
@@ -85,7 +79,6 @@ export function useAttachments(dropTarget: RefObject<HTMLElement | null>, initia
 
   return {
     images,
-    error,
     dragging,
     add,
     onPaste,
@@ -121,12 +114,12 @@ export function AttachButton({ onFiles }: { onFiles: (files: File[]) => void }) 
   )
 }
 
-/** Thumbnails of the images attached in an input box, plus the last error. */
+/** Thumbnails of the images attached in an input box. */
 export function AttachmentStrip({ attachments, className }: { attachments: Attachments; className?: string }) {
   const t = useT()
   const [viewing, setViewing] = useState<ImageFile | null>(null)
-  const { images, error, remove } = attachments
-  if (!images.length && !error) return null
+  const { images, remove } = attachments
+  if (!images.length) return null
   return (
     <div className={className}>
       {images.length > 0 && (
@@ -152,7 +145,6 @@ export function AttachmentStrip({ attachments, className }: { attachments: Attac
           ))}
         </div>
       )}
-      {error && <div className="mt-1.5 text-xs text-danger">{error}</div>}
       <ImageViewer image={viewing} onClose={() => setViewing(null)} />
     </div>
   )

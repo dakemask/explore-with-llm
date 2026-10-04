@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, Info, Lock, Pencil, RotateCcw } from 'lucide-react'
-import { memo, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { useAutosize, useCopy } from '../../lib/hooks'
@@ -94,7 +94,7 @@ export const MessageNode = memo(function MessageNode({
             />
           </div>
         ) : (
-          streaming && !hasReasoning(thinking) && <TypingDots />
+          streaming && !hasReasoning(thinking) && <TypingDots since={node.attempt.startedAt} />
         )}
         {node.attempt.status === 'error' && !node.edit && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} />}
         {!streaming && !editing && (
@@ -310,7 +310,15 @@ function formatBytes(n: number) {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`
 }
 
-function TypingDots() {
+/** Shown until the first output arrives; after a few seconds also how long it has been waiting. */
+function TypingDots({ since }: { since: number }) {
+  const t = useT()
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  const seconds = Math.floor((now - since) / 1000)
   return (
     <div className="flex h-7 items-center gap-1">
       {[0, 1, 2].map((i) => (
@@ -320,6 +328,7 @@ function TypingDots() {
           style={{ animationDelay: `${i * 120}ms` }}
         />
       ))}
+      {seconds >= 5 && <span className="ml-2 text-xs text-faint tabular-nums">{t('msg.waiting', { n: seconds })}</span>}
     </div>
   )
 }
@@ -336,7 +345,7 @@ function ErrorBox({ node, onRetry, onDetail }: { node: ChatNode; onRetry?: () =>
           {t('msg.error')}
           {err.status ? ` · HTTP ${err.status}` : ''}
         </div>
-        <div className="mt-0.5 break-words text-muted">{err.code === 'network' ? t('error.network') : err.message}</div>
+        <div className="mt-0.5 break-words text-muted">{err.code ? t(`error.${err.code}`) : err.message}</div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5 self-center">
         <Button size="sm" variant="ghost" onClick={onDetail}>

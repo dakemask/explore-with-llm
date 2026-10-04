@@ -8,6 +8,7 @@ import { getAdapter, listModels, PROTOCOLS, ProviderError } from '../../provider
 import { joinUrl } from '../../providers/types'
 import { Button } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
+import { notifyError } from '../ui/Toast'
 import { Input, Label } from '../ui/Field'
 import { FetchedModels, PICK_THRESHOLD } from './FetchedModels'
 import { ModelConfigPage } from './ModelConfigPage'
@@ -53,7 +54,7 @@ function ProviderFields({
   const provider = { ...local, models: stored.models, modelConfigs: stored.modelConfigs }
   const [showKey, setShowKey] = useState(false)
   const adapter = getAdapter(provider.protocol)
-  const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string; error?: boolean }>({})
+  const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string }>({})
   // A long fetched list is picked from in a dialog instead of being added wholesale.
   const [fetched, setFetched] = useState<string[]>([])
   const [pickOpen, setPickOpen] = useState(false)
@@ -79,7 +80,8 @@ function ProviderFields({
       setFetchState({ message: t('provider.fetched', { n: models.length, added }) })
     } catch (e) {
       const err = e as ProviderError
-      setFetchState({ error: true, message: err.code === 'network' ? t('error.network') : err.message })
+      setFetchState({})
+      notifyError(t('provider.fetchFailed'), err.code === 'network' ? t('error.network') : err.message)
     }
   }
 
@@ -181,9 +183,9 @@ function ProviderFields({
         </Label>
         <ModelList provider={provider} onOpen={onOpenModel} />
         {fetchState.message && (
-          <div className={clsx('mt-1.5 text-xs', fetchState.error ? 'text-danger' : 'text-muted')}>
+          <div className="mt-1.5 text-xs text-muted">
             {fetchState.message}
-            {!fetchState.error && fetched.length > 0 && (
+            {fetched.length > 0 && (
               <button onClick={() => setPickOpen(true)} className="ml-1.5 text-accent hover:underline">
                 {t('provider.fetchedOpen')}
               </button>

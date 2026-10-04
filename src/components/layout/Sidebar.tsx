@@ -8,7 +8,8 @@ import { deleteConversation, renameConversation } from '../../lib/chat'
 import { download, exportConversation, importConversation } from '../../lib/transfer'
 import { useUi } from '../../store/ui'
 import { IconButton } from '../ui/Button'
-import { alertDialog, confirmDialog, promptDialog } from '../ui/Dialog'
+import { confirmDialog, promptDialog } from '../ui/Dialog'
+import { notifyError } from '../ui/Toast'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
 
 export function Sidebar() {
@@ -30,7 +31,7 @@ export function Sidebar() {
     try {
       setConversation(await importConversation(await file.text()))
     } catch (e) {
-      await alertDialog(t('conv.importFailed', { reason: e instanceof Error ? e.message : String(e) }))
+      notifyError(t('conv.importFailed'), t('conv.importInvalid', { reason: e instanceof Error ? e.message : String(e) }))
     }
   }
 

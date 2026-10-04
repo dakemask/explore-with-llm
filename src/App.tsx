@@ -6,6 +6,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { SidePanel } from './components/side/SidePanel'
 import { SettingsDialog } from './components/settings/SettingsDialog'
 import { DialogHost } from './components/ui/Dialog'
+import { ToastHost } from './components/ui/Toast'
 import { applyTheme, useSettings } from './store/settings'
 import { useUi } from './store/ui'
 
@@ -39,6 +40,7 @@ export function App() {
       </div>
       <SettingsDialog />
       <DialogHost />
+      <ToastHost />
     </Tooltip.Provider>
   )
 }

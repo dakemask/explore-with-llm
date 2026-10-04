@@ -11,6 +11,9 @@
 //               + thinking; responses: two summary parts + encrypted_content)
 //   mock-tags   thinking inline in content as <think>…</think>
 //   mock-bad    returns HTTP 401
+//   mock-cut    starts like mock-chat, then drops the connection mid-reply
+//   mock-empty  200 with an event stream that ends without any output
+//   mock-hang   accepts the request and never answers (for the waiting timer)
 // Every reply starts with a line echoing the request (counter, protocol, context size, echoed reasoning found
 // in the context, body fields beyond the protocol's own, last user message) so branches, echo-back and
 // parameters are visible in tests. Anthropic requests without max_tokens get the API's 400 error.
@@ -31,7 +34,7 @@ const cors = {
   'Access-Control-Expose-Headers': 'X-Request-Id',
 }
 const extra = Number(process.env.EXTRA_MODELS ?? 0)
-const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad']
+const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad', 'mock-cut', 'mock-empty', 'mock-hang']
 if (extra > 0) MODELS.push(...Array.from({ length: extra }, (_, i) => `mock-extra-${String(i + 1).padStart(2, '0')}`), 'mock-chat')
 let count = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -242,7 +245,15 @@ http
       return json(400, { error: { type: 'invalid_request_error', message: e.message } })
     }
 
+    if (body.model === 'mock-hang') return req.on('close', () => res.end())
     res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream', 'X-Request-Id': `mock-${count}` })
+    if (body.model === 'mock-empty') return res.end(protocol === 'chat' ? 'data: [DONE]\n\n' : '')
+    if (body.model === 'mock-cut') {
+      // Let ~60 events through, then kill the socket; later writes go nowhere.
+      let writes = 0
+      const write = res.write.bind(res)
+      res.write = (...a) => (++writes === 60 ? (res.socket.destroy(), true) : writes > 60 ? true : write(...a))
+    }
     await { chat, anthropic, responses }[protocol](res, body)
   })
   .listen(port, () => console.log(`mock LLM on http://localhost:${port}`))

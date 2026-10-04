@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useT } from '../../i18n'
 import { Button, IconButton } from './Button'
+import { inToast } from './Toast'
 
 export function Dialog({
   open,
@@ -36,6 +37,7 @@ export function Dialog({
             const panel = e.currentTarget as HTMLElement
             ;((initialFocus && panel.querySelector<HTMLElement>(initialFocus)) || panel).focus()
           }}
+          onInteractOutside={(e) => inToast(e.target) && e.preventDefault()}
           className={clsx(
             'anim-pop fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col',
             'rounded-xl border border-border bg-surface shadow-pop focus:outline-none',
@@ -60,7 +62,7 @@ export function Dialog({
 // ---- Imperative confirm / prompt dialogs ----
 
 type Pending = { id: number } & (
-  | { kind: 'confirm' | 'alert'; message: string; danger?: boolean; resolve: (ok: boolean) => void }
+  | { kind: 'confirm'; message: string; danger?: boolean; resolve: (ok: boolean) => void }
   | { kind: 'prompt'; message: string; initial: string; resolve: (value: string | null) => void }
 )
 
@@ -70,13 +72,6 @@ let nextId = 0
 export function confirmDialog(message: string, opts?: { danger?: boolean }) {
   return new Promise<boolean>((resolve) =>
     usePending.setState({ pending: { id: ++nextId, kind: 'confirm', message, danger: opts?.danger, resolve } }),
-  )
-}
-
-/** A message with only an OK button. */
-export function alertDialog(message: string) {
-  return new Promise<void>((resolve) =>
-    usePending.setState({ pending: { id: ++nextId, kind: 'alert', message, resolve: () => resolve() } }),
   )
 }
 
@@ -106,6 +101,7 @@ function PendingDialog({ pending }: { pending: Pending }) {
         <RD.Overlay className="anim-fade fixed inset-0 z-40 bg-black/30 dark:bg-black/50" />
         <RD.Content
           aria-describedby={undefined}
+          onInteractOutside={(e) => inToast(e.target) && e.preventDefault()}
           className="anim-pop fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-surface p-5 shadow-pop focus:outline-none"
         >
           <RD.Title className="text-sm leading-relaxed">{pending.message}</RD.Title>
@@ -125,11 +121,9 @@ function PendingDialog({ pending }: { pending: Pending }) {
               />
             )}
             <div className="mt-5 flex justify-end gap-2">
-              {pending.kind !== 'alert' && (
-                <Button size="sm" variant="ghost" onClick={() => close(false)}>
-                  {t('common.cancel')}
-                </Button>
-              )}
+              <Button size="sm" variant="ghost" onClick={() => close(false)}>
+                {t('common.cancel')}
+              </Button>
               <Button
                 size="sm"
                 type="submit"

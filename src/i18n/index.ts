@@ -13,7 +13,8 @@ const zh = {
   'conv.deleteConfirm': '确定删除这个对话吗？此操作无法撤销。',
   'conv.export': '导出',
   'conv.import': '导入对话',
-  'conv.importFailed': '导入失败：这不是一个有效的对话备份文件（{reason}）。',
+  'conv.importFailed': '导入失败',
+  'conv.importInvalid': '这不是一个有效的对话备份文件（{reason}）。',
   'chat.placeholder': '输入消息，Enter 发送，Shift+Enter 换行',
   'chat.send': '发送',
   'chat.stop': '停止',
@@ -28,7 +29,7 @@ const zh = {
   'image.add': '添加图片（也可粘贴或拖入）',
   'image.remove': '移除图片',
   'image.drop': '松开以添加图片',
-  'image.unreadable': '无法读取：{name}',
+  'image.unreadable': '无法读取图片',
   'image.view': '查看图片',
   'image.only': '[图片]',
   'msg.copy': '复制',
@@ -39,6 +40,7 @@ const zh = {
   'msg.encrypted': '加密思维链 · {size}',
   'msg.encryptedHint': '模型返回了加密的思考内容，无法查看。是否在后续对话中原样发回，由供应商设置里的“回传思维链”决定。',
   'msg.aborted': '已停止',
+  'msg.waiting': '已等待 {n} 秒',
   'msg.error': '请求失败',
   'msg.edited': '已编辑',
   'msg.retry': '重新生成',
@@ -123,6 +125,7 @@ const zh = {
   'provider.modelsHint': '点击模型进入它的配置：参数、回传思维链、请求头，或一键套用预设。',
   'provider.fetchModels': '从接口获取',
   'provider.fetching': '获取中…',
+  'provider.fetchFailed': '获取模型列表失败',
   'provider.fetched': '获取到 {n} 个模型，新增 {added} 个',
   'provider.fetchedPick': '获取到 {n} 个模型，请在列表中选择要添加的。',
   'provider.fetchedOpen': '打开列表',
@@ -221,6 +224,8 @@ const zh = {
   'common.send': '发送',
   'common.close': '关闭',
   'error.network': '网络错误：可能是接口地址错误、网络不通，或该供应商不允许浏览器直接访问（CORS）。',
+  'error.interrupted': '连接中断：回复没有接收完，已收到的内容保留在上方。',
+  'error.empty': '服务器没有返回任何内容。',
 }
 
 type Key = keyof typeof zh
@@ -238,7 +243,8 @@ const en: Record<Key, string> = {
   'conv.deleteConfirm': 'Delete this conversation? This cannot be undone.',
   'conv.export': 'Export',
   'conv.import': 'Import conversation',
-  'conv.importFailed': 'Import failed: this is not a valid conversation backup ({reason}).',
+  'conv.importFailed': 'Import failed',
+  'conv.importInvalid': 'This is not a valid conversation backup ({reason}).',
   'chat.placeholder': 'Message… Enter to send, Shift+Enter for newline',
   'chat.send': 'Send',
   'chat.stop': 'Stop',
@@ -253,7 +259,7 @@ const en: Record<Key, string> = {
   'image.add': 'Add images (or paste / drop them)',
   'image.remove': 'Remove image',
   'image.drop': 'Drop to add images',
-  'image.unreadable': 'Can’t read: {name}',
+  'image.unreadable': 'Can’t read the image',
   'image.view': 'View image',
   'image.only': '[image]',
   'msg.copy': 'Copy',
@@ -264,6 +270,7 @@ const en: Record<Key, string> = {
   'msg.encrypted': 'Encrypted reasoning · {size}',
   'msg.encryptedHint': 'The model returned encrypted reasoning, which can’t be read. Whether it’s sent back in later turns is set by “Send reasoning back” in the provider settings.',
   'msg.aborted': 'Stopped',
+  'msg.waiting': 'Waiting {n}s',
   'msg.error': 'Request failed',
   'msg.edited': 'Edited',
   'msg.retry': 'Regenerate',
@@ -348,6 +355,7 @@ const en: Record<Key, string> = {
   'provider.modelsHint': 'Click a model to configure it: parameters, reasoning echo, headers, or a one-click preset.',
   'provider.fetchModels': 'Fetch from API',
   'provider.fetching': 'Fetching…',
+  'provider.fetchFailed': 'Couldn’t fetch the model list',
   'provider.fetched': 'Fetched {n} models, {added} new',
   'provider.fetchedPick': 'Fetched {n} models — pick the ones to add from the list.',
   'provider.fetchedOpen': 'Open list',
@@ -447,6 +455,8 @@ const en: Record<Key, string> = {
   'common.close': 'Close',
   'error.network':
     'Network error: the base URL may be wrong, you may be offline, or the provider may block browser requests (CORS).',
+  'error.interrupted': 'Connection lost: the reply didn’t finish arriving; what was received is kept above.',
+  'error.empty': 'The server returned nothing.',
 }
 
 export type Lang = 'zh' | 'en'
