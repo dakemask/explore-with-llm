@@ -3,7 +3,8 @@
 //   …/chat/completions   OpenAI Chat Completions   (base URL http://localhost:8787)
 //   …/responses          OpenAI Responses          (base URL http://localhost:8787)
 //   …/v1/messages        Anthropic Messages        (base URL http://localhost:8787)
-// Usage: node scripts/mock/server.mjs   (env: PORT=8787, DELAY=8 ms between chunks)
+// Usage: node scripts/mock/server.mjs   (env: PORT=8787, DELAY=8 ms between chunks, EXTRA_MODELS=0 filler
+// models appended to the model list, plus one duplicate entry, for testing long lists)
 // Models (same meaning in every protocol, in that protocol's native shape):
 //   mock-chat   plain reasoning text (chat: reasoning_content; anthropic: thinking + signature; responses: summary)
 //   mock-think  summary + encrypted reasoning (chat: OpenRouter reasoning_details; anthropic: redacted_thinking
@@ -29,7 +30,9 @@ const cors = {
   // Only exposed headers are readable from the page; the app's detail panel shows this one.
   'Access-Control-Expose-Headers': 'X-Request-Id',
 }
+const extra = Number(process.env.EXTRA_MODELS ?? 0)
 const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad']
+if (extra > 0) MODELS.push(...Array.from({ length: extra }, (_, i) => `mock-extra-${String(i + 1).padStart(2, '0')}`), 'mock-chat')
 let count = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const blob = (n) => Buffer.from(`encrypted-reasoning-${n}-`.repeat(60)).toString('base64')

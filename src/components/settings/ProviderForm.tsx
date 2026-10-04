@@ -9,6 +9,7 @@ import { joinUrl } from '../../providers/types'
 import { Button } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
 import { Input, Label } from '../ui/Field'
+import { FetchedModels, PICK_THRESHOLD } from './FetchedModels'
 import { ModelConfigPage } from './ModelConfigPage'
 import { ModelList } from './ModelList'
 
@@ -53,6 +54,9 @@ function ProviderFields({
   const [showKey, setShowKey] = useState(false)
   const adapter = getAdapter(provider.protocol)
   const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string; error?: boolean }>({})
+  // A long fetched list is picked from in a dialog instead of being added wholesale.
+  const [fetched, setFetched] = useState<string[]>([])
+  const [pickOpen, setPickOpen] = useState(false)
 
   const save = (patch: Partial<Provider>) => {
     setLocal((p) => ({ ...p, ...patch }))
@@ -61,9 +65,16 @@ function ProviderFields({
 
   const fetchModels = async () => {
     setFetchState({ loading: true })
+    setFetched([])
     try {
-      const models = await listModels(provider)
+      const models = [...new Set(await listModels(provider))]
       if (models.length === 0) throw new ProviderError('Empty model list')
+      if (models.length >= PICK_THRESHOLD) {
+        setFetched(models)
+        setPickOpen(true)
+        setFetchState({ message: t('provider.fetchedPick', { n: models.length }) })
+        return
+      }
       const added = await addModels(provider, models)
       setFetchState({ message: t('provider.fetched', { n: models.length, added }) })
     } catch (e) {
@@ -172,8 +183,14 @@ function ProviderFields({
         {fetchState.message && (
           <div className={clsx('mt-1.5 text-xs', fetchState.error ? 'text-danger' : 'text-muted')}>
             {fetchState.message}
+            {!fetchState.error && fetched.length > 0 && (
+              <button onClick={() => setPickOpen(true)} className="ml-1.5 text-accent hover:underline">
+                {t('provider.fetchedOpen')}
+              </button>
+            )}
           </div>
         )}
+        <FetchedModels open={pickOpen} onOpenChange={setPickOpen} provider={provider} models={fetched} />
       </div>
 
       <div className="border-t border-border pt-5">
