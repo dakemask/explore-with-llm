@@ -1,6 +1,6 @@
 import clsx from 'clsx'
-import { Eye, EyeOff, Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Check, Eye, EyeOff, Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
 import { addModels } from '../../lib/models'
@@ -30,7 +30,10 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
   const provider = { ...local, models: stored.models, modelConfigs: stored.modelConfigs }
   const [showKey, setShowKey] = useState(false)
   const adapter = getAdapter(provider.protocol)
-  const [fetchState, setFetchState] = useState<{ loading?: boolean; message?: string }>({})
+  // 'done' shows a check on the button for a moment, like the copy buttons.
+  const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'done'>('idle')
+  const doneTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(doneTimer.current), [])
   // A long fetched list is picked from in a dialog instead of being added wholesale.
   const [fetched, setFetched] = useState<string[]>([])
   const [pickOpen, setPickOpen] = useState(false)
@@ -41,22 +44,20 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
   }
 
   const fetchModels = async () => {
-    setFetchState({ loading: true })
-    setFetched([])
+    clearTimeout(doneTimer.current)
+    setFetchState('loading')
     try {
       const models = [...new Set(await listModels(provider))]
       if (models.length === 0) throw new ProviderError('Empty model list')
       if (models.length >= PICK_THRESHOLD) {
         setFetched(models)
         setPickOpen(true)
-        setFetchState({ message: t('provider.fetchedPick', { n: models.length }) })
-        return
-      }
-      const added = await addModels(provider, models)
-      setFetchState({ message: t('provider.fetched', { n: models.length, added }) })
+      } else await addModels(provider, models)
+      setFetchState('done')
+      doneTimer.current = setTimeout(() => setFetchState('idle'), 1500)
     } catch (e) {
       const err = e as ProviderError
-      setFetchState({})
+      setFetchState('idle')
       notifyError(t('provider.fetchFailed'), err.code === 'network' ? t('error.network') : err.message)
     }
   }
@@ -142,10 +143,16 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
                 size="sm"
                 variant="ghost"
                 onClick={fetchModels}
-                disabled={fetchState.loading || !provider.baseUrl || !provider.apiKey}
+                disabled={fetchState === 'loading' || !provider.baseUrl || !provider.apiKey}
               >
-                {fetchState.loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                {fetchState.loading ? t('provider.fetching') : t('provider.fetchModels')}
+                {fetchState === 'loading' ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : fetchState === 'done' ? (
+                  <Check size={13} />
+                ) : (
+                  <RefreshCw size={13} />
+                )}
+                {t(fetchState === 'loading' ? 'provider.fetching' : fetchState === 'done' ? 'provider.fetchDone' : 'provider.fetchModels')}
               </Button>
               <Button size="sm" onClick={() => setEditing(null)}>
                 <Plus size={13} />
@@ -157,16 +164,6 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
           {t('provider.models')}
         </Label>
         <ModelList provider={provider} onOpen={setEditing} />
-        {fetchState.message && (
-          <div className="mt-1.5 text-xs text-muted">
-            {fetchState.message}
-            {fetched.length > 0 && (
-              <button onClick={() => setPickOpen(true)} className="ml-1.5 text-accent hover:underline">
-                {t('provider.fetchedOpen')}
-              </button>
-            )}
-          </div>
-        )}
         <FetchedModels open={pickOpen} onOpenChange={setPickOpen} provider={provider} models={fetched} />
         {editing !== undefined && (
           <ModelConfigDialog
