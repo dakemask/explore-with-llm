@@ -74,7 +74,7 @@ export interface RawChunk {
 
 /**
  * Snapshot of the single request this node was produced by, kept exactly as sent and received.
- * `requestHeaders` includes the API key; export must strip it.
+ * `requestHeaders` includes the API key; export strips it (`lib/transfer.ts`).
  */
 export interface Attempt {
   status: AttemptStatus

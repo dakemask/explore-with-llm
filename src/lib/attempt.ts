@@ -96,7 +96,7 @@ export function foldHistory(body: unknown): { before: string; after: string; ind
   }
 }
 
-const SECRET_HEADER = /authorization|api-?key|token|secret/i
+export const SECRET_HEADER = /authorization|api-?key|token|secret/i
 
 /** Hides the middle of credential header values: "Bearer sk-abc…wxyz". */
 export function maskHeader(name: string, value: string) {

@@ -1,11 +1,14 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { MoreHorizontal, Pencil, Settings, SquarePen, Trash2 } from 'lucide-react'
+import { Download, FileUp, MoreHorizontal, Pencil, Settings, SquarePen, Trash2 } from 'lucide-react'
+import { useRef } from 'react'
 import { db, type Conversation } from '../../db'
 import { useT } from '../../i18n'
 import { deleteConversation, renameConversation } from '../../lib/chat'
+import { download, exportConversation, importConversation } from '../../lib/transfer'
 import { useUi } from '../../store/ui'
-import { confirmDialog, promptDialog } from '../ui/Dialog'
+import { IconButton } from '../ui/Button'
+import { alertDialog, confirmDialog, promptDialog } from '../ui/Dialog'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
 
 export function Sidebar() {
@@ -22,6 +25,15 @@ export function Sidebar() {
   // The conversation record is created lazily on the first message.
   const newChat = () => setConversation(null)
 
+  const fileInput = useRef<HTMLInputElement>(null)
+  const importFile = async (file: File) => {
+    try {
+      setConversation(await importConversation(await file.text()))
+    } catch (e) {
+      await alertDialog(t('conv.importFailed', { reason: e instanceof Error ? e.message : String(e) }))
+    }
+  }
+
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-sidebar">
       <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
@@ -29,14 +41,32 @@ export function Sidebar() {
         <span className="text-[15px] font-semibold tracking-tight">{t('app.name')}</span>
       </div>
 
-      <div className="px-3 pb-2">
+      <div className="flex gap-2 px-3 pb-2">
         <button
           onClick={newChat}
-          className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 text-[13px] font-medium shadow-xs transition-colors hover:bg-hover"
+          className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-[13px] font-medium shadow-xs transition-colors hover:bg-hover"
         >
           <SquarePen size={15} className="text-muted" />
           {t('sidebar.newChat')}
         </button>
+        <IconButton
+          label={t('conv.import')}
+          onClick={() => fileInput.current?.click()}
+          className="size-9! rounded-lg border border-border bg-surface shadow-xs"
+        >
+          <FileUp size={15} />
+        </IconButton>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) void importFile(file)
+          }}
+        />
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
@@ -98,6 +128,10 @@ function ConversationItem({
     const title = await promptDialog(t('conv.rename'), conv.title)
     if (title?.trim()) await renameConversation(conv.id, title.trim())
   }
+  const exportIt = async () => {
+    const { name, json } = await exportConversation(conv.id)
+    download(name, json)
+  }
   const remove = async () => {
     if (!(await confirmDialog(t('conv.deleteConfirm'), { danger: true }))) return
     await deleteConversation(conv.id)
@@ -129,6 +163,9 @@ function ConversationItem({
         <MenuContent align="start">
           <MenuItem icon={<Pencil size={14} />} onSelect={rename}>
             {t('conv.rename')}
+          </MenuItem>
+          <MenuItem icon={<Download size={14} />} onSelect={exportIt}>
+            {t('conv.export')}
           </MenuItem>
           <MenuItem icon={<Trash2 size={14} />} danger onSelect={remove}>
             {t('conv.delete')}

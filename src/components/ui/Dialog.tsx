@@ -60,7 +60,7 @@ export function Dialog({
 // ---- Imperative confirm / prompt dialogs ----
 
 type Pending = { id: number } & (
-  | { kind: 'confirm'; message: string; danger?: boolean; resolve: (ok: boolean) => void }
+  | { kind: 'confirm' | 'alert'; message: string; danger?: boolean; resolve: (ok: boolean) => void }
   | { kind: 'prompt'; message: string; initial: string; resolve: (value: string | null) => void }
 )
 
@@ -70,6 +70,13 @@ let nextId = 0
 export function confirmDialog(message: string, opts?: { danger?: boolean }) {
   return new Promise<boolean>((resolve) =>
     usePending.setState({ pending: { id: ++nextId, kind: 'confirm', message, danger: opts?.danger, resolve } }),
+  )
+}
+
+/** A message with only an OK button. */
+export function alertDialog(message: string) {
+  return new Promise<void>((resolve) =>
+    usePending.setState({ pending: { id: ++nextId, kind: 'alert', message, resolve: () => resolve() } }),
   )
 }
 
@@ -90,8 +97,8 @@ function PendingDialog({ pending }: { pending: Pending }) {
   const [value, setValue] = useState(pending.kind === 'prompt' ? pending.initial : '')
   const close = (ok: boolean) => {
     usePending.setState({ pending: null })
-    if (pending.kind === 'confirm') pending.resolve(ok)
-    else pending.resolve(ok ? value : null)
+    if (pending.kind === 'prompt') pending.resolve(ok ? value : null)
+    else pending.resolve(ok)
   }
   return (
     <RD.Root open onOpenChange={(o) => !o && close(false)}>
@@ -118,14 +125,16 @@ function PendingDialog({ pending }: { pending: Pending }) {
               />
             )}
             <div className="mt-5 flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => close(false)}>
-                {t('common.cancel')}
-              </Button>
+              {pending.kind !== 'alert' && (
+                <Button size="sm" variant="ghost" onClick={() => close(false)}>
+                  {t('common.cancel')}
+                </Button>
+              )}
               <Button
                 size="sm"
                 type="submit"
                 variant="primary"
-                autoFocus={pending.kind === 'confirm'}
+                autoFocus={pending.kind !== 'prompt'}
                 className={pending.kind === 'confirm' && pending.danger ? '!bg-danger !text-white' : undefined}
               >
                 {t('common.confirm')}
