@@ -2,8 +2,9 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { normalizeMath } from './components/chat/Markdown'
 import { ROOT_KEY, type ChatNode } from './db/types'
-import { buildMessages } from './lib/chat'
-import { activePath, pathTo } from './lib/tree'
+import { db } from './db'
+import { buildMessages, createConversation, selectBranch } from './lib/chat'
+import { activePath, pathTo, siblingsOf } from './lib/tree'
 import { openaiChat } from './providers/openaiChat'
 import { SseParser } from './providers/sse'
 
@@ -107,6 +108,22 @@ describe('tree', () => {
 
   it('pathTo returns root→node', () => {
     expect(pathTo(nodes, 'd').map((n) => n.id)).toEqual(['a', 'b', 'd'])
+  })
+
+  it('siblingsOf lists versions at a fork, oldest first, excluding side questions', () => {
+    const withSide = [...nodes, node('s', 'a', 9, { kind: 'side' })]
+    expect(siblingsOf(withSide, nodes[2]).map((n) => n.id)).toEqual(['b', 'c'])
+    expect(siblingsOf(withSide, nodes[0]).map((n) => n.id)).toEqual(['a'])
+  })
+})
+
+describe('selectBranch', () => {
+  it('switches the shown child at one fork and keeps the others', async () => {
+    const id = await createConversation()
+    await db.conversations.update(id, { selectedChild: { [ROOT_KEY]: 'a', a: 'c' } })
+    await selectBranch(id, 'a', 'b')
+    await selectBranch(id, null, 'z')
+    expect((await db.conversations.get(id))?.selectedChild).toEqual({ [ROOT_KEY]: 'z', a: 'b' })
   })
 })
 

@@ -1,7 +1,8 @@
 import clsx from 'clsx'
 import { ArrowUp, Square } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useT } from '../../i18n'
+import { useAutosize } from '../../lib/hooks'
 
 export function Composer({
   onSend,
@@ -18,13 +19,7 @@ export function Composer({
   const [text, setText] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
 
-  // Grow with content up to a max height.
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 240) + 'px'
-  }, [text])
+  useAutosize(ref, text)
 
   const canSend = !disabled && !generating && text.trim().length > 0
   const submit = () => {

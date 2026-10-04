@@ -17,7 +17,7 @@ The owner can't review code, so check changes in a real browser before reporting
 run `pnpm dev` + `pnpm mock`, then drive the page with `playwright-core` using the locally installed
 Chrome (`C:/Program Files/Google/Chrome/Application/chrome.exe`) — install playwright-core in the
 session scratchpad, not in this project. Add a Custom provider with base URL `http://localhost:8787`;
-model `mock-chat` streams reasoning + markdown/code/math, `mock-bad` returns 401. Take screenshots
+model `mock-chat` streams reasoning + markdown/code/math (prefixed with a request counter and the last user message, so branches differ), `mock-bad` returns 401. Take screenshots
 and look at them; check both themes when touching styles.
 
 ## Gotchas
@@ -50,8 +50,8 @@ and look at them; check both themes when touching styles.
 
 ## Product decisions
 
-- Main view: linear chat of the active path; ‹n/m› switchers at forks (not yet built). A tree-map view may come later — it is just another view over the same data.
-- Retry / editing a user message → new sibling node.
+- Main view: linear chat of the active path; ‹n/m› switcher under the user message of any node with siblings. A tree-map view may come later — it is just another view over the same data.
+- Retry / editing a user message → new sibling node, using the model currently selected in the picker (lets users compare models). Error boxes have a visible Retry button.
 - Editing an assistant message → in place, same node; `edited: true`. Text ranges anchoring side questions are locked.
 - Side questions: right drawer; context = root→node main path + selected text + question.
 - Protocols planned: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages.
@@ -62,7 +62,7 @@ and look at them; check both themes when touching styles.
 ## Roadmap
 
 1. ✅ Base: layout, providers, streaming chat, persistence, themes, i18n
-2. Branching: retry, edit user message, ‹n/m› switcher
+2. ✅ Branching: retry, edit user message, ‹n/m› switcher
 3. Node detail panel (request / response / error)
 4. Side questions + assistant message editing with locked anchors
 5. Images, export/import, other protocols

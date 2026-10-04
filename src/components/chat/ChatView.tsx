@@ -3,12 +3,12 @@ import { KeyRound, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { db } from '../../db'
 import { useT } from '../../i18n'
-import { createConversation, sendMessage, stopGeneration } from '../../lib/chat'
-import { activePath } from '../../lib/tree'
+import { createConversation, selectBranch, sendMessage, stopGeneration } from '../../lib/chat'
+import { activePath, siblingsOf } from '../../lib/tree'
 import { useUi } from '../../store/ui'
 import { Button } from '../ui/Button'
 import { Composer } from './Composer'
-import { MessageNode } from './MessageNode'
+import { MessageNode, type NodeActions } from './MessageNode'
 import { ModelPicker, useCurrentModel } from './ModelPicker'
 
 export function ChatView() {
@@ -33,7 +33,10 @@ export function ChatView() {
   const last = path[path.length - 1]
   const generating = last?.attempt.status === 'streaming'
 
-  const send = async (text: string) => {
+  const canSend = !!provider && !!model
+
+  /** A new node always ends the active path, so keep the view pinned to the bottom. */
+  const send = async (parentId: string | null, text: string) => {
     if (!provider || !model) return
     scroll.pin()
     let id = conversationId
@@ -41,8 +44,24 @@ export function ChatView() {
       id = await createConversation()
       setConversation(id)
     }
-    await sendMessage({ conversationId: id, parentId: last?.id ?? null, text, provider, model })
+    await sendMessage({ conversationId: id, parentId, text, provider, model })
   }
+
+  // MessageNode is memoized; route its actions through a ref so the object never changes.
+  const latest = useRef({ send, nodes })
+  latest.current = { send, nodes }
+  const actions = useMemo<NodeActions>(
+    () => ({
+      retry: (node) => latest.current.send(node.parentId, node.user.text),
+      edit: (node, text) => latest.current.send(node.parentId, text),
+      switchBranch: (node, delta) => {
+        const sibs = siblingsOf(latest.current.nodes ?? [], node)
+        const target = sibs[sibs.findIndex((s) => s.id === node.id) + delta]
+        if (target) selectBranch(node.conversationId, node.parentId, target.id)
+      },
+    }),
+    [],
+  )
 
   const scroll = useAutoScroll(conversationId)
   const noProvider = providers && !provider
@@ -74,9 +93,19 @@ export function ChatView() {
             )
           ) : (
             <div className="space-y-10">
-              {path.map((n) => (
-                <MessageNode key={n.id} node={n} />
-              ))}
+              {path.map((n) => {
+                const sibs = siblingsOf(nodes ?? [], n)
+                return (
+                  <MessageNode
+                    key={n.id}
+                    node={n}
+                    branchIndex={sibs.indexOf(n)}
+                    branchCount={sibs.length}
+                    canSend={canSend}
+                    actions={actions}
+                  />
+                )
+              })}
             </div>
           )}
         </div>
@@ -85,10 +114,10 @@ export function ChatView() {
       <div className="shrink-0 px-6 pb-5">
         <div className="mx-auto w-full max-w-3xl">
           <Composer
-            onSend={send}
+            onSend={(text) => send(last?.id ?? null, text)}
             onStop={() => last && stopGeneration(last.id)}
             generating={generating}
-            disabled={!provider || !model}
+            disabled={!canSend}
           />
         </div>
       </div>

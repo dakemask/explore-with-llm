@@ -14,6 +14,7 @@ const cors = {
   'Access-Control-Allow-Headers': '*',
   'Access-Control-Allow-Methods': '*',
 }
+let count = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 http
@@ -29,7 +30,8 @@ http
 
     let body = ''
     for await (const c of req) body += c
-    const { model } = JSON.parse(body)
+    const { model, messages } = JSON.parse(body)
+    count++
     if (model === 'mock-bad') {
       res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
       return res.end(JSON.stringify({ error: { message: 'Authentication Fails (no such user)' } }))
@@ -41,8 +43,13 @@ http
       send({ choices: [{ delta: { reasoning_content: ch } }] })
       await sleep(15)
     }
-    for (let i = 0; i < reply.length; i += 4) {
-      send({ choices: [{ delta: { content: reply.slice(i, i + 4) } }] })
+    // Echo the request so branches are distinguishable in tests.
+    const last = messages.at(-1)?.content ?? ''
+    const text = `> 第 ${count} 次请求 · 上下文 ${messages.length} 条 · 「${last.slice(0, 30)}」
+
+` + reply
+    for (let i = 0; i < text.length; i += 4) {
+      send({ choices: [{ delta: { content: text.slice(i, i + 4) } }] })
       await sleep(delay)
     }
     send({ choices: [{ delta: {}, finish_reason: 'stop' }] })

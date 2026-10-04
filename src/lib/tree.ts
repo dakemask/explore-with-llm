@@ -34,3 +34,8 @@ export function pathTo(nodes: ChatNode[], nodeId: string): ChatNode[] {
   }
   return path
 }
+
+/** All versions of a node at its fork (including itself), oldest first. */
+export function siblingsOf(nodes: ChatNode[], node: ChatNode): ChatNode[] {
+  return childrenOf(nodes, node.parentId, node.kind)
+}

@@ -40,6 +40,10 @@ export function buildMessages(path: ChatNode[], userText: string): ChatMessage[]
   return messages
 }
 
+/**
+ * Creates a new node under `parentId` and streams its reply. Retrying or editing a message
+ * is the same call with the original node's parent, which makes the new node a sibling.
+ */
 export async function sendMessage(opts: {
   conversationId: string
   parentId: string | null
@@ -147,6 +151,11 @@ async function runAttempt(node: ChatNode, provider: Provider, model: string, mes
       await finish({ status: 'error', error: { message: err.message, status: err.status, body: err.body, code: err.code } })
     }
   }
+}
+
+/** Shows `nodeId` at its fork; descendants follow their own remembered selections. */
+export async function selectBranch(conversationId: string, parentId: string | null, nodeId: string) {
+  await db.conversations.update(conversationId, { [`selectedChild.${parentId ?? ROOT_KEY}`]: nodeId })
 }
 
 export function stopGeneration(nodeId: string) {
