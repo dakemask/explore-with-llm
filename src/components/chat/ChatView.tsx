@@ -116,7 +116,7 @@ export function ChatView() {
                 }
               />
             ) : (
-              <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} hint={t('chat.emptyHint')} />
+              <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
             )
           ) : (
             <div className="space-y-10">
@@ -206,14 +206,14 @@ function EmptyState({
 }: {
   icon: ReactNode
   title: string
-  hint: string
+  hint?: string
   action?: ReactNode
 }) {
   return (
     <div className="anim-fade flex flex-col items-center pt-[18vh] text-center">
       <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">{icon}</div>
       <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-1.5 text-sm text-muted">{hint}</p>
+      {hint && <p className="mt-1.5 text-sm text-muted">{hint}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   )

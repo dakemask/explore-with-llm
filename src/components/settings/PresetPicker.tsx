@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { Protocol } from '../../db'
 import { useT } from '../../i18n'
 import { allPresetTags, searchPresets, tagsOf, type ModelPreset, type PresetTag } from '../../lib/presets'
+import { Tip } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 
 /**
@@ -94,30 +95,39 @@ export function PresetPicker({
           <ul className="space-y-px">
             {list.map((p) => {
               const ok = p.protocol === protocol
+              const row = (
+                <button
+                  onClick={() => onPick(p)}
+                  disabled={!ok}
+                  className="w-full rounded-lg px-3 py-2.5 text-left transition-colors enabled:hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="mr-1 text-[13.5px] font-medium">{p.label}</span>
+                    {tagsOf(p).map((tag) => (
+                      <span
+                        key={tag.group}
+                        className={clsx(
+                          'rounded px-1.5 py-0.5 text-[11px]',
+                          tag.group === 'protocol' && ok ? 'bg-accent-soft text-text' : 'bg-subtle text-muted',
+                        )}
+                      >
+                        {tagLabel(tag)}
+                      </span>
+                    ))}
+                  </div>
+                  {p.notes && <div className="mt-1 text-xs leading-relaxed text-faint">{p.notes}</div>}
+                </button>
+              )
               return (
                 <li key={p.id}>
-                  <button
-                    onClick={() => onPick(p)}
-                    disabled={!ok}
-                    title={ok ? undefined : t('preset.otherProtocol', { protocol: t(`protocol.${p.protocol}`) })}
-                    className="w-full rounded-lg px-3 py-2.5 text-left transition-colors enabled:hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="mr-1 text-[13.5px] font-medium">{p.label}</span>
-                      {tagsOf(p).map((tag) => (
-                        <span
-                          key={tag.group}
-                          className={clsx(
-                            'rounded px-1.5 py-0.5 text-[11px]',
-                            tag.group === 'protocol' && ok ? 'bg-accent-soft text-text' : 'bg-subtle text-muted',
-                          )}
-                        >
-                          {tagLabel(tag)}
-                        </span>
-                      ))}
-                    </div>
-                    {p.notes && <div className="mt-1 text-xs leading-relaxed text-faint">{p.notes}</div>}
-                  </button>
+                  {ok ? (
+                    row
+                  ) : (
+                    // A disabled button gets no hover events; the tooltip hangs on a wrapper.
+                    <Tip content={t('preset.otherProtocol', { protocol: t(`protocol.${p.protocol}`) })}>
+                      <div>{row}</div>
+                    </Tip>
+                  )}
                 </li>
               )
             })}

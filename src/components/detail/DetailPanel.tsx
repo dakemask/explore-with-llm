@@ -24,7 +24,7 @@ import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { CodeBox, codeBoxAction } from '../ui/CodeBox'
 import { Segmented } from '../ui/Field'
-import { IconButton } from '../ui/Button'
+import { HelpTip, IconButton } from '../ui/Button'
 
 hljs.registerLanguage('json', jsonLang)
 
@@ -286,7 +286,7 @@ function ResponseTab({ node }: { node: ChatNode }) {
     <div className="space-y-5">
       {legacy && <Note>{t('detail.legacy')}</Note>}
       {r && (
-        <Section title={t('detail.responseHead')}>
+        <Section title={t('detail.responseHead')} help={t('detail.corsNote')}>
           <CodeBox label="http" copyText={headText} wrap>
             <span className={clsx('font-semibold', r.status < 400 ? 'text-success' : 'text-danger')}>
               HTTP {r.status} {r.statusText}
@@ -298,7 +298,6 @@ function ResponseTab({ node }: { node: ChatNode }) {
               </Fragment>
             ))}
           </CodeBox>
-          <p className="mt-1.5 text-xs text-faint">{t('detail.corsNote')}</p>
         </Section>
       )}
       {!r && a.error?.code === 'network' && <Note>{t('detail.noResponse')}</Note>}
@@ -308,18 +307,20 @@ function ResponseTab({ node }: { node: ChatNode }) {
       ) : events ? (
         <Section title={t('detail.responseBody')}>
           <div className="mb-2 flex items-center justify-between gap-3">
-            <Segmented<StreamView>
-              value={view}
-              onChange={setView}
-              options={[
-                { value: 'events', label: t('detail.view.events') },
-                { value: 'merged', label: t('detail.view.merged') },
-                { value: 'raw', label: t('detail.view.raw') },
-              ]}
-            />
+            <div className="flex items-center gap-1.5">
+              <Segmented<StreamView>
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'events', label: t('detail.view.events') },
+                  { value: 'merged', label: t('detail.view.merged') },
+                  { value: 'raw', label: t('detail.view.raw') },
+                ]}
+              />
+              <HelpTip content={t(`detail.viewHint.${view}`)} />
+            </div>
             <span className="text-xs text-faint tabular-nums">{t('detail.eventsCount', { n: events.length })}</span>
           </div>
-          <p className="mb-2.5 text-xs text-faint">{t(`detail.viewHint.${view}`)}</p>
           {view === 'events' && <EventList events={events} raw={raw} />}
           {view === 'merged' && (
             <CodeBox label="json" copyText={merged} maxHeight="60vh" wrap>
@@ -416,10 +417,13 @@ function ErrorTab({ attempt: a }: { attempt: Attempt }) {
 
 // ---------- Pieces ----------
 
-function Section({ title, children }: { title: ReactNode; children: ReactNode }) {
+function Section({ title, help, children }: { title: ReactNode; help?: ReactNode; children: ReactNode }) {
   return (
     <section>
-      <h3 className="mb-2 text-xs font-medium text-muted">{title}</h3>
+      <h3 className="mb-2 flex items-center gap-1 text-xs font-medium text-muted">
+        {title}
+        {help && <HelpTip content={help} />}
+      </h3>
       {children}
     </section>
   )

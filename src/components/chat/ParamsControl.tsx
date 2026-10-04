@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { AlertTriangle, CircleHelp, Settings2, SlidersHorizontal } from 'lucide-react'
+import { AlertTriangle, Settings2, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { Provider } from '../../db'
 import { useT } from '../../i18n'
@@ -7,6 +7,7 @@ import { snap, type Param, type ParamValue, type ResolvedParam } from '../../lib
 import { modelParams } from '../../providers'
 import { paramKey, useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
+import { HelpTip } from '../ui/Button'
 import { Segmented } from '../ui/Field'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '../ui/Popover'
 import { Switch } from '../ui/Switch'
@@ -21,7 +22,6 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
   const choices = useSettings((s) => s.paramChoices[key])
   const setChoice = useSettings((s) => s.setParamChoice)
   const state = useMemo(() => modelParams(provider, model, choices), [provider, model, choices])
-  const [helpOpen, setHelpOpen] = useState(false)
   const editConfig = () => openSettings('providers', { providerId: provider.id, model })
 
   // Nothing to adjust: a broken config links straight to the editor.
@@ -41,7 +41,7 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
   const hasSwitch = resolved.some((r) => r.param.toggle)
 
   return (
-    <PopoverRoot onOpenChange={() => setHelpOpen(false)}>
+    <PopoverRoot>
       <PopoverTrigger asChild>
         <button
           aria-label={t('params.title')}
@@ -55,19 +55,7 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
         <div className="flex items-center justify-between border-b border-border py-2 pr-2 pl-4">
           <div className="flex items-center gap-1">
             <span className="text-[13px] font-semibold">{t('params.title')}</span>
-            {hasSwitch && (
-              <button
-                onClick={() => setHelpOpen((o) => !o)}
-                aria-label={t('params.help')}
-                aria-expanded={helpOpen}
-                className={clsx(
-                  'flex size-6 items-center justify-center rounded-md transition-colors hover:bg-hover hover:text-text',
-                  helpOpen ? 'text-text' : 'text-faint',
-                )}
-              >
-                <CircleHelp size={14} />
-              </button>
-            )}
+            {hasSwitch && <HelpTip content={t('params.switchHelp')} />}
           </div>
           <button
             onClick={editConfig}
@@ -77,11 +65,6 @@ export function ParamsControl({ provider, model }: { provider: Provider; model: 
             {t('params.editConfig')}
           </button>
         </div>
-        {helpOpen && (
-          <div className="border-b border-border bg-subtle px-4 py-2.5 text-xs leading-relaxed text-muted">
-            {t('params.switchHelp')}
-          </div>
-        )}
         <div className="divide-y divide-border">
           {resolved.map((r) => (
             <ParamRow key={r.param.name} r={r} onChange={(c) => setChoice(key, r.param.name, c)} />

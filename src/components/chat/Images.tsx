@@ -4,7 +4,7 @@ import { ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ClipboardEvent, type RefObject } from 'react'
 import { useT } from '../../i18n'
 import { imageUrl, prepareImage, useStoredImages, type ImageFile } from '../../lib/images'
-import { IconButton } from '../ui/Button'
+import { IconButton, Tip } from '../ui/Button'
 import { notifyError } from '../ui/Toast'
 
 /**
@@ -133,14 +133,15 @@ export function AttachmentStrip({ attachments, className }: { attachments: Attac
               >
                 <img src={imageUrl(img)} alt="" className="size-full object-cover" draggable={false} />
               </button>
-              <button
-                onClick={() => remove(img.id)}
-                aria-label={t('image.remove')}
-                title={t('image.remove')}
-                className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full border border-border bg-surface text-muted opacity-0 shadow-sm transition-opacity group-hover/thumb:opacity-100 hover:text-text focus-visible:opacity-100"
-              >
-                <X size={12} strokeWidth={2.5} />
-              </button>
+              <Tip content={t('image.remove')}>
+                <button
+                  onClick={() => remove(img.id)}
+                  aria-label={t('image.remove')}
+                  className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full border border-border bg-surface text-muted opacity-0 shadow-sm transition-opacity group-hover/thumb:opacity-100 hover:text-text focus-visible:opacity-100"
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
+              </Tip>
             </div>
           ))}
         </div>
