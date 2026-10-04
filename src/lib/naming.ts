@@ -51,7 +51,10 @@ export async function afterReply(nodeId: string) {
   const lang = useSettings.getState().lang
   try {
     const target = namingModel(await db.providers.toArray())
-    if (node.attempt.status !== 'done' || !target || !(await needsName(node))) return
+    const chosen = useSettings.getState().namingModel
+    if (node.attempt.status !== 'done' || !chosen || !(await needsName(node))) return
+    // The chosen model was deleted: say so when a name was due, then fall back like any other failure.
+    if (!target) return notifyError(translate(lang, 'naming.failed'), [chosen.model, translate(lang, 'naming.missing')])
     setNaming(key, true)
     const all = await db.nodes.where('conversationId').equals(node.conversationId).toArray()
     const prompt = key === node.conversationId ? conversationPrompt(node, lang) : sidePrompt(node, all, lang)

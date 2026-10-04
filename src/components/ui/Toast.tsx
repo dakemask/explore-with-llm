@@ -14,7 +14,9 @@ let nextId = 0
 
 export function notifyError(title: string, details: string | string[] = []) {
   const toast = { id: ++nextId, title, details: [details].flat().filter(Boolean) }
-  useToasts.setState((s) => ({ toasts: [...s.toasts, toast] }))
+  const same = (t: Toast) => t.title === toast.title && t.details.join('\n') === toast.details.join('\n')
+  // A problem that repeats (e.g. a deleted naming model, every new conversation) shows once until closed.
+  useToasts.setState((s) => (s.toasts.some(same) ? s : { toasts: [...s.toasts, toast] }))
 }
 
 const dismiss = (id: number) => useToasts.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
