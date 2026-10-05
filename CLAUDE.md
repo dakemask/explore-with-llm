@@ -67,7 +67,7 @@ reply to finish, wait for the Stop button (`aria-label="停止"`) to disappear �
 
 ## Product decisions
 
-- Main view: linear chat of the active path; ‹n/m› switcher under the user message of any node with siblings. A tree-map view may come later — it is just another view over the same data.
+- Main view: linear chat of the active path; ‹n/m› switcher under the user message of any node with siblings.
 - Retry / editing a user message → new sibling node, using the model currently selected in the picker (lets users compare models). Error boxes have a visible Retry button.
 - Editing an assistant message → a new sibling version (same fork / thread / anchor), shown at once; the original stays untouched with its reasoning, follow-ups and side questions. The edited version has no reasoning (not shown, never echoed — `echoFields` skips `node.edit`), no follow-ups or side questions of its own yet, and shows its source's request/response in details with a note and a "查看原回复" button. Editing an edited version makes another sibling whose history extends the chain. (Owner's decision. Why: overwriting has unsolvable edge cases — encrypted reasoning / signature checks, edit-then-revert leaving two heavily overlapping reasoning chains — and an overwrite can change the meaning so it contradicts the reasoning; one simple rule also keeps users from getting lost or looking up rules. Accepted cost: in a long conversation you can't fix an early mistake in place.)
 - Right side is one panel slot (`useUi().panel`), docked, pushes the chat: node detail (ⓘ in the reply footer, "详情" on error boxes) or a side-question thread. Detail opened from a side panel has a back button. Switching conversation closes it.
