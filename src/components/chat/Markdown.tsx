@@ -2,10 +2,9 @@ import { memo, useMemo, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeKatex from 'rehype-katex'
-import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import { normalizeMathMapped, rehypeAnchors, type AnchorMark } from '../../lib/anchor'
+import { normalizeMathMapped, rehypeAnchors, remarkBreaksMapped, type AnchorMark } from '../../lib/anchor'
 import { CodeBox } from '../ui/CodeBox'
 
 /** Models often emit \( \) and \[ \] delimiters; remark-math only understands $ / $$. */
@@ -24,7 +23,7 @@ const components: Components = {
 
 const remarkPlugins = [remarkGfm, [remarkMath, { singleDollarTextMath: true }]] as const
 /** For text people typed: a single Enter is a line break, as it was when they wrote it. */
-const remarkPluginsBreaks = [...remarkPlugins, remarkBreaks] as const
+const remarkPluginsBreaks = [...remarkPlugins, remarkBreaksMapped] as const
 const rehypePlugins = [[rehypeHighlight, { detect: false, ignoreMissing: true }], rehypeKatex] as const
 
 /**

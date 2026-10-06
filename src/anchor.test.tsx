@@ -9,8 +9,8 @@ import { buildMessages, editAssistant, replyVersions } from './lib/chat'
 import { activePath, forkKey, siblingsOf, sideThreads, threadPath } from './lib/tree'
 
 /** [text, data-s, data-e] of every source-mapped run, in document order. */
-function runs(src: string, anchors: AnchorMark[] = []) {
-  const html = renderToStaticMarkup(<Markdown text={src} anchors={anchors} />)
+function runs(src: string, anchors: AnchorMark[] = [], breaks = false) {
+  const html = renderToStaticMarkup(<Markdown text={src} anchors={anchors} breaks={breaks} />)
   return [...html.matchAll(/<(span|mark)[^>]*data-s="(\d+)" data-e="(\d+)"[^>]*>([^<]*)<\/\1>/g)].map((m) => ({
     tag: m[1],
     text: m[4],
@@ -69,6 +69,36 @@ describe('rehypeAnchors', () => {
       { tag: 'mark', text: 'brave new', src: 'brave new' },
       { tag: 'span', text: ' world', src: ' world' },
     ])
+  })
+
+  it('maps user messages, whose single newlines are line breaks', () => {
+    const src = 'ab\nba **x**\ny\n\n> q1\n> q2'
+    const r = runs(src, [], true)
+    expect(r.map((x) => [x.text, x.src])).toEqual([
+      ['ab', 'ab'],
+      ['ba ', 'ba '],
+      ['x', 'x'],
+      ['y', 'y'],
+      ['q1', 'q1'],
+      ['q2', '> q2'],
+    ])
+    const html = renderToStaticMarkup(<Markdown text={src} anchors={[]} breaks />)
+    expect(html.match(/<br/g)?.length).toBe(3)
+  })
+
+  it('highlights notes in their own style, side questions and notes together where they overlap', () => {
+    const src = 'one\ntwo three'
+    const r = runs(src, [{ id: 'note:n', start: 4, end: 13, note: true }, { id: 't', start: 8, end: 13 }], true)
+    expect(r.map((x) => [x.tag, x.src])).toEqual([
+      ['span', 'one'],
+      ['mark', 'two '],
+      ['mark', 'three'],
+    ])
+    const html = renderToStaticMarkup(
+      <Markdown text={src} anchors={[{ id: 'note:n', start: 4, end: 13, note: true, active: true }, { id: 't', start: 8, end: 13 }]} breaks />,
+    )
+    expect(html).toContain('data-s="4" data-e="8" class="anchor-note note-active" data-threads="note:n"')
+    expect(html).toContain('data-s="8" data-e="13" class="anchor-hl anchor-note note-active" data-threads="note:n t"')
   })
 
   it('treats rendered math as one atomic range', () => {

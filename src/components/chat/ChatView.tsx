@@ -11,11 +11,14 @@ import { branchColors, parentColor } from '../../lib/colors'
 import { columnFrame } from '../../lib/column'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
+import { createNote, noteTitle } from '../../lib/notes'
 import { glideTo, useAutoScroll } from '../../lib/hooks'
 import { useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
+import { NoteCard } from '../side/NoteCard'
 import { SideCard } from '../side/SideCard'
 import { SideColumn } from '../side/SideColumn'
+import { NOTE_PREFIX, useNotes } from '../side/useNotes'
 import { useSideQuestions } from '../side/useSideQuestions'
 import { Button, IconButton } from '../ui/Button'
 import { Dots } from '../ui/Dots'
@@ -78,38 +81,45 @@ export function ChatView() {
   const scroll = useAutoScroll(conversationId)
   const actions = useNodeActions(nodes, scroll.pin)
 
-  // ---- side questions: highlights in the replies, cards in the column right of the chat ----
-  const side = useSideQuestions(path, nodes, conversation)
-  const [picker, setPicker] = useState<{ x: number; y: number; items: { thread: string; question: string }[] } | null>(
-    null,
-  )
+  // ---- side questions and notes: highlights in the messages, cards in the column right of the chat ----
+  const notes = useNotes(path, conversation)
+  const side = useSideQuestions(path, nodes, conversation, notes)
+  const [picker, setPicker] = useState<{
+    x: number
+    y: number
+    items: { id: string; kind: 'side' | 'note'; title: string }[]
+  } | null>(null)
 
-  /** The side questions whose highlight is under `target` (a draft's included). */
+  /** The side questions and notes whose highlight is under `target` (a draft's included), by item id. */
   const threadsAt = (target: EventTarget) => {
     const ids = (target as Element).closest?.<HTMLElement>('[data-threads]')?.dataset.threads?.split(' ') ?? []
-    return ids.map((id) => (id.startsWith(DRAFT_PREFIX) ? id.slice(DRAFT_PREFIX.length) : id))
+    return ids.map((id) => id.replace(DRAFT_PREFIX, '').replace(NOTE_PREFIX, ''))
   }
 
-  /** Clicking highlighted text expands its side question's card, or offers a choice where several overlap. */
+  /** Clicking highlighted text expands its card, or offers a choice where several overlap. */
   const onContentClick = (e: MouseEvent) => {
     const sel = getSelection()
     if (sel && !sel.isCollapsed) return
-    const threads = threadsAt(e.target)
-    if (threads.length === 1) side.expand(threads[0])
-    else if (threads.length > 1) {
-      const title = (id: string) => {
+    const ids = threadsAt(e.target)
+    if (ids.length === 1) side.expand(ids[0])
+    else if (ids.length > 1) {
+      const entry = (id: string) => {
         const it = side.items.find((it) => it.id === id)
-        return conversation?.threadTitles?.[id] ?? (it?.fallback || t('image.only'))
+        if (it?.kind === 'note') return { id, kind: 'note' as const, title: noteTitle(it.note.text) || t('note.new') }
+        return { id, kind: 'side' as const, title: conversation?.threadTitles?.[id] ?? (it?.fallback || t('image.only')) }
       }
-      setPicker({ x: e.clientX, y: e.clientY, items: threads.map((thread) => ({ thread, question: title(thread) })) })
+      setPicker({ x: e.clientX, y: e.clientY, items: ids.map(entry) })
     }
   }
-  const contentOf = (nodeId: string) => nodes?.find((n) => n.id === nodeId)?.assistant.content
+  const contentOf = (nodeId: string, target: 'user' | 'assistant') => {
+    const n = nodes?.find((n) => n.id === nodeId)
+    return target === 'user' ? n?.user.text : n?.assistant.content
+  }
 
   // Hover links: a highlight in the text lights up its card and bar; a card or bar deepens its highlight.
   const [hover, setHover] = useState<string[]>([])
   const hoverTo = (ids: string[]) => setHover((prev) => (prev.join(' ') === ids.join(' ') ? prev : ids))
-  const hoverMarks = side.items.filter((it) => hover.includes(it.id)).map((it) => it.mark)
+  const hoverMarks = side.items.filter((it) => hover.includes(it.id))
 
   // The chat and the column share the scroll area's width (`lib/column.ts`).
   const [width, setWidth] = useState(0)
@@ -200,8 +210,14 @@ export function ChatView() {
 
       {hoverMarks.length > 0 && (
         <style>
-          {hoverMarks.map((m) => `.prose mark[data-threads~="${CSS.escape(m)}"]`).join(',') +
-            '{background: var(--c-anchor-active)}'}
+          {(['side', 'note'] as const)
+            .map((kind) => {
+              const marks = hoverMarks.filter((it) => it.kind === kind)
+              if (!marks.length) return ''
+              const sel = marks.map((it) => `.prose mark[data-threads~="${CSS.escape(it.mark)}"]`).join(',')
+              return `${sel}{background: var(${kind === 'note' ? '--c-note-active' : '--c-anchor-active'})}`
+            })
+            .join('')}
         </style>
       )}
 
@@ -242,7 +258,7 @@ export function ChatView() {
                     siblings={siblings.get(n.id)}
                     canSend={canSend}
                     actions={actions}
-                    anchors={side.anchors.get(n.id)}
+                    marks={side.anchors.get(n.id)}
                     busy={busy.has(n.id)}
                   />
                 </Turn>
@@ -262,6 +278,7 @@ export function ChatView() {
             onExpand={side.expand}
             renderExpanded={(id, card) => {
               const it = side.items.find((it) => it.id === id)!
+              if (it.kind === 'note') return <NoteCard key={id} note={it.note} onCollapse={() => side.expand(null)} />
               return (
                 <SideCard
                   key={id}
@@ -287,6 +304,9 @@ export function ChatView() {
         onAsk={(nodeId, anchor) => {
           if (conversationId)
             startDraft(nanoid(), { conversationId, nodeId, anchor, prefill: quoteForInput(anchor.text) })
+        }}
+        onNote={async (nodeId, target, anchor) => {
+          if (conversationId) side.expand(await createNote(conversationId, nodeId, target, anchor))
         }}
       />
       {picker && (

@@ -1,12 +1,13 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { deriveBranches } from '../lib/tree'
-import type { ChatNode, Conversation, ModelConfig, Provider, StoredImage } from './types'
+import type { ChatNode, Conversation, ModelConfig, Note, Provider, StoredImage } from './types'
 
 export const db = new Dexie('explore-with-llm') as Dexie & {
   providers: EntityTable<Provider, 'id'>
   conversations: EntityTable<Conversation, 'id'>
   nodes: EntityTable<ChatNode, 'id'>
   images: EntityTable<StoredImage, 'id'>
+  notes: EntityTable<Note, 'id'>
 }
 
 db.version(1).stores({
@@ -83,6 +84,15 @@ db.version(5)
     if (changed.length) await tx.table('nodes').bulkPut(changed)
   })
 
+// v6: notes on passages of main-line messages.
+db.version(6).stores({
+  providers: 'id, createdAt',
+  conversations: 'id, updatedAt',
+  nodes: 'id, conversationId, parentId',
+  images: 'id, conversationId',
+  notes: 'id, conversationId, nodeId',
+})
+
 /** Requests can't survive a reload; mark anything left streaming as aborted. */
 export async function recoverInterruptedNodes() {
   const all = await db.nodes.toArray()
@@ -94,6 +104,12 @@ export async function recoverInterruptedNodes() {
       attempt: { ...n.attempt, status: 'aborted' as const, finishedAt: n.attempt.finishedAt ?? Date.now() },
     })),
   )
+}
+
+/** A new note left empty when the app closed (its card would have deleted it). */
+export async function dropEmptyNotes() {
+  const empty = await db.notes.filter((n) => !n.text.trim()).primaryKeys()
+  if (empty.length) await db.notes.bulkDelete(empty)
 }
 
 export * from './types'

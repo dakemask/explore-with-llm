@@ -34,10 +34,11 @@ export async function renameConversation(id: string, title: string) {
 }
 
 export async function deleteConversation(id: string) {
-  await db.transaction('rw', db.conversations, db.nodes, db.images, async () => {
+  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes], async () => {
     const nodes = await db.nodes.where('conversationId').equals(id).toArray()
     for (const n of nodes) controllers.get(n.id)?.abort()
     await db.nodes.where('conversationId').equals(id).delete()
+    await db.notes.where('conversationId').equals(id).delete()
     await db.conversations.delete(id)
     await db.images.where('conversationId').equals(id).delete()
   })
@@ -335,14 +336,16 @@ export async function restoreArchived(conversationId: string, nodeIds: string[])
 
 /**
  * Deletes an archive entry forever: `nodeIds` and everything below them (main nodes, side threads, archived
- * or not), the remembered selections and titles of what's gone, and images nothing refers to any more.
+ * or not), the notes on them, the remembered selections and titles of what's gone, and images nothing refers
+ * to any more.
  */
 export async function deleteArchived(conversationId: string, nodeIds: string[]) {
-  await db.transaction('rw', db.conversations, db.nodes, db.images, async () => {
+  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes], async () => {
     const nodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
     const ids = subtreeIds(nodes, nodeIds)
     for (const id of ids) controllers.get(id)?.abort()
     await db.nodes.bulkDelete([...ids])
+    await db.notes.where('nodeId').anyOf([...ids]).delete()
     const conv = await db.conversations.get(conversationId)
     if (conv) {
       const threads = new Set(nodes.flatMap((n) => (ids.has(n.id) && n.thread ? [n.thread] : [])))

@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { recoverInterruptedNodes } from './db'
+import { dropEmptyNotes, recoverInterruptedNodes } from './db'
 import './index.css'
 
 // A file dropped outside an input's drop area would make the browser open it in place of the app.
@@ -13,7 +13,7 @@ for (const type of ['dragover', 'drop'] as const) {
   })
 }
 
-recoverInterruptedNodes().finally(() => {
+Promise.all([recoverInterruptedNodes(), dropEmptyNotes()]).finally(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />

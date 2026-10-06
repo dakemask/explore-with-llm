@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import { db, ROOT_KEY, type ChatNode, type Conversation, type StoredImage } from '../db'
+import { db, ROOT_KEY, type ChatNode, type Conversation, type Note, type StoredImage } from '../db'
 import { SECRET_HEADER } from './attempt'
 import { imageMarker } from './images'
 import { deriveBranches } from './tree'
@@ -10,12 +10,14 @@ import { deriveBranches } from './tree'
  */
 export interface ConversationFile {
   format: typeof FORMAT
-  /** 1: before node kinds (no `branch` / `archived`; branches are derived on import). */
-  version: 1 | 2
+  /** 1: before node kinds (no `branch` / `archived`; branches are derived on import). 2: before notes. */
+  version: 1 | 2 | 3
   exportedAt: number
   conversation: Conversation
   nodes: ChatNode[]
   images: (Omit<StoredImage, 'blob'> & { data: string })[]
+  /** Since version 3. */
+  notes?: Note[]
 }
 
 const FORMAT = 'explore-with-llm/conversation'
@@ -28,16 +30,18 @@ export async function exportConversation(id: string): Promise<{ name: string; js
   if (!conversation) throw new Error('conversation not found')
   const nodes = await db.nodes.where('conversationId').equals(id).toArray()
   const images = await db.images.where('conversationId').equals(id).toArray()
+  const notes = await db.notes.where('conversationId').equals(id).toArray()
   const keys = (await db.providers.toArray()).map((p) => p.apiKey)
   const file: ConversationFile = {
     format: FORMAT,
-    version: 2,
+    version: 3,
     exportedAt: Date.now(),
     conversation,
     nodes: stripSecrets(nodes, keys),
     images: await Promise.all(
       images.map(async ({ blob, ...rest }) => ({ ...rest, data: await blobToBase64(blob) })),
     ),
+    notes,
   }
   return { name: fileName(conversation), json: JSON.stringify(file, null, 2) }
 }
@@ -123,11 +127,18 @@ export async function importConversation(text: string): Promise<string> {
     conversationId: convId,
     blob: base64ToBlob(data, i.mime),
   }))
+  const notes: Note[] = (file.notes ?? []).map((n) => ({
+    ...n,
+    id: nanoid(),
+    conversationId: convId,
+    nodeId: remap(n.nodeId),
+  }))
 
-  await db.transaction('rw', db.conversations, db.nodes, db.images, async () => {
+  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes], async () => {
     await db.conversations.add(conversation)
     await db.nodes.bulkAdd(nodes)
     if (images.length) await db.images.bulkAdd(images)
+    if (notes.length) await db.notes.bulkAdd(notes)
   })
   return convId
 }
@@ -141,10 +152,11 @@ function parseFile(text: string): ConversationFile {
     throw new ImportError('not JSON')
   }
   if (!f || f.format !== FORMAT) throw new ImportError('not an exported conversation')
-  if (f.version !== 1 && f.version !== 2) throw new ImportError(`unsupported version ${f.version}`)
+  if (f.version !== 1 && f.version !== 2 && f.version !== 3) throw new ImportError(`unsupported version ${f.version}`)
   const c = f.conversation
   if (!c || typeof c.title !== 'string' || !isRecord(c.selectedChild) || !Array.isArray(f.nodes) || !Array.isArray(f.images))
     throw new ImportError('missing fields')
+  if (f.version >= 3 ? !Array.isArray(f.notes) : f.notes !== undefined) throw new ImportError('missing fields')
   const nodeIds = new Set<string>()
   for (const n of f.nodes) {
     if (!isRecord(n) || typeof n.id !== 'string' || !isRecord(n.user) || typeof n.user.text !== 'string')
@@ -168,7 +180,18 @@ function parseFile(text: string): ConversationFile {
     if (n.user.images && (!Array.isArray(n.user.images) || n.user.images.some((id: unknown) => !imageIds.has(id as string))))
       throw new ImportError('missing image')
   }
+  for (const n of f.notes ?? []) if (!isNote(n, nodeIds)) throw new ImportError('bad note')
   return f as ConversationFile
+}
+
+const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+
+function isNote(n: any, nodeIds: Set<string>) {
+  if (!isRecord(n) || typeof n.id !== 'string' || typeof n.text !== 'string' || !nodeIds.has(n.nodeId)) return false
+  if (n.target !== 'user' && n.target !== 'assistant') return false
+  const a = n.anchor
+  if (!isRecord(a) || !isNum(a.start) || !isNum(a.end) || a.end < a.start || typeof a.text !== 'string') return false
+  return isNum(n.createdAt) && isNum(n.updatedAt) && (n.archived === undefined || isNum(n.archived))
 }
 
 const isRecord = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v)

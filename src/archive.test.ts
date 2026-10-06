@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { db, ROOT_KEY, type ChatNode } from './db'
-import { archiveNode, archiveThread, deleteArchived, restoreArchived, sendMessage } from './lib/chat'
+import { db, ROOT_KEY, type ChatNode, type Note } from './db'
+import { archiveNode, archiveThread, deleteArchived, deleteConversation, restoreArchived, sendMessage } from './lib/chat'
+import { archiveNote, restoreNote } from './lib/notes'
 import {
   activePath,
   archivedItems,
@@ -197,19 +198,92 @@ describe('archive actions (db)', () => {
     expect(nodes.filter((n) => n.user.text === 'next' || n.user.text === '> q').every((n) => !n.branch)).toBe(true)
   })
 
-  it('exports version 2 with kinds; importing a version 1 file derives branches', async () => {
+  it('exports kinds; importing a version 1 file derives branches', async () => {
     await db.nodes.update('b', { branch: true, archived: 7 })
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(2)
+    expect(f.version).toBe(3)
     expect(f.nodes.find((n: ChatNode) => n.id === 'b')).toMatchObject({ branch: true, archived: 7 })
     const id2 = await importConversation(JSON.stringify(f))
     expect((await db.nodes.where('conversationId').equals(id2).toArray()).filter((n) => n.archived)).toHaveLength(1)
 
-    const v1 = { ...f, version: 1, nodes: f.nodes.map(({ branch: _b, archived: _a, ...n }: ChatNode) => n) }
+    const { notes: _n, ...noNotes } = f
+    const v1 = { ...noNotes, version: 1, nodes: f.nodes.map(({ branch: _b, archived: _a, ...n }: ChatNode) => n) }
     const id1 = await importConversation(JSON.stringify(v1))
     const nodes = await db.nodes.where('conversationId').equals(id1).toArray()
     expect(nodes.filter((n) => n.branch).map((n) => n.user.text).sort()).toEqual(['pic', 'u-b'])
 
     await expect(importConversation(JSON.stringify({ ...f, nodes: [{ ...f.nodes[0], branch: 'yes' }] }))).rejects.toThrow('bad message')
+  })
+})
+
+describe('notes', () => {
+  const note = (id: string, nodeId: string, extra: Partial<Note> = {}): Note => ({
+    id,
+    conversationId: 'c',
+    nodeId,
+    target: 'assistant',
+    anchor: { start: 0, end: 1, text: 'a' },
+    text: `note ${id}`,
+    createdAt: 1,
+    updatedAt: 1,
+    ...extra,
+  })
+
+  beforeEach(async () => {
+    await Promise.all([db.conversations.clear(), db.nodes.clear(), db.images.clear(), db.providers.clear(), db.notes.clear()])
+    await db.conversations.add({ id: 'c', title: 'T', createdAt: 0, updatedAt: 0, selectedChild: { [ROOT_KEY]: 'a', a: 'b' } })
+    await db.nodes.bulkAdd(base)
+    await db.notes.bulkAdd([note('nb', 'b'), note('nd', 'd', { target: 'user' }), note('nc', 'c')])
+  })
+
+  it('archives and restores a note; it is blocked while its node is hidden', async () => {
+    await archiveNote('nd')
+    let items = archivedItems(await db.nodes.toArray(), await db.notes.toArray())
+    expect(items.map((i) => [i.key, i.kind, i.parentId, i.blocked])).toEqual([['nd', 'note', 'd', false]])
+
+    await archiveNode('b')
+    items = archivedItems(await db.nodes.toArray(), await db.notes.toArray())
+    expect(Object.fromEntries(items.map((i) => [i.key, i.blocked]))).toEqual({ b: false, nd: true })
+
+    await restoreArchived('c', ['b'])
+    await restoreNote('nd')
+    expect((await db.notes.toArray()).some((n) => 'archived' in n)).toBe(false)
+  })
+
+  it('deleting a subtree forever deletes the notes on it; deleting the conversation deletes all', async () => {
+    await archiveNode('b')
+    await deleteArchived('c', ['b'])
+    expect((await db.notes.toArray()).map((n) => n.id)).toEqual(['nc'])
+    await deleteConversation('c')
+    expect(await db.notes.count()).toBe(0)
+  })
+
+  it('exports notes (version 3) and imports them with new ids on the new nodes', async () => {
+    await archiveNote('nc')
+    const f = JSON.parse((await exportConversation('c')).json)
+    expect(f.version).toBe(3)
+    expect(f.notes.map((n: Note) => n.id).sort()).toEqual(['nb', 'nc', 'nd'])
+
+    const id = await importConversation(JSON.stringify(f))
+    const nodes = await db.nodes.where('conversationId').equals(id).toArray()
+    const notes = await db.notes.where('conversationId').equals(id).toArray()
+    expect(notes).toHaveLength(3)
+    expect(notes.every((n) => !['nb', 'nc', 'nd'].includes(n.id))).toBe(true)
+    const byText = Object.fromEntries(notes.map((n) => [n.text, n]))
+    const on = (n: Note) => nodes.find((x) => x.id === n.nodeId)!.user.text
+    expect(on(byText['note nb'])).toBe('u-b')
+    expect(byText['note nd']).toMatchObject({ target: 'user', anchor: { start: 0, end: 1, text: 'a' } })
+    expect(on(byText['note nd'])).toBe('u-d')
+    expect(byText['note nc'].archived).toBeTypeOf('number')
+
+    const { notes: _n, ...v2 } = { ...f, version: 2 }
+    const id2 = await importConversation(JSON.stringify(v2))
+    expect(await db.notes.where('conversationId').equals(id2).count()).toBe(0)
+
+    const bad = (patch: Record<string, unknown>) => JSON.stringify({ ...f, notes: [{ ...f.notes[0], ...patch }] })
+    await expect(importConversation(bad({ nodeId: 'nope' }))).rejects.toThrow('bad note')
+    await expect(importConversation(bad({ target: 'side' }))).rejects.toThrow('bad note')
+    await expect(importConversation(bad({ anchor: { start: 0, text: 'a' } }))).rejects.toThrow('bad note')
+    await expect(importConversation(JSON.stringify({ ...v2, notes: [] }))).rejects.toThrow('missing fields')
   })
 })

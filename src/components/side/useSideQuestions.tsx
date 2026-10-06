@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { ChatNode, Conversation } from '../../db'
 import { useT } from '../../i18n'
-import type { AnchorMark } from '../../lib/anchor'
 import { sideFallbackTitle } from '../../lib/naming'
 import { sideThreads, threadPath, threadRoots } from '../../lib/tree'
 import { isEmptyDraft, useUi, type SideDraft } from '../../store/ui'
-import { DRAFT_PREFIX } from '../chat/MessageNode'
+import { DRAFT_PREFIX, type NodeMarks } from '../chat/MessageNode'
 import type { ColumnItem } from './SideColumn'
 import { ThreadTitle } from './SideCard'
+import type { NoteItem } from './useNotes'
 
 /** A side question on the active path (or a draft asked from it), as the column shows it. */
 export interface SideItem extends ColumnItem {
+  kind: 'side'
   /** The main node it was asked from. */
   nodeId: string
   /** The thread as shown (empty for a draft). */
@@ -20,19 +21,28 @@ export interface SideItem extends ColumnItem {
   fallback: string
 }
 
+/** What the column holds: side questions and notes. */
+export type AnyItem = SideItem | NoteItem
+
 /**
- * The side questions of the active path for the column: its items, the highlights for each reply, and
- * the rules around them — a sent draft becomes its thread, a card whose thread leaves the path (archived,
- * another branch shown) collapses, Escape collapses (unless focus is in an input, menu or dialog).
+ * The column's items for the active path — its side questions, plus `notes` (`useNotes`) — the
+ * highlights for each message, and the rules around them: a sent draft becomes its thread, a card whose
+ * item leaves the path (archived, another branch shown) collapses, Escape collapses (unless focus is in
+ * an input, menu or dialog).
  */
-export function useSideQuestions(path: ChatNode[], nodes: ChatNode[] | undefined, conversation: Conversation | undefined) {
+export function useSideQuestions(
+  path: ChatNode[],
+  nodes: ChatNode[] | undefined,
+  conversation: Conversation | undefined,
+  notes: NoteItem[],
+) {
   const t = useT()
   const expanded = useUi((s) => s.expanded)
   const drafts = useUi((s) => s.drafts)
   const expand = useUi((s) => s.expand)
   const dropDraft = useUi((s) => s.dropDraft)
 
-  const items = useMemo(() => {
+  const sideItems = useMemo(() => {
     if (!nodes || !conversation) return []
     const out: SideItem[] = []
     const item = (it: Omit<SideItem, 'kind' | 'title' | 'tip' | 'meta'>, meta: string): SideItem => {
@@ -60,6 +70,7 @@ export function useSideQuestions(path: ChatNode[], nodes: ChatNode[] | undefined
     }
     return out
   }, [path, nodes, conversation, drafts, t])
+  const items = useMemo((): AnyItem[] => [...sideItems, ...notes], [sideItems, notes])
 
   // The first message of a draft was sent: it's a thread now.
   useEffect(() => {
@@ -67,10 +78,16 @@ export function useSideQuestions(path: ChatNode[], nodes: ChatNode[] | undefined
     for (const thread of Object.keys(drafts)) if (threadRoots(nodes, thread).length) dropDraft(thread)
   }, [nodes, drafts, dropDraft])
 
-  // The expanded card's thread left the path: collapse it (an empty draft goes, its card already closed).
+  // The expanded card's item left the path: collapse it (an empty draft goes, its card already closed).
+  // Only once it was there: a new note's card expands before the note shows up in the list.
   const loaded = !!nodes && !!conversation
+  const seen = useRef(new Set<string>())
   useEffect(() => {
-    if (!loaded || !expanded || items.some((it) => it.id === expanded)) return
+    if (!expanded) return void seen.current.clear()
+    if (!loaded) return
+    if (items.some((it) => it.id === expanded)) return void seen.current.add(expanded)
+    if (!seen.current.has(expanded) && !useUi.getState().drafts[expanded]) return
+    seen.current.delete(expanded)
     expand(null)
     const d = useUi.getState().drafts[expanded]
     if (d && isEmptyDraft(d)) dropDraft(expanded)
@@ -85,6 +102,8 @@ export function useSideQuestions(path: ChatNode[], nodes: ChatNode[] | undefined
       const busy = 'input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"], [role="listbox"]'
       if (focus?.closest(busy) || document.querySelector('[role="menu"], [role="dialog"]')) return
       expand(null)
+      // A card button keeps focus after a click; collapsing by key would light up its focus ring.
+      if (focus instanceof HTMLElement && focus.closest('[data-side-column]')) focus.blur()
     }
     // Capture: runs before an open menu's own Escape handling moves focus away from it.
     window.addEventListener('keydown', onKey, true)
@@ -96,22 +115,29 @@ export function useSideQuestions(path: ChatNode[], nodes: ChatNode[] | undefined
 }
 
 /**
- * Side-question highlights for each node on the path (an empty list still enables selecting text).
- * Lists are reused while unchanged so memoized messages don't re-render their Markdown.
+ * Highlights for each node on the path: side questions and notes on its reply, notes on its message (an
+ * empty list still enables selecting text). Reused while unchanged so memoized messages don't re-render
+ * their Markdown.
  */
-function useAnchors(path: ChatNode[], items: SideItem[], expanded: string | null) {
-  const cache = useRef(new Map<string, AnchorMark[]>())
+function useAnchors(path: ChatNode[], items: AnyItem[], expanded: string | null) {
+  const cache = useRef(new Map<string, NodeMarks>())
   return useMemo(() => {
-    const next = new Map<string, AnchorMark[]>()
+    const next = new Map<string, NodeMarks>()
     for (const n of path) {
-      const list: AnchorMark[] = items
-        .filter((it) => it.nodeId === n.id)
-        .map((it) => {
+      const marks: NodeMarks = { reply: [], user: [] }
+      for (const it of items) {
+        if (it.nodeId !== n.id) continue
+        const active = it.id === expanded
+        if (it.kind === 'note') {
+          const { start, end } = it.note.anchor
+          marks[it.note.target === 'user' ? 'user' : 'reply'].push({ id: it.mark, start, end, active, note: true })
+        } else {
           const anchor = it.draft?.anchor ?? it.path[0].anchor!
-          return { id: it.mark, start: anchor.start, end: anchor.end, active: it.id === expanded }
-        })
+          marks.reply.push({ id: it.mark, start: anchor.start, end: anchor.end, active })
+        }
+      }
       const prev = cache.current.get(n.id)
-      next.set(n.id, prev && JSON.stringify(prev) === JSON.stringify(list) ? prev : list)
+      next.set(n.id, prev && JSON.stringify(prev) === JSON.stringify(marks) ? prev : marks)
     }
     cache.current = next
     return next

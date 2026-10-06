@@ -1,4 +1,4 @@
-import { ROOT_KEY, type ChatNode, type Conversation, type SideAnchor } from '../db/types'
+import { ROOT_KEY, type ChatNode, type Conversation, type Note, type SideAnchor } from '../db/types'
 
 const byTime = (a: ChatNode, b: ChatNode) => a.createdAt - b.createdAt
 
@@ -114,24 +114,26 @@ export function busyIds(nodes: ChatNode[]): Set<string> {
   return ids
 }
 
-/** One archive entry: an archived main node, or a whole side-question thread. */
+/** One archive entry: an archived main node, a whole side-question thread, or a note. */
 export interface ArchivedItem {
-  /** The node id, or the thread id. */
+  /** The node id, the thread id, or the note id. */
   key: string
-  kind: 'attempt' | 'branch' | 'side'
-  /** The archived node, or every root version of the thread (oldest first). */
+  kind: 'attempt' | 'branch' | 'side' | 'note'
+  /** The archived node, or every root version of the thread (oldest first); empty for a note. */
   nodes: ChatNode[]
+  /** Notes only. */
+  note?: Note
   archived: number
-  /** The node it hangs off (for side threads: the main node asked from); null at the top. */
+  /** The node it hangs off (side threads: the main node asked from; notes: the node they're on); null at the top. */
   parentId: string | null
   /** Something above it is archived too, so it can't be restored before that is. */
   blocked: boolean
-  /** Nodes it holds, itself included (everything that deleting it deletes). */
+  /** Nodes it holds, itself included (everything that deleting it deletes); 0 for a note. */
   size: number
 }
 
-/** Everything archived in a conversation, newest archive first. */
-export function archivedItems(nodes: ChatNode[]): ArchivedItem[] {
+/** Everything archived in a conversation (`notes`: its notes), newest archive first. */
+export function archivedItems(nodes: ChatNode[], notes: Note[] = []): ArchivedItem[] {
   const items: ArchivedItem[] = []
   const threads = new Map<string, ChatNode[]>()
   for (const n of nodes.filter((n) => n.archived).sort(byTime)) {
@@ -139,6 +141,18 @@ export function archivedItems(nodes: ChatNode[]): ArchivedItem[] {
     else if (n.kind === 'main') items.push(item(nodes, n.id, n.branch ? 'branch' : 'attempt', [n]))
   }
   for (const [thread, roots] of threads) items.push(item(nodes, thread, 'side', roots))
+  for (const note of notes)
+    if (note.archived)
+      items.push({
+        key: note.id,
+        kind: 'note',
+        nodes: [],
+        note,
+        archived: note.archived,
+        parentId: note.nodeId,
+        blocked: isHidden(nodes, note.nodeId),
+        size: 0,
+      })
   return items.sort((a, b) => b.archived - a.archived)
 }
 

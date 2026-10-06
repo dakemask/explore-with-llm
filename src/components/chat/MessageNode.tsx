@@ -26,12 +26,18 @@ export interface NodeActions {
   select: (node: ChatNode, id: string) => void
 }
 
+/** Highlights on a main-line node: side questions and notes on the reply, notes on the user message. */
+export interface NodeMarks {
+  reply: AnchorMark[]
+  user: AnchorMark[]
+}
+
 export const MessageNode = memo(function MessageNode({
   node,
   siblings,
   canSend,
   actions,
-  anchors,
+  marks,
   busy,
 }: {
   node: ChatNode
@@ -40,10 +46,10 @@ export const MessageNode = memo(function MessageNode({
   canSend: boolean
   actions: NodeActions
   /**
-   * Main-line nodes only: side-question anchors on the reply. Makes the reply selectable for new side
-   * questions (the root carries `data-anchor-root`).
+   * Main-line nodes only: highlights on the reply and the user message. Makes both selectable for new side
+   * questions / notes (their roots carry `data-anchor-root`, and `data-anchor-target="user"` on the message).
    */
-  anchors?: AnchorMark[]
+  marks?: NodeMarks
   /** A reply is streaming in this node or below it (it can't be archived now). */
   busy?: boolean
 }) {
@@ -73,6 +79,8 @@ export const MessageNode = memo(function MessageNode({
   return (
     <div className="space-y-3">
       <UserMessage
+        nodeId={node.id}
+        anchors={marks?.user}
         text={node.user.text}
         images={node.user.images}
         onEdit={canSend ? (text, images) => actions.edit(node, text, images) : undefined}
@@ -82,11 +90,11 @@ export const MessageNode = memo(function MessageNode({
         {editing ? (
           <AssistantEditor initial={node.assistant.content} onCancel={() => setEditing(false)} onSave={saveEdit} />
         ) : content ? (
-          <div data-anchor-root={anchors && !streaming ? node.id : undefined}>
+          <div data-anchor-root={marks && !streaming ? node.id : undefined}>
             <Markdown
               text={content}
               className={clsx(streaming && 'streaming-caret')}
-              anchors={streaming ? undefined : anchors}
+              anchors={streaming ? undefined : marks?.reply}
             />
           </div>
         ) : (
@@ -159,10 +167,15 @@ export function Turn({
 export const DRAFT_PREFIX = 'draft:'
 
 function UserMessage({
+  nodeId,
+  anchors,
   text,
   images,
   onEdit,
 }: {
+  nodeId: string
+  /** Note highlights (main line only; makes the text selectable for new notes). */
+  anchors?: AnchorMark[]
   text: string
   images?: string[]
   onEdit?: (text: string, images: ImageFile[]) => void
@@ -190,7 +203,9 @@ function UserMessage({
       {images && images.length > 0 && <MessageImages ids={images} />}
       {text && (
         <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5">
-          <Markdown text={text} className="prose-user" breaks />
+          <div data-anchor-root={anchors ? nodeId : undefined} data-anchor-target={anchors ? 'user' : undefined}>
+            <Markdown text={text} className="prose-user" breaks anchors={anchors} />
+          </div>
         </div>
       )}
       <div className="mt-1 flex h-7 items-center gap-1">

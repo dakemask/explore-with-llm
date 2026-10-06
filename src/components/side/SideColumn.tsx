@@ -107,7 +107,7 @@ export function SideColumn({
   }, [expanded, cardHeight, scroller])
 
   return (
-    <div ref={colRef} className="relative shrink-0" style={{ width, height: extent }}>
+    <div ref={colRef} data-side-column className="relative shrink-0" style={{ width, height: extent }}>
       {placed.map((it, i) => {
         const span = spans[it.id]
         const lit = hover.includes(it.id) || it.id === expanded
@@ -118,7 +118,7 @@ export function SideColumn({
               onClick={() => onExpand(it.id)}
               onMouseEnter={() => onHover([it.id])}
               onMouseLeave={() => onHover([])}
-              className="group/bar absolute flex justify-center transition-[top,height] duration-200"
+              className="group/bar absolute flex justify-center rounded-sm transition-[top,height] duration-200 focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
               style={{ top: span.top, height: span.bottom - span.top, left: 6 + lanes[i] * laneWidth, width: laneWidth }}
             >
               <span className={clsx('h-full w-[3px] rounded-full transition-colors', barClass[it.kind][lit ? 1 : 0])} />
@@ -140,6 +140,7 @@ export function SideColumn({
             onMouseLeave={() => onHover([])}
             className={clsx(
               'absolute right-3 flex items-center gap-2 rounded-lg border bg-surface px-3 text-left text-[13px] shadow-xs',
+              'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
               'transition-[top,opacity,border-color,background-color] duration-200',
               lit ? 'border-border-strong' : 'border-border hover:border-border-strong',
               covered && 'pointer-events-none opacity-0',

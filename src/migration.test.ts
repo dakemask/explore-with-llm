@@ -25,6 +25,6 @@ it('DB v5 makes main nodes with a follow-up or a side question branches', async 
   const { db } = await import('./db')
   await db.open()
   const nodes = await db.nodes.toArray()
-  expect(db.verno).toBe(5)
+  expect(db.verno).toBe(6)
   expect(nodes.filter((n) => n.branch).map((n) => n.id).sort()).toEqual(['a', 'b', 'x'])
 })

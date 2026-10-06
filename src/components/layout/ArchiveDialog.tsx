@@ -1,11 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Archive, RotateCcw, Trash2 } from 'lucide-react'
 import { useMemo } from 'react'
-import { db, type ChatNode, type Conversation } from '../../db'
+import { db, type ChatNode, type Conversation, type Note } from '../../db'
 import { useT } from '../../i18n'
 import { deleteArchived, restoreArchived } from '../../lib/chat'
+import { deleteNote, noteTitle, restoreNote } from '../../lib/notes'
 import { sideFallbackTitle } from '../../lib/naming'
-import { archivedItems, pathTo, type ArchivedItem } from '../../lib/tree'
+import { archivedItems, pathTo, subtreeIds, type ArchivedItem } from '../../lib/tree'
 import { useSettings } from '../../store/settings'
 import { Button, Tip } from '../ui/Button'
 import { confirmDialog, Dialog } from '../ui/Dialog'
@@ -25,7 +26,11 @@ export function ArchiveDialog({
     () => (open ? db.nodes.where('conversationId').equals(conversation.id).toArray() : []),
     [open, conversation.id],
   )
-  const items = useMemo(() => archivedItems(nodes ?? []), [nodes])
+  const notes = useLiveQuery(
+    () => (open ? db.notes.where('conversationId').equals(conversation.id).toArray() : []),
+    [open, conversation.id],
+  )
+  const items = useMemo(() => archivedItems(nodes ?? [], notes ?? []), [nodes, notes])
 
   return (
     <Dialog
@@ -48,7 +53,7 @@ export function ArchiveDialog({
         ) : (
           <ul className="space-y-px">
             {items.map((item) => (
-              <Row key={item.key} item={item} nodes={nodes ?? []} conversation={conversation} />
+              <Row key={item.key} item={item} nodes={nodes ?? []} notes={notes ?? []} conversation={conversation} />
             ))}
           </ul>
         )}
@@ -57,11 +62,22 @@ export function ArchiveDialog({
   )
 }
 
-function Row({ item, nodes, conversation }: { item: ArchivedItem; nodes: ChatNode[]; conversation: Conversation }) {
+function Row({
+  item,
+  nodes,
+  notes,
+  conversation,
+}: {
+  item: ArchivedItem
+  nodes: ChatNode[]
+  notes: Note[]
+  conversation: Conversation
+}) {
   const t = useT()
   const lang = useSettings((s) => s.lang)
 
   const title = (() => {
+    if (item.note) return noteTitle(item.note.text)
     if (item.kind !== 'side') return firstLine(item.nodes[0].user.text) || t('image.only')
     const root = item.nodes.find((n) => n.id === conversation.selectedChild[item.key]) ?? item.nodes[item.nodes.length - 1]
     return conversation.threadTitles?.[item.key] ?? (sideFallbackTitle(root, root.anchor?.text ?? '') || t('image.only'))
@@ -70,6 +86,7 @@ function Row({ item, nodes, conversation }: { item: ArchivedItem; nodes: ChatNod
     if (!item.parentId) return t('archive.atStart')
     const above = pathTo(nodes, item.parentId)
     const text = short(firstLine(above[above.length - 1]?.user.text ?? '') || t('image.only'))
+    if (item.note) return t(item.note.target === 'user' ? 'archive.onUser' : 'archive.onReply', { n: above.length, text })
     return t(item.kind === 'side' ? 'archive.from' : 'archive.after', { n: above.length, text })
   })()
   const time = new Date(item.archived).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
@@ -81,9 +98,17 @@ function Row({ item, nodes, conversation }: { item: ArchivedItem; nodes: ChatNod
   })
   const ids = item.nodes.map((n) => n.id)
 
+  const note = item.note
   const remove = async () => {
-    if (await confirmDialog(t('archive.deleteConfirm', { n: item.size }), { danger: true }))
-      await deleteArchived(conversation.id, ids)
+    const inside = note ? null : subtreeIds(nodes, ids)
+    const m = inside ? notes.filter((n) => inside.has(n.nodeId)).length : 0
+    const question = note
+      ? t('archive.deleteNoteConfirm')
+      : m
+        ? t('archive.deleteConfirmNotes', { n: item.size, m })
+        : t('archive.deleteConfirm', { n: item.size })
+    if (!(await confirmDialog(question, { danger: true }))) return
+    await (note ? deleteNote(note.id) : deleteArchived(conversation.id, ids))
   }
 
   const restore = (
@@ -91,7 +116,7 @@ function Row({ item, nodes, conversation }: { item: ArchivedItem; nodes: ChatNod
       size="sm"
       variant="ghost"
       aria-disabled={item.blocked}
-      onClick={item.blocked ? undefined : () => void restoreArchived(conversation.id, ids)}
+      onClick={item.blocked ? undefined : () => void (note ? restoreNote(note.id) : restoreArchived(conversation.id, ids))}
       className={item.blocked ? 'cursor-default opacity-40 hover:bg-transparent hover:text-muted' : undefined}
     >
       <RotateCcw size={13} />
@@ -107,7 +132,9 @@ function Row({ item, nodes, conversation }: { item: ArchivedItem; nodes: ChatNod
           <span className="truncate text-[13px]">{title}</span>
         </div>
         <div className="mt-1 truncate text-xs text-faint">
-          {[where, item.size === 1 ? t('archive.size1') : t('archive.size', { n: item.size }), time].join(' · ')}
+          {[where, !note && (item.size === 1 ? t('archive.size1') : t('archive.size', { n: item.size })), time]
+            .filter(Boolean)
+            .join(' · ')}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">

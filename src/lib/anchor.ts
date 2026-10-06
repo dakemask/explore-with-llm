@@ -1,8 +1,8 @@
 /**
- * Mapping between rendered Markdown and offsets in its source text, for side-question anchors.
+ * Mapping between rendered Markdown and offsets in its source text, for side-question and note anchors.
  *
- * Offsets are always into the original assistant content. The renderer rewrites `\( \)` / `\[ \]` math
- * before parsing, so `normalizeMathMapped` keeps a map from the rewritten text back to the original.
+ * Offsets are always into the original text (assistant content; a user message for notes). The renderer
+ * rewrites `\( \)` / `\[ \]` math before parsing, so `normalizeMathMapped` keeps a map from the rewritten text back to the original.
  * `rehypeAnchors` wraps every rendered text run in an element carrying its source range (`data-s`/`data-e`)
  * and highlights anchored ranges; `rangeToSource` turns a DOM selection back into a source range.
  */
@@ -119,11 +119,13 @@ function boundary(pos: number[], i: number, srcLen: number, side: 'start' | 'end
 // ---------- Rehype plugin ----------
 
 export interface AnchorMark {
-  /** Thread id, written to `data-threads` on highlights. */
+  /** Thread id (or `note:` + note id), written to `data-threads` on highlights. */
   id: string
   start: number
   end: number
   active?: boolean
+  /** Notes are highlighted in their own style. */
+  note?: boolean
 }
 
 interface Ctx {
@@ -157,7 +159,14 @@ function markProps(ctx: Ctx, s: number, e: number, base: Record<string, unknown>
   const hits = covering(ctx, s, e)
   const props: Record<string, unknown> = { ...base, dataS: s, dataE: e }
   if (hits.length) {
-    const cls = ['anchor-hl', ...(hits.some((h) => h.active) ? ['active'] : [])]
+    const side = hits.filter((h) => !h.note)
+    const notes = hits.filter((h) => h.note)
+    const cls = [
+      ...(side.length ? ['anchor-hl'] : []),
+      ...(notes.length ? ['anchor-note'] : []),
+      ...(side.some((h) => h.active) ? ['active'] : []),
+      ...(notes.some((h) => h.active) ? ['note-active'] : []),
+    ]
     const prev = base.className
     props.className = [...(Array.isArray(prev) ? prev : prev ? [prev] : []), ...cls]
     props.dataThreads = hits.map((h) => h.id).join(' ')
@@ -263,6 +272,56 @@ export function rehypeAnchors(opts: { orig: string; norm: Normalized; anchors: A
     walk(opts, tree, 0, opts.norm.text.length)
   }
 }
+
+/**
+ * remark-breaks (single newlines → `<br>`) that keeps source positions on the pieces it splits text into,
+ * so user messages stay mappable. A newline in a text node's value is a line ending in its source (the
+ * next line's container prefix, e.g. `> `, falls into the following piece, where alignment skips it).
+ */
+export function remarkBreaksMapped() {
+  type MdNode = { type: string; value?: string; children?: MdNode[]; position?: Pos }
+  // (mdast-util-to-hast keeps a position only with line and column too.)
+  let src = ''
+  const point = (offset: number) => {
+    const before = src.slice(0, offset)
+    const line = before.split(LINE_END).length
+    return { line, column: offset - Math.max(before.lastIndexOf('\n'), before.lastIndexOf('\r')), offset }
+  }
+  const at = (start: number, end: number) => ({ start: point(start), end: point(end) })
+  const visit = (parent: MdNode) => {
+    if (!parent.children) return
+    parent.children = parent.children.flatMap((c): MdNode[] => {
+      if (c.type !== 'text' || !c.value || !LINE_END.test(c.value)) {
+        visit(c)
+        return [c]
+      }
+      const lines = c.value.split(LINE_END)
+      const range = offsets(c.position)
+      // Source line endings inside the node, as [start, end] pairs (used only if one per newline in the value).
+      const ends: [number, number][] = []
+      if (range) {
+        const re = new RegExp(LINE_END.source, 'g')
+        re.lastIndex = range[0]
+        for (let m = re.exec(src); m && m.index < range[1]; m = re.exec(src)) ends.push([m.index, m.index + m[0].length])
+      }
+      const mapped = range && ends.length === lines.length - 1 ? range : null
+      const out: MdNode[] = []
+      lines.forEach((value, i) => {
+        if (i > 0) out.push({ type: 'break', ...(mapped && { position: at(...ends[i - 1]) }) })
+        if (!value) return
+        const pos = mapped && at(i === 0 ? mapped[0] : ends[i - 1][1], i === lines.length - 1 ? mapped[1] : ends[i][0])
+        out.push({ type: 'text', value, ...(pos && { position: pos }) })
+      })
+      return out
+    })
+  }
+  return (tree: MdNode, file: { value: unknown }) => {
+    src = String(file.value)
+    visit(tree)
+  }
+}
+
+const LINE_END = /\r?\n|\r/
 
 // ---------- DOM selection → source range ----------
 

@@ -61,7 +61,7 @@ export const ROOT_KEY = '__root__'
 export type NodeKind = 'main' | 'side'
 
 export interface SideAnchor {
-  /** Offsets into the assistant content of the anchored node. */
+  /** Offsets into the assistant content of the anchored node (for notes: into their target text). */
   start: number
   end: number
   text: string
@@ -169,4 +169,23 @@ export interface StoredImage {
   width: number
   height: number
   createdAt: number
+}
+
+/**
+ * The user's own Markdown note on a passage of a main-line node: its reply (`assistant.content`) or its
+ * message (`user.text`). Never sent to any model. Belongs to that node only (retries / edits are other
+ * nodes); hidden while the node or anything above it is archived.
+ */
+export interface Note {
+  id: string
+  conversationId: string
+  nodeId: string
+  target: 'user' | 'assistant'
+  /** Offsets into the target text + the quoted text. */
+  anchor: SideAnchor
+  text: string
+  createdAt: number
+  updatedAt: number
+  /** When the user archived it (restored from the archive dialog). */
+  archived?: number
 }
