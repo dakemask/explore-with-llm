@@ -1,7 +1,6 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { NotebookPen } from 'lucide-react'
 import { useMemo } from 'react'
-import { db, type ChatNode, type Conversation, type Note } from '../../db'
+import type { ChatNode, Note } from '../../db'
 import { useT } from '../../i18n'
 import { noteSnippet, noteTitle } from '../../lib/notes'
 import type { ColumnItem } from './SideColumn'
@@ -17,10 +16,8 @@ export interface NoteItem extends ColumnItem {
 }
 
 /** The non-archived notes on the nodes of the active path (a hidden node is never on it), in creation order. */
-export function useNotes(path: ChatNode[], conversation: Conversation | undefined) {
+export function useNotes(path: ChatNode[], notes: Note[] | undefined) {
   const t = useT()
-  const id = conversation?.id
-  const notes = useLiveQuery(() => (id ? db.notes.where('conversationId').equals(id).sortBy('createdAt') : []), [id])
 
   return useMemo(() => {
     const onPath = new Set(path.map((n) => n.id))

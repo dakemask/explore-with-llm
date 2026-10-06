@@ -55,8 +55,14 @@ export const MessageNode = memo(function MessageNode({
   /** A reply is streaming in this node or below it (it can't be archived now). */
   busy?: boolean
 }) {
-  const live = useUi((s) => s.live[node.id])
   const streaming = node.attempt.status === 'streaming'
+  // The streamed text shows until the stored node says the reply is over; only then is it dropped, so
+  // there's never a frame between the two (clearing it first showed the empty stored reply for a moment).
+  const streamed = useUi((s) => s.live[node.id])
+  const live = streaming ? streamed : undefined
+  useEffect(() => {
+    if (!streaming && streamed) useUi.getState().setLive(node.id, null)
+  }, [streaming, streamed, node.id])
   const content = live?.content ?? node.assistant.content
   const reasoning = live?.reasoning ?? node.assistant.reasoning ?? ''
   // An edited version carries its source's response, but not its reasoning.

@@ -221,7 +221,7 @@ async function runAttempt(
         finishedAt: Date.now(),
       },
     })
-    setLive(node.id, null)
+    // The live text is dropped by the message once the stored node shows the reply is over (MessageNode).
   }
 
   try {

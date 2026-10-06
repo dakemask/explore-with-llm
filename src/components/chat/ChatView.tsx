@@ -1,8 +1,6 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { GitBranch, KeyRound, Sparkles } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
-import { db } from '../../db'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
 import { createConversation, lacksReply, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
@@ -13,6 +11,7 @@ import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { createNote, noteTitle } from '../../lib/notes'
 import { glideTo, ScrollHold, useAutoScroll } from '../../lib/hooks'
+import { useConversationData } from '../../lib/useConversationData'
 import { useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { NoteCard } from '../side/NoteCard'
@@ -40,14 +39,10 @@ export function ChatView() {
   const { providers, provider, model, ready } = useCurrentModel()
   const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
 
-  const conversation = useLiveQuery(
-    () => (conversationId ? db.conversations.get(conversationId) : undefined),
-    [conversationId],
-  )
-  const nodes = useLiveQuery(
-    () => (conversationId ? db.nodes.where('conversationId').equals(conversationId).toArray() : []),
-    [conversationId],
-  )
+  const data = useConversationData(conversationId)
+  const conversation = data?.conversation
+  const nodes = data?.nodes
+  const loading = !data
   const path = useMemo(
     () => (nodes && conversation ? activePath(nodes, conversation.selectedChild) : []),
     [nodes, conversation],
@@ -82,7 +77,7 @@ export function ChatView() {
   const actions = useNodeActions(nodes, scroll.hold)
 
   // ---- side questions and notes: highlights in the messages, cards in the column right of the chat ----
-  const notes = useNotes(path, conversation)
+  const notes = useNotes(path, data?.notes)
   const side = useSideQuestions(path, nodes, conversation, notes)
   const [picker, setPicker] = useState<{
     x: number
@@ -235,7 +230,7 @@ export function ChatView() {
             style={{ width: frame.chatWidth }}
           >
             <ScrollHold.Provider value={scroll.hold}>
-              {path.length === 0 ? (
+              {loading ? null : path.length === 0 ? (
                 noProvider ? (
                   <EmptyState
                     icon={<KeyRound size={22} />}
