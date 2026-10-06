@@ -75,6 +75,8 @@ export function Composer({
         }}
         onChange={(e) => setText(e.target.value)}
         onPaste={attachments.onPaste}
+        // Nothing typed (empty, or still the starting text): Escape may close what holds the box.
+        data-pristine={(!attachments.images.length && (text === initialText || !text.trim())) || undefined}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault()

@@ -28,7 +28,7 @@ export type AnyItem = SideItem | NoteItem
  * The column's items for the active path — its side questions, plus `notes` (`useNotes`) — the
  * highlights for each message, and the rules around them: a sent draft becomes its thread, a card whose
  * item leaves the path (archived, another branch shown) collapses, Escape collapses (unless focus is in
- * an input, menu or dialog).
+ * an input — other than the card's own box with nothing typed — a menu or a dialog).
  */
 export function useSideQuestions(
   path: ChatNode[],
@@ -97,10 +97,12 @@ export function useSideQuestions(
     if (!expanded) return
     const onKey = (e: KeyboardEvent) => {
       // (While the detail panel covers the column the card isn't seen, so it stays.)
-      if (e.key !== 'Escape' || e.defaultPrevented || useUi.getState().panel) return
+      if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented || useUi.getState().panel) return
       const focus = document.activeElement
       const busy = 'input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"], [role="listbox"]'
-      if (focus?.closest(busy) || document.querySelector('[role="menu"], [role="dialog"]')) return
+      // A card's own input box with nothing typed in it doesn't hold Escape back.
+      const idleBox = focus?.matches('[data-side-column] textarea[data-pristine]')
+      if ((focus?.closest(busy) && !idleBox) || document.querySelector('[role="menu"], [role="dialog"]')) return
       expand(null)
       // A card button keeps focus after a click; collapsing by key would light up its focus ring.
       if (focus instanceof HTMLElement && focus.closest('[data-side-column]')) focus.blur()
