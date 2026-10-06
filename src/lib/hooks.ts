@@ -62,9 +62,10 @@ const NEAR_END = 40
  * A chat scroll area's scrolling rules (the main chat and each side card's messages), all here:
  * 1. The view moves on its own only while *following*: then it keeps the end of the content in view as it
  *    grows. Anything else that changes size leaves what's on screen where it is.
- * 2. Following turns on when the user sends (`pin`), when `resetKey` changes (another conversation: it
- *    jumps to the end) and when the user scrolls to the end; it turns off when the user scrolls away from
- *    the end. Nothing else changes it — content getting shorter doesn't.
+ * 2. Following turns on when the user sends (`pin`) or retries / edits (`hold` with `follow`), when
+ *    `resetKey` changes (another conversation: it jumps to the end) and when the user scrolls to the end;
+ *    it turns off when the user scrolls away from the end or clicks something that holds (a reasoning
+ *    toggle, the switcher). Nothing else changes it — content getting shorter doesn't.
  * 3. Never pulled up: where content got shorter at the end and the browser would pull the view up, blank
  *    space is added at the bottom instead; it is trimmed away unnoticed (whatever of it is below the screen,
  *    on every scroll and size change).
@@ -174,10 +175,10 @@ export function useAutoScroll(resetKey: string | null) {
       if (!el || !t) return
       const offset = Math.max(0, topOf(el, t) - el.scrollTop)
       s.held = { target, offset, until: performance.now() + HOLD_MS }
-      if (opts?.follow) {
-        s.cap = target
-        s.following = true
-      }
+      // A new reply: follow it (capped). Anything else the user clicked (a toggle, the switcher) means they
+      // are reading what's on screen: stop following, or the view would jump to the end once the hold is over.
+      s.following = !!opts?.follow
+      s.cap = opts?.follow ? target : null
       // Every frame (the change may be a re-render without any size change in the observed boxes).
       const tick = () => {
         if (s.held && applyHold(el)) requestAnimationFrame(tick)
@@ -203,8 +204,11 @@ export function useAutoScroll(resetKey: string | null) {
     el.addEventListener('scroll', api.onScroll, { passive: true })
     el.addEventListener('wheel', api.release, { passive: true })
     el.addEventListener('touchstart', api.release, { passive: true })
-    // (Also dragging the scrollbar; a click that starts a new hold does so after this.)
-    el.addEventListener('pointerdown', api.release)
+    // Pressing on the scrollbar (its events target the area itself); a click on the content isn't scrolling.
+    const onPointer = (e: PointerEvent) => {
+      if (e.target === el) api.release()
+    }
+    el.addEventListener('pointerdown', onPointer)
     el.addEventListener('keydown', onKey)
     // Size changes of anything inside (chat, side column) and of the area itself.
     const ro = new ResizeObserver(api.settle)
@@ -220,7 +224,7 @@ export function useAutoScroll(resetKey: string | null) {
       el.removeEventListener('scroll', api.onScroll)
       el.removeEventListener('wheel', api.release)
       el.removeEventListener('touchstart', api.release)
-      el.removeEventListener('pointerdown', api.release)
+      el.removeEventListener('pointerdown', onPointer)
       el.removeEventListener('keydown', onKey)
       ro.disconnect()
       mo.disconnect()
