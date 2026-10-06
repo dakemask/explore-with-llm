@@ -1,11 +1,12 @@
 import clsx from 'clsx'
-import { Archive, AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, GitBranch, Info, Lock, MoreHorizontal, Pencil, RotateCcw } from 'lucide-react'
+import { Archive, AlertCircle, Brain, Check, ChevronRight, Copy, GitBranch, Info, Lock, MoreHorizontal, Pencil, RotateCcw } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { useAutosize, useCopy } from '../../lib/hooks'
 import type { AnchorMark } from '../../lib/anchor'
 import { archiveNode, editAssistant, makeBranch } from '../../lib/chat'
+import { colorVar } from '../../lib/colors'
 import { useStoredImages, type ImageFile } from '../../lib/images'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
 import { useUi } from '../../store/ui'
@@ -15,27 +16,27 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
 import { AssistantEditor } from './AssistantEditor'
 import { AttachButton, AttachmentStrip, DropHint, MessageImages, useAttachments } from './Images'
 import { Markdown } from './Markdown'
+import { SiblingSwitcher, type Siblings } from './SiblingSwitcher'
 
 /** Callbacks from ChatView. Kept referentially stable so memoized nodes don't re-render. */
 export interface NodeActions {
   retry: (node: ChatNode) => void
   edit: (node: ChatNode, text: string, images: ImageFile[]) => void
-  switchBranch: (node: ChatNode, delta: -1 | 1) => void
+  /** Shows `id` (a sibling of `node`) at their fork. */
+  select: (node: ChatNode, id: string) => void
 }
 
 export const MessageNode = memo(function MessageNode({
   node,
-  branchIndex,
-  branchCount,
+  siblings,
   canSend,
   actions,
   anchors,
   busy,
 }: {
   node: ChatNode
-  /** Position among the sibling versions at this fork (0-based). */
-  branchIndex: number
-  branchCount: number
+  /** The other versions at this fork (none if it has no siblings); see `useSiblings`. */
+  siblings?: Siblings
   canSend: boolean
   actions: NodeActions
   /**
@@ -68,6 +69,9 @@ export const MessageNode = memo(function MessageNode({
     if (panel?.type === 'side' && panel.draft && panel.nodeId === node.id) setPanel(null)
     await editAssistant(node, text)
   }
+  const errorBox = node.attempt.status === 'error' && !node.edit && !!node.attempt.error
+  // Always visible (not only on hover), at the right end of the footer, or of the error box's actions.
+  const switcher = siblings && <SiblingSwitcher info={siblings} onSelect={(id) => actions.select(node, id)} />
 
   return (
     <div className="space-y-3">
@@ -75,16 +79,6 @@ export const MessageNode = memo(function MessageNode({
         text={node.user.text}
         images={node.user.images}
         onEdit={canSend ? (text, images) => actions.edit(node, text, images) : undefined}
-        branch={
-          branchCount > 1 && (
-            <BranchSwitcher
-              index={branchIndex}
-              count={branchCount}
-              onPrev={() => actions.switchBranch(node, -1)}
-              onNext={() => actions.switchBranch(node, 1)}
-            />
-          )
-        }
       />
       <div className="group/assistant">
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
@@ -101,22 +95,65 @@ export const MessageNode = memo(function MessageNode({
         ) : (
           streaming && !hasReasoning(thinking) && <TypingDots since={node.attempt.startedAt} />
         )}
-        {node.attempt.status === 'error' && !node.edit && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} />}
-        {!streaming && !editing && (
-          <AssistantFooter
-            node={node}
-            content={content}
-            onRetry={retry}
-            onEdit={content ? () => setEditing(true) : undefined}
-            detailOpen={detailOpen}
-            onDetail={toggleDetail}
-            busy={!!busy}
-          />
+        {errorBox && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} switcher={!editing && switcher} />}
+        {streaming ? (
+          // While streaming only the switcher shows (the reply's actions come once it's done).
+          switcher && <div className="mt-2 flex h-7 items-center justify-end">{switcher}</div>
+        ) : (
+          !editing && (
+            <AssistantFooter
+              node={node}
+              content={content}
+              onRetry={retry}
+              onEdit={content ? () => setEditing(true) : undefined}
+              detailOpen={detailOpen}
+              onDetail={toggleDetail}
+              busy={!!busy}
+              switcher={errorBox ? undefined : switcher}
+            />
+          )
         )}
       </div>
     </div>
   )
 })
+
+/**
+ * One turn (user message + reply) in a list: a thin separator above it (except the first) and, in the
+ * main chat, a slim bar in the left gutter in the turn's branch color, flowing in from the parent's color
+ * where it changes (`lib/colors.ts`).
+ */
+export function Turn({
+  first,
+  color,
+  from,
+  children,
+}: {
+  first: boolean
+  color?: number
+  from?: number
+  children: ReactNode
+}) {
+  return (
+    <div className={clsx(!first && 'mt-8 border-t border-border pt-8')}>
+      <div className="relative">
+        {color !== undefined && (
+          <div
+            aria-hidden
+            className="absolute top-0 bottom-0 -left-4 w-[3px] rounded-full"
+            style={{
+              background:
+                from !== undefined && from !== color
+                  ? `linear-gradient(in oklch, ${colorVar(from)}, ${colorVar(color)} 48px)`
+                  : colorVar(color),
+            }}
+          />
+        )}
+        {children}
+      </div>
+    </div>
+  )
+}
 
 /** The highlight of a side question not sent yet (see ChatView); not a real anchor. */
 export const DRAFT_PREFIX = 'draft:'
@@ -124,12 +161,10 @@ export const DRAFT_PREFIX = 'draft:'
 function UserMessage({
   text,
   images,
-  branch,
   onEdit,
 }: {
   text: string
   images?: string[]
-  branch: ReactNode
   onEdit?: (text: string, images: ImageFile[]) => void
 }) {
   const t = useT()
@@ -171,7 +206,6 @@ function UserMessage({
             </IconButton>
           )}
         </div>
-        {branch}
       </div>
     </div>
   )
@@ -243,33 +277,6 @@ function UserEditor({
   )
 }
 
-function BranchSwitcher({
-  index,
-  count,
-  onPrev,
-  onNext,
-}: {
-  index: number
-  count: number
-  onPrev: () => void
-  onNext: () => void
-}) {
-  const t = useT()
-  return (
-    <div className="flex items-center text-xs text-muted">
-      <IconButton label={t('msg.prevBranch')} size="sm" onClick={onPrev} disabled={index === 0}>
-        <ChevronLeft size={15} />
-      </IconButton>
-      <span className="min-w-9 text-center tabular-nums select-none">
-        {index + 1} / {count}
-      </span>
-      <IconButton label={t('msg.nextBranch')} size="sm" onClick={onNext} disabled={index === count - 1}>
-        <ChevronRight size={15} />
-      </IconButton>
-    </div>
-  )
-}
-
 function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
@@ -333,7 +340,17 @@ function TypingDots({ since }: { since: number }) {
   )
 }
 
-function ErrorBox({ node, onRetry, onDetail }: { node: ChatNode; onRetry?: () => void; onDetail: () => void }) {
+function ErrorBox({
+  node,
+  onRetry,
+  onDetail,
+  switcher,
+}: {
+  node: ChatNode
+  onRetry?: () => void
+  onDetail: () => void
+  switcher?: ReactNode
+}) {
   const t = useT()
   const err = node.attempt.error
   if (!err) return null
@@ -357,6 +374,12 @@ function ErrorBox({ node, onRetry, onDetail }: { node: ChatNode; onRetry?: () =>
             {t('msg.retryShort')}
           </Button>
         )}
+        {switcher && (
+          <>
+            <span className="mx-0.5 h-4 w-px bg-danger/20" />
+            {switcher}
+          </>
+        )}
       </div>
     </div>
   )
@@ -370,6 +393,7 @@ function AssistantFooter({
   detailOpen,
   onDetail,
   busy,
+  switcher,
 }: {
   node: ChatNode
   content: string
@@ -378,6 +402,7 @@ function AssistantFooter({
   detailOpen: boolean
   onDetail: () => void
   busy: boolean
+  switcher?: ReactNode
 }) {
   const t = useT()
   const { copied, copy } = useCopy()
@@ -448,6 +473,7 @@ function AssistantFooter({
           </MenuRoot>
         )}
       </div>
+      {switcher && <div className="ml-auto pl-2">{switcher}</div>}
     </div>
   )
 }

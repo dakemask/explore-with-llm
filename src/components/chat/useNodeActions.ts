@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { db, type ChatNode } from '../../db'
 import { resend, selectBranch } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
-import { forkKey, siblingsOf } from '../../lib/tree'
+import { forkKey } from '../../lib/tree'
 import type { NodeActions } from './MessageNode'
 import { useCurrentModel } from './ModelPicker'
 
@@ -27,11 +27,7 @@ export function useNodeActions(nodes: ChatNode[] | undefined, beforeSend?: () =>
         again(node, node.user.text, images)
       },
       edit: again,
-      switchBranch: (node, delta) => {
-        const sibs = siblingsOf(latest.current.nodes ?? [], node)
-        const target = sibs[sibs.findIndex((s) => s.id === node.id) + delta]
-        if (target) void selectBranch(node.conversationId, forkKey(node), target.id)
-      },
+      select: (node, id) => void selectBranch(node.conversationId, forkKey(node), id),
     }
   }, [])
 }

@@ -32,6 +32,15 @@
   --c-anchor: rgb(79 70 229 / 0.09);
   --c-anchor-active: rgb(79 70 229 / 0.2);
   --c-anchor-line: rgb(79 70 229 / 0.45);
+  /* Branch colors (lib/colors.ts): the 7-color ring, then grey for attempts with siblings. */
+  --branch-0: oklch(0.62 0.2 27);
+  --branch-1: oklch(0.72 0.17 55);
+  --branch-2: oklch(0.83 0.16 92);
+  --branch-3: oklch(0.66 0.17 150);
+  --branch-4: oklch(0.68 0.12 205);
+  --branch-5: oklch(0.58 0.17 258);
+  --branch-6: oklch(0.55 0.19 300);
+  --branch-grey: oklch(0.78 0 0);
   --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -6px rgb(0 0 0 / 0.12);
   --shadow-composer: 0 1px 2px rgb(0 0 0 / 0.03), 0 4px 16px -4px rgb(0 0 0 / 0.08);
   color-scheme: light;
@@ -62,6 +71,15 @@
   --c-anchor: rgb(129 140 248 / 0.13);
   --c-anchor-active: rgb(129 140 248 / 0.28);
   --c-anchor-line: rgb(129 140 248 / 0.55);
+  /* Light values + 0.06 lightness, capped at 0.86. */
+  --branch-0: oklch(0.68 0.2 27);
+  --branch-1: oklch(0.78 0.17 55);
+  --branch-2: oklch(0.86 0.16 92);
+  --branch-3: oklch(0.72 0.17 150);
+  --branch-4: oklch(0.74 0.12 205);
+  --branch-5: oklch(0.64 0.17 258);
+  --branch-6: oklch(0.61 0.19 300);
+  --branch-grey: oklch(0.48 0 0);
   --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -6px rgb(0 0 0 / 0.5);
   --shadow-composer: 0 1px 2px rgb(0 0 0 / 0.2), 0 4px 16px -4px rgb(0 0 0 / 0.35);
   color-scheme: dark;

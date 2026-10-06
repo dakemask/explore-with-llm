@@ -8,11 +8,12 @@ import { archiveThread, sendMessage, stopGeneration } from '../../lib/chat'
 import { sideFallbackTitle } from '../../lib/naming'
 import type { ImageFile } from '../../lib/images'
 import { useAutoScroll } from '../../lib/hooks'
-import { busyIds, siblingsOf, threadPath, threadRoots } from '../../lib/tree'
+import { busyIds, threadPath, threadRoots } from '../../lib/tree'
 import { useUi, type SidePanel as SidePanelState } from '../../store/ui'
 import { Composer } from '../chat/Composer'
-import { MessageNode } from '../chat/MessageNode'
+import { MessageNode, Turn } from '../chat/MessageNode'
 import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
+import { useSiblings } from '../chat/SiblingSwitcher'
 import { useNodeActions } from '../chat/useNodeActions'
 import { IconButton } from '../ui/Button'
 import { Dots } from '../ui/Dots'
@@ -50,6 +51,7 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
 
   const scroll = useAutoScroll(panel.thread)
   const actions = useNodeActions(nodes, scroll.pin)
+  const siblings = useSiblings(path, nodes)
   const canSend = ready
 
   const asideRef = useRef<HTMLElement>(null)
@@ -108,20 +110,12 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
           {path.length === 0 ? (
             <p className="mt-2 px-4 text-center text-[13px] leading-relaxed text-faint">{t('side.draftHint')}</p>
           ) : (
-            <div className="space-y-8">
-              {path.map((n) => {
-                const sibs = siblingsOf(nodes ?? [], n)
-                return (
-                  <MessageNode
-                    key={n.id}
-                    node={n}
-                    branchIndex={sibs.indexOf(n)}
-                    branchCount={sibs.length}
-                    canSend={canSend}
-                    actions={actions}
-                  />
-                )
-              })}
+            <div>
+              {path.map((n, i) => (
+                <Turn key={n.id} first={i === 0}>
+                  <MessageNode node={n} siblings={siblings.get(n.id)} canSend={canSend} actions={actions} />
+                </Turn>
+              ))}
             </div>
           )}
         </div>

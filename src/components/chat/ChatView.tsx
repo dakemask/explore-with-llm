@@ -7,7 +7,8 @@ import { useT } from '../../i18n'
 import type { AnchorMark } from '../../lib/anchor'
 import { createConversation, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
-import { activePath, busyIds, isHidden, sideThreads, siblingsOf, threadPath } from '../../lib/tree'
+import { branchColors, parentColor } from '../../lib/colors'
+import { activePath, busyIds, isHidden, sideThreads, threadPath } from '../../lib/tree'
 import { useAutoScroll } from '../../lib/hooks'
 import { useUi, type Panel } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
@@ -15,8 +16,9 @@ import { Button } from '../ui/Button'
 import { Dots } from '../ui/Dots'
 import { sideFallbackTitle } from '../../lib/naming'
 import { Composer } from './Composer'
-import { DRAFT_PREFIX, MessageNode } from './MessageNode'
+import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
+import { useSiblings } from './SiblingSwitcher'
 import { useNodeActions } from './useNodeActions'
 
 export function ChatView() {
@@ -42,6 +44,8 @@ export function ChatView() {
     [nodes, conversation],
   )
   const busy = useMemo(() => busyIds(nodes ?? []), [nodes])
+  const colors = useMemo(() => branchColors(nodes ?? []), [nodes])
+  const siblings = useSiblings(path, nodes, colors)
   const last = path[path.length - 1]
   const generating = last?.attempt.status === 'streaming'
 
@@ -133,22 +137,19 @@ export function ChatView() {
               <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
             )
           ) : (
-            <div className="space-y-10">
-              {path.map((n) => {
-                const sibs = siblingsOf(nodes ?? [], n)
-                return (
+            <div>
+              {path.map((n, i) => (
+                <Turn key={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
                   <MessageNode
-                    key={n.id}
                     node={n}
-                    branchIndex={sibs.indexOf(n)}
-                    branchCount={sibs.length}
+                    siblings={siblings.get(n.id)}
                     canSend={canSend}
                     actions={actions}
                     anchors={anchors.get(n.id)}
                     busy={busy.has(n.id)}
                   />
-                )
-              })}
+                </Turn>
+              ))}
             </div>
           )}
         </div>
