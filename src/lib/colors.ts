@@ -3,9 +3,10 @@ import { childrenOf } from './tree'
 
 /**
  * Branch colors ("rainbow flow", see `docs/tree-preview.html`): 7 colors on a ring (red, orange, yellow, green,
- * cyan, blue, violet; CSS `--branch-0` … `--branch-6`), plus grey for attempts that have siblings.
+ * cyan, blue, violet; CSS `--branch-0` … `--branch-6`), plus grey for attempts.
  * Colors change only below forks (≥ 2 branches): there the branches take the next colors along the ring in
- * creation order (first = parent + 1, …). A branch not at a fork and a lone attempt keep the parent's color.
+ * creation order (first = parent + 1, …). A branch not at a fork keeps the parent's color. Attempts are always
+ * grey, a lone one too (owner, 2026-10-07; it was the parent's color, which made a fresh reply look settled).
  * Archived nodes don't count (they are skipped by `childrenOf`).
  */
 export const BRANCH_COLORS = 7
@@ -20,9 +21,7 @@ export function branchColors(nodes: ChatNode[]): Map<string, number> {
     let step = 0
     for (const n of kids) {
       const c = !n.branch
-        ? kids.length > 1
-          ? GREY
-          : parentColor
+        ? GREY
         : fork
           ? (parentColor + ++step) % BRANCH_COLORS
           : parentColor
