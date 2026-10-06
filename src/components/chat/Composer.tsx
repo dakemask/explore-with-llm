@@ -1,9 +1,10 @@
 import clsx from 'clsx'
-import { ArrowUp, Square } from 'lucide-react'
+import { ArrowUp, RotateCcw, Square } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useT } from '../../i18n'
 import { useAutosize } from '../../lib/hooks'
 import type { ImageFile } from '../../lib/images'
+import { Button } from '../ui/Button'
 import { AttachButton, AttachmentStrip, DropHint, useAttachments } from './Images'
 
 export function Composer({
@@ -17,6 +18,7 @@ export function Composer({
   initialImages,
   onLeave,
   dropTarget,
+  regenerate,
 }: {
   onSend: (text: string, images: ImageFile[]) => void
   onStop: () => void
@@ -32,6 +34,11 @@ export function Composer({
   onLeave?: (text: string, images: ImageFile[]) => void
   /** Where dropped image files are accepted (e.g. the whole chat column); the box itself by default. */
   dropTarget?: RefObject<HTMLElement | null>
+  /**
+   * The last turn has no reply (`lacksReply`): sending is blocked and a regenerate button sits above the
+   * box. `undefined` callback = shown but disabled (no model to send with).
+   */
+  regenerate?: { onClick?: () => void }
 }) {
   const t = useT()
   const [text, setText] = useState(initialText)
@@ -47,7 +54,7 @@ export function Composer({
   held.current = { text, images: attachments.images, onLeave }
   useEffect(() => () => held.current.onLeave?.(held.current.text, held.current.images), [])
 
-  const canSend = !disabled && !generating && (text.trim().length > 0 || attachments.images.length > 0)
+  const canSend = !disabled && !generating && !regenerate && (text.trim().length > 0 || attachments.images.length > 0)
   const submit = () => {
     if (!canSend) return
     onSend(text.trim(), attachments.images)
@@ -56,58 +63,68 @@ export function Composer({
   }
 
   return (
-    <div
-      ref={box}
-      className={clsx(
-        'relative rounded-2xl border border-border bg-surface shadow-composer transition-colors',
-        'focus-within:border-border-strong',
+    <>
+      {regenerate && (
+        <div className="mb-2.5 flex justify-center">
+          <Button size="sm" disabled={!regenerate.onClick} onClick={regenerate.onClick}>
+            <RotateCcw size={13} />
+            {t('msg.retry')}
+          </Button>
+        </div>
       )}
-    >
-      <DropHint show={attachments.dragging} className="rounded-2xl" />
-      <AttachmentStrip attachments={attachments} className="px-3.5 pt-3.5" />
-      <textarea
-        ref={ref}
-        rows={1}
-        value={text}
-        onFocus={(e) => {
-          const end = e.currentTarget.value.length
-          if (initialText && e.currentTarget.selectionStart === 0) e.currentTarget.setSelectionRange(end, end)
-        }}
-        onChange={(e) => setText(e.target.value)}
-        onPaste={attachments.onPaste}
-        // Nothing typed (empty, or still the starting text): Escape may close what holds the box.
-        data-pristine={(!attachments.images.length && (text === initialText || !text.trim())) || undefined}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault()
-            submit()
-          }
-        }}
-        placeholder={placeholder ?? t('chat.placeholder')}
-        className="block max-h-60 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-relaxed placeholder:text-faint focus:outline-none"
-      />
-      <div className="flex items-center gap-1 px-2.5 pb-2.5">
-        <AttachButton onFiles={attachments.add} />
-        <div className="min-w-0 flex-1">{leading}</div>
-        {generating ? (
-          <button
-            onClick={onStop}
-            aria-label={t('chat.stop')}
-            className="flex size-8 items-center justify-center rounded-full bg-text text-bg transition-opacity hover:opacity-80"
-          >
-            <Square size={12} fill="currentColor" />
-          </button>
-        ) : (
-          <button
-            onClick={submit}
-            disabled={!canSend}
-            aria-label={t('chat.send')}
-            className="flex size-8 items-center justify-center rounded-full bg-accent text-accent-fg transition-all hover:bg-accent-hover disabled:bg-subtle disabled:text-faint"
-          >
-            <ArrowUp size={17} strokeWidth={2.25} />
-          </button>
+      <div
+        ref={box}
+        className={clsx(
+          'relative rounded-2xl border border-border bg-surface shadow-composer transition-colors',
+          'focus-within:border-border-strong',
         )}
+      >
+        <DropHint show={attachments.dragging} className="rounded-2xl" />
+        <AttachmentStrip attachments={attachments} className="px-3.5 pt-3.5" />
+        <textarea
+          ref={ref}
+          rows={1}
+          value={text}
+          onFocus={(e) => {
+            const end = e.currentTarget.value.length
+            if (initialText && e.currentTarget.selectionStart === 0) e.currentTarget.setSelectionRange(end, end)
+          }}
+          onChange={(e) => setText(e.target.value)}
+          onPaste={attachments.onPaste}
+          // Nothing typed (empty, or still the starting text): Escape may close what holds the box.
+          data-pristine={(!attachments.images.length && (text === initialText || !text.trim())) || undefined}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              submit()
+            }
+          }}
+          placeholder={placeholder ?? t('chat.placeholder')}
+          className="block max-h-60 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-relaxed placeholder:text-faint focus:outline-none"
+        />
+        <div className="flex items-center gap-1 px-2.5 pb-2.5">
+          <AttachButton onFiles={attachments.add} />
+          <div className="min-w-0 flex-1">{leading}</div>
+          {generating ? (
+            <button
+              onClick={onStop}
+              aria-label={t('chat.stop')}
+              className="flex size-8 items-center justify-center rounded-full bg-text text-bg transition-opacity hover:opacity-80"
+            >
+              <Square size={12} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              onClick={submit}
+              disabled={!canSend}
+              aria-label={t('chat.send')}
+              className="flex size-8 items-center justify-center rounded-full bg-accent text-accent-fg transition-all hover:bg-accent-hover disabled:bg-subtle disabled:text-faint"
+            >
+              <ArrowUp size={17} strokeWidth={2.25} />
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

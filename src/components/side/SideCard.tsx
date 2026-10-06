@@ -2,7 +2,7 @@ import { Archive, ChevronsDownUp } from 'lucide-react'
 import { useMemo, type RefObject } from 'react'
 import type { ChatNode, Conversation } from '../../db'
 import { useT } from '../../i18n'
-import { archiveThread, sendMessage, stopGeneration } from '../../lib/chat'
+import { archiveThread, lacksReply, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { useAutoScroll } from '../../lib/hooks'
 import { busyIds, threadRoots } from '../../lib/tree'
@@ -137,6 +137,7 @@ export function SideCard({
           onLeave={draft && !root ? (text, images) => saveDraft(thread, text, images) : undefined}
           leading={<ModelControls />}
           dropTarget={dropTarget}
+          regenerate={lacksReply(last) ? { onClick: ready ? () => actions.retry(last) : undefined } : undefined}
         />
       </div>
     </>

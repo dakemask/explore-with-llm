@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent,
 import { db } from '../../db'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
-import { createConversation, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
+import { createConversation, lacksReply, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { branchColors, parentColor } from '../../lib/colors'
 import { columnFrame } from '../../lib/column'
@@ -322,6 +322,7 @@ export function ChatView() {
             generating={generating}
             disabled={!canSend}
             leading={<ModelControls />}
+            regenerate={lacksReply(last) ? { onClick: canSend ? () => actions.retry(last) : undefined } : undefined}
           />
         </div>
       </div>

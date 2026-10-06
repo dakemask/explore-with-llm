@@ -396,6 +396,14 @@ export function stopGeneration(nodeId: string) {
   controllers.get(nodeId)?.abort()
 }
 
+/**
+ * The node finished without reply text (failed, stopped early, reasoning only). Nothing can follow it:
+ * its user message would go out with no answer after it, so the composer offers a regenerate instead.
+ */
+export function lacksReply(node: ChatNode | undefined): node is ChatNode {
+  return !!node && node.attempt.status !== 'streaming' && !node.assistant.content.trim()
+}
+
 export interface ReplyVersion {
   content: string
   at: number
