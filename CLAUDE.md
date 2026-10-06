@@ -154,7 +154,26 @@ multi-line paragraph — that can land between lines and select nothing (no pill
 7. Polish (started 2026-10-07): Claude reviewed the whole UI in the browser and listed issues; fixed so far: plain-text titles / tips (`plainLine`), tree map "当前" pill placement, Escape in an untouched side-card box, the no-reply-text rule + composer regenerate, error-box Retry removed, editing failed replies.
    - Fixed: scroll stability (see Product decisions › Scrolling; reworked into one rule set after the owner found streaming jumps), sticky reasoning toggle without an inner scroll box, no automatic folding, edit and detail dialogs, fixed-height side cards (was parked (a)), unfolding reasoning after a retry no longer jumps to the end (clicks on content no longer count as scrolling; toggle / switcher clicks stop following).
    - Lesson (owner raised "fixing things one at a time"): the first scroll fix added mechanisms that triggered each other while streaming. Scrolling now has one owner (`useAutoScroll`) and a regression suite (`scripts/browser/scroll-suite.mjs`); extend the suite with every scroll bug the owner reports.
-   - Parked by the owner ("later, will discuss"): every conversation's first turn bar is red (ring starts at red), which reads like an error — options were starting the ring elsewhere or softening the bar. Don't change it until the owner brings it up.
+   - Parked by the owner ("later, will discuss"): every conversation's first turn bar is red (ring starts at red), which reads like an error — options were starting the ring elsewhere or softening the bar. Don't change it until the owner brings it up. (Since attempts are always grey, a lone first turn now shows a red → grey gradient at its top.)
+   - Fixed after a review of why step 6 + 7 had many bugs (2026-10-07): conversation data read as one snapshot (`useConversationData`; switching flashed another conversation's dots / path), streamed text dropped only after the stored reply arrives (a frame of empty reply at the end of a stream).
+
+8. **Next (agreed with the owner 2026-10-07, in this order; no new features queued):**
+   1. **Foundation pass.** Check each concern several features share and give each one owner, first looking for a mature library (prefer what's installed):
+      - Escape / outside-click layering: the tree map panel (`TreeMap.tsx`) and the expanded side card (`useSideQuestions.tsx`) hand-roll Escape and outside clicks; rebuild them on Radix's dismissable layers (Popover etc., already installed) so the topmost layer handles them, like Dialog / Menu already do.
+      - Floating positions: the selection pill / overlap picker (`SelectionAsk.tsx`) compute their own positions; use Radix Popover (Floating UI inside) with a virtual anchor.
+      - Scrolling: try `use-stick-to-bottom` against `scripts/browser/scroll-suite.mjs`; adopt only if it cleanly covers our rules (holds, blank instead of pulling up, sticky reasoning toggle) — two mechanisms side by side is what broke scrolling before; otherwise keep `useAutoScroll`.
+      - Focus after closing a dialog / card, clearing transient UI state on conversation switch (expanded card, drafts, tree map, dialogs — now cleared in several places), layout widths: check each, unify where it pays.
+      - Not changing: tree map layout (classic tidy algorithm, tested; d3-hierarchy only if the map grows), side-column layout math (our own design, no library fits), Dexie / Zustand (already libraries).
+   2. **Owner decides** (after 1): softening the color bar, the red first turn, the names 尝试 / 分支 / 归档.
+   3. **Fresh walk-through** in the browser of the whole UI → a new polish list (step 7's original list wasn't kept, so what's left of it is unknown).
+   - Way of working (owner's lessons from step 6): one step at a time with the owner trying it before the next, even with subagents; briefs for anything touching the shared concerns above must say "only through its owner" and include scenarios where features act together (streaming + switching + cards); review in motion, not just screenshots. Before a big feature, walk through failure / empty / streaming / Escape cases with the owner.
+
+## Engineering principles
+
+- Before writing anything general-purpose, look for a mature library (installed ones first, e.g. Radix for overlays). Write our own only where nothing fits, and say why here. (Owner: "borrow predecessors' wisdom, don't reinvent wheels".)
+- One owner per shared concern (data reads: `useConversationData`; scrolling: `useAutoScroll`; next: dismiss layering). No second mechanism beside it.
+- Derive, don't store a second copy (colors are computed from the tree; the streamed-text race came from two copies of the same text).
+- Tests guard the rules of these foundations (e.g. the scroll suite), not one test per reported bug.
 
 ## Not yet verified against real APIs
 
