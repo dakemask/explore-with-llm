@@ -138,14 +138,3 @@ export function jumpSelection(nodes: ChatNode[], unit: MapUnit, selectedChild: C
   for (const n of pathTo(nodes, target.id)) selection[forkKey(n)] = n.id
   return { target, selection }
 }
-
-/** First non-empty line of a message for the hover tip, headings' `#` dropped, cut to `max` chars. */
-export function firstLine(text: string, max = 40): string {
-  const line =
-    text
-      .split('\n')
-      .find((l) => l.trim())
-      ?.trim()
-      .replace(/^#+\s*/, '') ?? ''
-  return line.length > max ? line.slice(0, max) + '…' : line
-}

@@ -346,14 +346,29 @@ export function rangeToSource(root: HTMLElement, range: Range, source: string): 
   return end > start ? { start, end } : null
 }
 
-/** Quoted Markdown made readable (drops emphasis/code markers and line prefixes, keeps math). */
+/** Quoted Markdown made readable (drops emphasis/code/link markers and line prefixes, keeps math). */
 export function plainQuote(md: string) {
   return md
     .split('\n')
     .filter((l) => !/^\s*(```|~~~)/.test(l))
     .map((l) => l.replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)/, ''))
     .join('\n')
-    .replace(/\*\*|`+/g, '')
+    .replace(/!?\[([^\]\n]*)\]\([^)\n]*\)/g, '$1')
+    .replace(/\*\*|~~|`+/g, '')
+    .replace(/(^|[^\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])/g, '$1$2')
+}
+
+/**
+ * The first line of Markdown that has text, as plain text, cut to `max` chars. `skipQuotes` passes over
+ * `>` lines (a side question's own words come after its quote).
+ */
+export function plainLine(md: string, max = 40, { skipQuotes = false } = {}) {
+  for (const l of md.split('\n')) {
+    if (skipQuotes && l.trimStart().startsWith('>')) continue
+    const line = plainQuote(l).trim()
+    if (line) return line.length > max ? line.slice(0, max) + '…' : line
+  }
+  return ''
 }
 
 /** Starting text of a side question's input: the quote as a Markdown blockquote, then a blank line. */

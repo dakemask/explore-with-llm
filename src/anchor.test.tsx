@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Markdown } from './components/chat/Markdown'
 import type { ChatNode } from './db/types'
-import { normalizeMathMapped, quoteForInput, type AnchorMark } from './lib/anchor'
+import { normalizeMathMapped, plainLine, quoteForInput, type AnchorMark } from './lib/anchor'
 import { db } from './db'
 import { buildMessages, editAssistant, replyVersions } from './lib/chat'
 import { activePath, forkKey, siblingsOf, sideThreads, threadPath } from './lib/tree'
@@ -26,6 +26,18 @@ describe('normalizeMathMapped', () => {
     expect(src[map[text.indexOf('x')]]).toBe('x')
     expect(src[map[text.indexOf('y')]]).toBe('y')
     expect(src.slice(map[text.indexOf(' c')])).toBe(' c')
+  })
+})
+
+describe('plainLine', () => {
+  it('takes the first line with text, Markdown markers dropped', () => {
+    expect(plainLine('\n## Title here\nmore')).toBe('Title here')
+    expect(plainLine('x'.repeat(50))).toBe('x'.repeat(40) + '…')
+    expect(plainLine('Explain **binary search** and `bisect`')).toBe('Explain binary search and bisect')
+    expect(plainLine('see [the docs](https://x.y) and *this* ~~not~~')).toBe('see the docs and this not')
+    expect(plainLine('a * b * c, $a*b*c$')).toBe('a * b * c, $a*b*c$')
+    expect(plainLine('```python\ndef f(): pass\n```')).toBe('def f(): pass')
+    expect(plainLine('> quote\n\nown words', 40, { skipQuotes: true })).toBe('own words')
   })
 })
 

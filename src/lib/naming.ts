@@ -4,6 +4,7 @@ import { modelParams, prepareChat, ProviderError, sendChat } from '../providers'
 import { namingParamKey, useSettings } from '../store/settings'
 import { useUi } from '../store/ui'
 import { notifyError } from '../components/ui/Toast'
+import { plainLine, plainQuote } from './anchor'
 import { splitThink } from './reasoning'
 import { pathTo } from './tree'
 
@@ -85,17 +86,17 @@ export async function afterReply(nodeId: string) {
   }
 }
 
-/** Title used until (or instead of) a model-made one: the message's first line, or "Image" for an image-only one. */
+/** Title used until (or instead of) a model-made one: the message's first line as plain text, or "Image" for an image-only one. */
 export function fallbackTitle(text: string, images: number, lang: Lang) {
-  const line = text.trim().split('\n')[0]
-  if (line) return line.length > 40 ? line.slice(0, 40) + '…' : line
+  const line = plainLine(text)
+  if (line) return line
   return images ? translate(lang, 'chat.imageTitle') : ''
 }
 
 /** A side question's title until the model names it: its first line that isn't part of the quote, else the quoted text. */
 export function sideFallbackTitle(root: Pick<ChatNode, 'user'> | undefined, anchorText: string) {
-  const own = root?.user.text.split('\n').find((l) => l.trim() && !l.trimStart().startsWith('>'))?.trim()
-  return own || anchorText.replace(/\s+/g, ' ').trim()
+  const own = root && plainLine(root.user.text, Infinity, { skipQuotes: true })
+  return own || plainQuote(anchorText).replace(/\s+/g, ' ').trim()
 }
 
 const language = (lang: Lang) => (lang === 'zh' ? '简体中文' : 'English')

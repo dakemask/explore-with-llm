@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useId, useMemo, useRef } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
+import { plainLine } from '../../lib/anchor'
 import { colorVar, GREY } from '../../lib/colors'
 import { siblingsOf } from '../../lib/tree'
 import { IconButton, Tip } from '../ui/Button'
@@ -32,7 +33,7 @@ export function useSiblings(path: ChatNode[], nodes: ChatNode[] | undefined, col
       if (sibs.length < 2) continue
       // Retries share the user text, so the reply's opening tells them apart.
       const title = (s: ChatNode) => {
-        const reply = firstLine(s.assistant.content.replace(/^#+\s*/gm, ''))
+        const reply = firstLine(s.assistant.content)
         return (firstLine(s.user.text) || t('image.only')) + (reply ? ' → ' + reply : '')
       }
       const side = n.kind === 'side'
@@ -52,10 +53,7 @@ export function useSiblings(path: ChatNode[], nodes: ChatNode[] | undefined, col
   }, [path, nodes, colors, t])
 }
 
-function firstLine(text: string) {
-  const line = text.split('\n').find((l) => l.trim())?.trim() ?? ''
-  return line.length > 30 ? line.slice(0, 30) + '…' : line
-}
+const firstLine = (text: string) => plainLine(text, 30)
 
 /**
  * The versions at a node's fork, at the right end of its reply footer. Main nodes: one dot per branch in

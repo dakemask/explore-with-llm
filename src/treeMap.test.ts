@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ROOT_KEY, type ChatNode } from './db'
-import { currentUnit, firstLine, jumpSelection, layoutTree, routeTo, type TreeLayout } from './lib/treeMap'
+import { currentUnit, jumpSelection, layoutTree, routeTo, type TreeLayout } from './lib/treeMap'
 
 let clock = 0
 function node(id: string, parentId: string | null, extra: Partial<ChatNode> = {}): ChatNode {
@@ -146,10 +146,5 @@ describe('tree map current marker and jumps', () => {
     expect(jumpSelection(nodes, stack, { c: 'r1' }).target.id).toBe('r1')
     expect(jumpSelection(nodes, stack, {}).target.id).toBe('r2')
     expect(jumpSelection(nodes, stack, { c: 'gone' }).selection.c).toBe('r2')
-  })
-
-  it('takes the first line for tips', () => {
-    expect(firstLine('\n## Title here\nmore')).toBe('Title here')
-    expect(firstLine('x'.repeat(50))).toBe('x'.repeat(40) + '…')
   })
 })

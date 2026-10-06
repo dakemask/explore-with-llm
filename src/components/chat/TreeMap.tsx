@@ -14,7 +14,8 @@ import {
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { branchColors, colorVar } from '../../lib/colors'
-import { currentUnit, firstLine, layoutTree, routeTo, type MapUnit } from '../../lib/treeMap'
+import { plainLine } from '../../lib/anchor'
+import { currentUnit, layoutTree, routeTo, type MapUnit } from '../../lib/treeMap'
 
 const GX = 34
 const GY = 22
@@ -207,7 +208,7 @@ export function TreeMap({
     const n = u.nodes[0]
     return u.type === 'stack'
       ? t('tree.stack', { n: u.col + 1, m: u.nodes.length })
-      : `${t('tree.turn', { n: u.col + 1 })} ${firstLine(n.user.text) || t('image.only')}`
+      : `${t('tree.turn', { n: u.col + 1 })} ${plainLine(n.user.text) || t('image.only')}`
   }
   const litIds = lit ? new Map(lit.route.map((id, i) => [id, lit.delays[i]])) : undefined
   const currentLabel = t('tree.current')
@@ -329,7 +330,7 @@ export function TreeMap({
 function TreeTip({ unit, ref }: { unit: MapUnit; ref: Ref<HTMLDivElement> }) {
   const t = useT()
   const n = unit.nodes[0]
-  const reply = firstLine(n.assistant.content)
+  const reply = plainLine(n.assistant.content)
   return (
     <div
       ref={ref}
@@ -340,7 +341,7 @@ function TreeTip({ unit, ref }: { unit: MapUnit; ref: Ref<HTMLDivElement> }) {
       ) : (
         <>
           <div className="font-medium">{t('tree.turn', { n: unit.col + 1 })}</div>
-          <div className="truncate">{firstLine(n.user.text) || t('image.only')}</div>
+          <div className="truncate">{plainLine(n.user.text) || t('image.only')}</div>
           {reply && <div className="truncate text-muted">{reply}</div>}
         </>
       )}

@@ -3,6 +3,7 @@ import { Archive, RotateCcw, Trash2 } from 'lucide-react'
 import { useMemo } from 'react'
 import { db, type ChatNode, type Conversation, type Note } from '../../db'
 import { useT } from '../../i18n'
+import { plainLine } from '../../lib/anchor'
 import { deleteArchived, restoreArchived } from '../../lib/chat'
 import { deleteNote, noteTitle, restoreNote } from '../../lib/notes'
 import { sideFallbackTitle } from '../../lib/naming'
@@ -148,10 +149,6 @@ function Row({
   )
 }
 
-const firstLine = (text: string) =>
-  text
-    .split('\n')
-    .find((l) => l.trim() && !l.trimStart().startsWith('>'))
-    ?.trim() ?? ''
+const firstLine = (text: string) => plainLine(text, Infinity, { skipQuotes: true })
 
 const short = (s: string) => (s.length > 18 ? s.slice(0, 18) + '…' : s)
