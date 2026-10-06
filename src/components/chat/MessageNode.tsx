@@ -100,7 +100,7 @@ export const MessageNode = memo(function MessageNode({
         ) : (
           streaming && !hasReasoning(thinking) && <TypingDots since={node.attempt.startedAt} />
         )}
-        {errorBox && <ErrorBox node={node} onRetry={retry} onDetail={toggleDetail} switcher={!editing && switcher} />}
+        {errorBox && <ErrorBox node={node} onDetail={toggleDetail} switcher={!editing && switcher} />}
         {streaming ? (
           // While streaming only the switcher shows (the reply's actions come once it's done).
           switcher && <div className="mt-2 flex h-7 items-center justify-end">{switcher}</div>
@@ -357,12 +357,10 @@ function TypingDots({ since }: { since: number }) {
 
 function ErrorBox({
   node,
-  onRetry,
   onDetail,
   switcher,
 }: {
   node: ChatNode
-  onRetry?: () => void
   onDetail: () => void
   switcher?: ReactNode
 }) {
@@ -383,12 +381,6 @@ function ErrorBox({
         <Button size="sm" variant="ghost" onClick={onDetail}>
           {t('detail.openShort')}
         </Button>
-        {onRetry && (
-          <Button size="sm" onClick={onRetry}>
-            <RotateCcw size={13} />
-            {t('msg.retryShort')}
-          </Button>
-        )}
         {switcher && (
           <>
             <span className="mx-0.5 h-4 w-px bg-danger/20" />
