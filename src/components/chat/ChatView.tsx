@@ -1,13 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { KeyRound, Sparkles } from 'lucide-react'
 import { nanoid } from 'nanoid'
-import { useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { db, type ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import type { AnchorMark } from '../../lib/anchor'
 import { createConversation, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
-import { activePath, sideThreads, siblingsOf, threadPath } from '../../lib/tree'
+import { activePath, busyIds, isHidden, sideThreads, siblingsOf, threadPath } from '../../lib/tree'
 import { useAutoScroll } from '../../lib/hooks'
 import { useUi, type Panel } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
@@ -41,10 +41,16 @@ export function ChatView() {
     () => (nodes && conversation ? activePath(nodes, conversation.selectedChild) : []),
     [nodes, conversation],
   )
+  const busy = useMemo(() => busyIds(nodes ?? []), [nodes])
   const last = path[path.length - 1]
   const generating = last?.attempt.status === 'streaming'
 
   const canSend = ready
+
+  // What the panel shows was archived (or sits under something archived): close it.
+  useEffect(() => {
+    if (nodes && panel && isHidden(nodes, panel.nodeId)) setPanel(null)
+  }, [nodes, panel, setPanel])
 
   /** A new node always ends the active path, so keep the view pinned to the bottom. */
   const send = async (parentId: string | null, text: string, images: ImageFile[]) => {
@@ -139,6 +145,7 @@ export function ChatView() {
                     canSend={canSend}
                     actions={actions}
                     anchors={anchors.get(n.id)}
+                    busy={busy.has(n.id)}
                   />
                 )
               })}

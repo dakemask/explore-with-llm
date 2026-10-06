@@ -1,21 +1,20 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Trash2, X } from 'lucide-react'
+import { Archive, X } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { db } from '../../db'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
-import { deleteThread, sendMessage, stopGeneration } from '../../lib/chat'
+import { archiveThread, sendMessage, stopGeneration } from '../../lib/chat'
 import { sideFallbackTitle } from '../../lib/naming'
 import type { ImageFile } from '../../lib/images'
 import { useAutoScroll } from '../../lib/hooks'
-import { siblingsOf, threadPath } from '../../lib/tree'
+import { busyIds, siblingsOf, threadPath, threadRoots } from '../../lib/tree'
 import { useUi, type SidePanel as SidePanelState } from '../../store/ui'
 import { Composer } from '../chat/Composer'
 import { MessageNode } from '../chat/MessageNode'
 import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
 import { useNodeActions } from '../chat/useNodeActions'
 import { IconButton } from '../ui/Button'
-import { confirmDialog } from '../ui/Dialog'
 import { Dots } from '../ui/Dots'
 
 /** Right-hand panel for one side-question thread: the quoted text, its messages, and a composer. */
@@ -68,10 +67,15 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
     })
   }
 
-  const remove = async () => {
-    if (!conversationId || !(await confirmDialog(t('side.deleteConfirm'), { danger: true }))) return
+  // Reversible (restored from the archive dialog), so no confirmation.
+  const busy = useMemo(() => {
+    const ids = busyIds(nodes ?? [])
+    return threadRoots(nodes ?? [], panel.thread).some((r) => ids.has(r.id))
+  }, [nodes, panel.thread])
+  const archive = async () => {
+    if (!conversationId || busy) return
     setPanel(null)
-    await deleteThread(conversationId, panel.thread)
+    await archiveThread(conversationId, panel.thread)
   }
 
   return (
@@ -84,8 +88,14 @@ export function SidePanel({ panel }: { panel: SidePanelState }) {
           <div className="text-[11px] leading-4 text-faint">{t('side.title')}</div>
         </div>
         {root && (
-          <IconButton label={t('side.delete')} size="sm" onClick={remove}>
-            <Trash2 size={15} />
+          <IconButton
+            label={busy ? t('archive.busy') : t('side.archive')}
+            size="sm"
+            aria-disabled={busy}
+            className={busy ? 'cursor-default opacity-40 hover:bg-transparent hover:text-muted' : undefined}
+            onClick={archive}
+          >
+            <Archive size={15} />
           </IconButton>
         )}
         <IconButton label={t('common.close')} size="sm" onClick={() => setPanel(null)}>

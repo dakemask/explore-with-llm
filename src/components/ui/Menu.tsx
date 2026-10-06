@@ -1,6 +1,6 @@
 import * as DM from '@radix-ui/react-dropdown-menu'
 import clsx from 'clsx'
-import type { ReactNode } from 'react'
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
 
 export const MenuRoot = DM.Root
 export const MenuTrigger = DM.Trigger
@@ -31,33 +31,37 @@ export function MenuContent({
   )
 }
 
-export function MenuItem({
-  children,
-  onSelect,
-  icon,
-  danger,
-  selected,
-}: {
-  children: ReactNode
-  onSelect: () => void
-  icon?: ReactNode
-  danger?: boolean
-  selected?: boolean
-}) {
+/** A menu entry. Forwards its ref and extra props, so it can sit inside a `Tip` (e.g. to explain why it's disabled). */
+export const MenuItem = forwardRef<
+  HTMLDivElement,
+  {
+    children: ReactNode
+    onSelect: () => void
+    icon?: ReactNode
+    danger?: boolean
+    selected?: boolean
+    disabled?: boolean
+  } & Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'>
+>(function MenuItem({ children, onSelect, icon, danger, selected, disabled, className, ...rest }, ref) {
   return (
     <DM.Item
+      ref={ref}
+      {...rest}
       onSelect={onSelect}
+      disabled={disabled}
       className={clsx(
         'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] outline-none select-none',
         danger ? 'text-danger data-highlighted:bg-danger-soft' : 'text-text data-highlighted:bg-hover',
         selected && 'font-medium text-accent',
+        'data-disabled:cursor-default data-disabled:opacity-40',
+        className,
       )}
     >
       {icon && <span className="flex size-4 items-center justify-center opacity-80">{icon}</span>}
       <span className="min-w-0 flex-1 truncate">{children}</span>
     </DM.Item>
   )
-}
+})
 
 export function MenuLabel({ children }: { children: ReactNode }) {
   return <DM.Label className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-faint uppercase">{children}</DM.Label>

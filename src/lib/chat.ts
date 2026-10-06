@@ -18,7 +18,7 @@ import { loadPayloads, maskImages, pruneImages, saveImages, type ImageFile } fro
 import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
 import { afterReply, fallbackTitle, namingModel, needsName, titleKey } from './naming'
-import { forkKey, pathTo } from './tree'
+import { childrenOf, forkKey, pathTo, subtreeIds } from './tree'
 
 const controllers = new Map<string, AbortController>()
 
@@ -157,6 +157,8 @@ export async function sendMessage(opts: {
   if (naming) useUi.getState().setNaming(titleFor, true)
   await db.transaction('rw', db.nodes, db.conversations, async () => {
     await db.nodes.add(node)
+    // A follow-up or a side question makes the main node it was sent from a branch.
+    if (parentId && (!side || side.anchor)) await db.nodes.update(parentId, { branch: true })
     await db.conversations.update(conversationId, {
       updatedAt: now,
       title: conv.title || (naming ? '' : fallbackTitle(text, images.length, useSettings.getState().lang)),
@@ -279,20 +281,69 @@ export async function selectBranch(conversationId: string, key: string | null, n
   await db.conversations.update(conversationId, { [`selectedChild.${key ?? ROOT_KEY}`]: nodeId })
 }
 
-/** Deletes a side question with all its versions and follow-ups, which unlocks its anchored text. */
-export async function deleteThread(conversationId: string, thread: string) {
-  await db.transaction('rw', db.conversations, db.nodes, db.images, async () => {
-    const nodes = (await db.nodes.where('conversationId').equals(conversationId).toArray()).filter(
-      (n) => n.thread === thread,
-    )
-    for (const n of nodes) controllers.get(n.id)?.abort()
-    await db.nodes.bulkDelete(nodes.map((n) => n.id))
+/** Turns an attempt into a branch (by hand). Never undone. */
+export async function makeBranch(nodeId: string) {
+  await db.nodes.update(nodeId, { branch: true })
+}
+
+/** Archives a main node (with everything below it, which stays unmarked but hidden). */
+export async function archiveNode(nodeId: string) {
+  await db.nodes.update(nodeId, { archived: Date.now() })
+}
+
+/** Archives a side question as a whole: every root version of `thread`, with the same time. */
+export async function archiveThread(conversationId: string, thread: string) {
+  const at = Date.now()
+  await db.nodes
+    .where('conversationId')
+    .equals(conversationId)
+    .filter((n) => n.thread === thread && !!n.anchor)
+    .modify({ archived: at })
+}
+
+/**
+ * Restores an archive entry (`ArchivedItem.nodes`): they return to whatever kind they had. What's shown at
+ * the restored node's fork is pinned first, so restoring never switches the view.
+ */
+export async function restoreArchived(conversationId: string, nodeIds: string[]) {
+  await db.transaction('rw', db.conversations, db.nodes, async () => {
     const conv = await db.conversations.get(conversationId)
-    if (!conv) return
-    const gone = new Set([thread, ...nodes.map((n) => n.id)])
-    const selectedChild = Object.fromEntries(Object.entries(conv.selectedChild).filter(([k]) => !gone.has(k)))
-    const { [thread]: _, ...threadTitles } = conv.threadTitles ?? {}
-    await db.conversations.update(conversationId, { selectedChild, threadTitles })
+    const first = await db.nodes.get(nodeIds[0])
+    if (conv && first && first.kind === 'main') {
+      const nodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
+      const key = forkKey(first)
+      const kids = childrenOf(nodes, first.parentId)
+      const shown = kids.find((k) => k.id === conv.selectedChild[key]) ?? kids[kids.length - 1]
+      if (shown) await db.conversations.update(conversationId, { [`selectedChild.${key}`]: shown.id })
+    }
+    await db.nodes
+      .where(':id')
+      .anyOf(nodeIds)
+      .modify((n) => {
+        delete n.archived
+      })
+  })
+}
+
+/**
+ * Deletes an archive entry forever: `nodeIds` and everything below them (main nodes, side threads, archived
+ * or not), the remembered selections and titles of what's gone, and images nothing refers to any more.
+ */
+export async function deleteArchived(conversationId: string, nodeIds: string[]) {
+  await db.transaction('rw', db.conversations, db.nodes, db.images, async () => {
+    const nodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
+    const ids = subtreeIds(nodes, nodeIds)
+    for (const id of ids) controllers.get(id)?.abort()
+    await db.nodes.bulkDelete([...ids])
+    const conv = await db.conversations.get(conversationId)
+    if (conv) {
+      const threads = new Set(nodes.flatMap((n) => (ids.has(n.id) && n.thread ? [n.thread] : [])))
+      const selectedChild = Object.fromEntries(
+        Object.entries(conv.selectedChild).filter(([k, v]) => !ids.has(k) && !ids.has(v) && !threads.has(k)),
+      )
+      const threadTitles = Object.fromEntries(Object.entries(conv.threadTitles ?? {}).filter(([k]) => !threads.has(k)))
+      await db.conversations.update(conversationId, { selectedChild, threadTitles })
+    }
     await pruneImages(conversationId)
   })
 }

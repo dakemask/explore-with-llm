@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Download, FileUp, MoreHorizontal, Pencil, Settings, SquarePen, Trash2 } from 'lucide-react'
-import { useRef } from 'react'
+import { Archive, Download, FileUp, MoreHorizontal, Pencil, Settings, SquarePen, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { db, type Conversation } from '../../db'
 import { useT } from '../../i18n'
 import { deleteConversation, renameConversation } from '../../lib/chat'
@@ -12,6 +12,7 @@ import { Dots } from '../ui/Dots'
 import { confirmDialog, promptDialog } from '../ui/Dialog'
 import { notifyError } from '../ui/Toast'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
+import { ArchiveDialog } from './ArchiveDialog'
 
 export function Sidebar() {
   const t = useT()
@@ -127,6 +128,7 @@ function ConversationItem({
 }) {
   const t = useT()
   const naming = useUi((s) => !!s.naming[conv.id])
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const rename = async () => {
     const title = await promptDialog(t('conv.rename'), conv.title)
     if (title?.trim()) await renameConversation(conv.id, title.trim())
@@ -170,11 +172,15 @@ function ConversationItem({
           <MenuItem icon={<Download size={14} />} onSelect={exportIt}>
             {t('conv.export')}
           </MenuItem>
+          <MenuItem icon={<Archive size={14} />} onSelect={() => setArchiveOpen(true)}>
+            {t('conv.archive')}
+          </MenuItem>
           <MenuItem icon={<Trash2 size={14} />} danger onSelect={remove}>
             {t('conv.delete')}
           </MenuItem>
         </MenuContent>
       </MenuRoot>
+      <ArchiveDialog conversation={conv} open={archiveOpen} onOpenChange={setArchiveOpen} />
     </li>
   )
 }

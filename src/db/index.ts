@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import { deriveBranches } from '../lib/tree'
 import type { ChatNode, Conversation, ModelConfig, Provider, StoredImage } from './types'
 
 export const db = new Dexie('explore-with-llm') as Dexie & {
@@ -67,6 +68,20 @@ db.version(4).stores({
   nodes: 'id, conversationId, parentId',
   images: 'id, conversationId',
 })
+
+// v5: node kinds. Main nodes that already have a follow-up or a side question become branches.
+db.version(5)
+  .stores({
+    providers: 'id, createdAt',
+    conversations: 'id, updatedAt',
+    nodes: 'id, conversationId, parentId',
+    images: 'id, conversationId',
+  })
+  .upgrade(async (tx) => {
+    const nodes = (await tx.table('nodes').toArray()) as ChatNode[]
+    const changed = deriveBranches(nodes).filter((n, i) => n !== nodes[i])
+    if (changed.length) await tx.table('nodes').bulkPut(changed)
+  })
 
 /** Requests can't survive a reload; mark anything left streaming as aborted. */
 export async function recoverInterruptedNodes() {

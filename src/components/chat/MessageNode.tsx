@@ -1,16 +1,17 @@
 import clsx from 'clsx'
-import { AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, Info, Lock, Pencil, RotateCcw } from 'lucide-react'
+import { Archive, AlertCircle, Brain, Check, ChevronLeft, ChevronRight, Copy, GitBranch, Info, Lock, MoreHorizontal, Pencil, RotateCcw } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { useAutosize, useCopy } from '../../lib/hooks'
 import type { AnchorMark } from '../../lib/anchor'
-import { editAssistant } from '../../lib/chat'
+import { archiveNode, editAssistant, makeBranch } from '../../lib/chat'
 import { useStoredImages, type ImageFile } from '../../lib/images'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
 import { useUi } from '../../store/ui'
 import { Button, IconButton, Tip } from '../ui/Button'
 import { Dots } from '../ui/Dots'
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
 import { AssistantEditor } from './AssistantEditor'
 import { AttachButton, AttachmentStrip, DropHint, MessageImages, useAttachments } from './Images'
 import { Markdown } from './Markdown'
@@ -29,6 +30,7 @@ export const MessageNode = memo(function MessageNode({
   canSend,
   actions,
   anchors,
+  busy,
 }: {
   node: ChatNode
   /** Position among the sibling versions at this fork (0-based). */
@@ -41,6 +43,8 @@ export const MessageNode = memo(function MessageNode({
    * questions (the root carries `data-anchor-root`).
    */
   anchors?: AnchorMark[]
+  /** A reply is streaming in this node or below it (it can't be archived now). */
+  busy?: boolean
 }) {
   const live = useUi((s) => s.live[node.id])
   const streaming = node.attempt.status === 'streaming'
@@ -106,6 +110,7 @@ export const MessageNode = memo(function MessageNode({
             onEdit={content ? () => setEditing(true) : undefined}
             detailOpen={detailOpen}
             onDetail={toggleDetail}
+            busy={!!busy}
           />
         )}
       </div>
@@ -364,6 +369,7 @@ function AssistantFooter({
   onEdit,
   detailOpen,
   onDetail,
+  busy,
 }: {
   node: ChatNode
   content: string
@@ -371,9 +377,11 @@ function AssistantFooter({
   onEdit?: () => void
   detailOpen: boolean
   onDetail: () => void
+  busy: boolean
 }) {
   const t = useT()
   const { copied, copy } = useCopy()
+  const [menuOpen, setMenuOpen] = useState(false)
   const tags = [
     node.attempt.status === 'aborted' && !node.edit && t('msg.aborted'),
     node.edit && t('msg.edited'),
@@ -389,7 +397,7 @@ function AssistantFooter({
       <div
         className={clsx(
           'flex items-center gap-1 transition-opacity group-hover/assistant:opacity-100 focus-within:opacity-100',
-          !detailOpen && 'opacity-0',
+          !detailOpen && !menuOpen && 'opacity-0',
         )}
       >
         {content && (
@@ -411,6 +419,34 @@ function AssistantFooter({
           <Info size={14} />
         </IconButton>
         <span className="ml-1">{node.attempt.model}</span>
+        {/* Side-thread nodes have no menu: a side question is archived as a whole from its panel. */}
+        {node.kind === 'main' && (
+          <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
+            <MenuTrigger asChild>
+              <IconButton label={t('msg.more')} size="sm" active={menuOpen} className="ml-1">
+                <MoreHorizontal size={15} />
+              </IconButton>
+            </MenuTrigger>
+            <MenuContent align="end">
+              {!node.branch && (
+                <MenuItem icon={<GitBranch size={14} />} onSelect={() => void makeBranch(node.id)}>
+                  {t('msg.makeBranch')}
+                </MenuItem>
+              )}
+              {busy ? (
+                <Tip content={t('archive.busy')}>
+                  <MenuItem icon={<Archive size={14} />} disabled onSelect={() => {}}>
+                    {t('msg.archive')}
+                  </MenuItem>
+                </Tip>
+              ) : (
+                <MenuItem icon={<Archive size={14} />} onSelect={() => void archiveNode(node.id)}>
+                  {t('msg.archive')}
+                </MenuItem>
+              )}
+            </MenuContent>
+          </MenuRoot>
+        )}
       </div>
     </div>
   )

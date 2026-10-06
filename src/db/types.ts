@@ -121,6 +121,16 @@ export interface ChatNode {
   anchor?: SideAnchor
   /** Side nodes only: the side-question thread they belong to. */
   thread?: string
+  /**
+   * Main nodes only: a branch (absent = an attempt). Set once the node gets a main child or a side
+   * question, or by hand; never unset.
+   */
+  branch?: true
+  /**
+   * When the user archived this node (for a side thread: every root version, same time). Descendants are
+   * not marked; they are hidden because an ancestor is archived (`lib/tree.ts`).
+   */
+  archived?: number
   createdAt: number
   user: {
     text: string

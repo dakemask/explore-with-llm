@@ -3,12 +3,12 @@ import { ROOT_KEY, type ChatNode, type Conversation, type SideAnchor } from '../
 const byTime = (a: ChatNode, b: ChatNode) => a.createdAt - b.createdAt
 
 export function childrenOf(nodes: ChatNode[], parentId: string | null, kind: ChatNode['kind'] = 'main') {
-  return nodes.filter((n) => n.parentId === parentId && n.kind === kind && !n.anchor).sort(byTime)
+  return nodes.filter((n) => n.parentId === parentId && n.kind === kind && !n.anchor && !n.archived).sort(byTime)
 }
 
-/** Versions of a side question's first message (all roots of `thread`), oldest first. */
+/** Versions of a side question's first message (all roots of `thread`, unless archived), oldest first. */
 export function threadRoots(nodes: ChatNode[], thread: string) {
-  return nodes.filter((n) => n.thread === thread && n.anchor).sort(byTime)
+  return nodes.filter((n) => n.thread === thread && n.anchor && !n.archived).sort(byTime)
 }
 
 /**
@@ -49,7 +49,7 @@ export function threadPath(nodes: ChatNode[], thread: string, selectedChild: Con
 /** Side-question threads asked from `nodeId`, oldest first, with their anchor and roots. */
 export function sideThreads(nodes: ChatNode[], nodeId: string) {
   const threads = new Map<string, { thread: string; anchor: SideAnchor; roots: ChatNode[] }>()
-  for (const n of nodes.filter((n) => n.parentId === nodeId && n.anchor && n.thread).sort(byTime)) {
+  for (const n of nodes.filter((n) => n.parentId === nodeId && n.anchor && n.thread && !n.archived).sort(byTime)) {
     const t = threads.get(n.thread!)
     if (t) t.roots.push(n)
     else threads.set(n.thread!, { thread: n.thread!, anchor: n.anchor!, roots: [n] })
@@ -73,4 +73,84 @@ export function pathTo(nodes: ChatNode[], nodeId: string): ChatNode[] {
 export function siblingsOf(nodes: ChatNode[], node: ChatNode): ChatNode[] {
   if (node.anchor && node.thread) return threadRoots(nodes, node.thread).filter((n) => n.parentId === node.parentId)
   return childrenOf(nodes, node.parentId, node.kind)
+}
+
+// ---- Node kinds and the archive ----
+// Archived nodes (and everything below them) are skipped by the helpers above.
+
+/** Whether `nodeId` is hidden: it or anything above it (for side nodes: up through the main node asked from) is archived. */
+export function isHidden(nodes: ChatNode[], nodeId: string): boolean {
+  return pathTo(nodes, nodeId).some((n) => n.archived)
+}
+
+/**
+ * The branch rule for data from before node kinds: a main node with a main child or a side question is a
+ * branch. Returns the list with those nodes replaced by copies (others are the same objects).
+ */
+export function deriveBranches(nodes: ChatNode[]): ChatNode[] {
+  const parents = new Set(nodes.filter((n) => n.parentId && (n.kind === 'main' || n.anchor)).map((n) => n.parentId))
+  return nodes.map((n) => (n.kind === 'main' && !n.branch && parents.has(n.id) ? { ...n, branch: true as const } : n))
+}
+
+/** `rootIds` and every node below them (any kind, archived or not). */
+export function subtreeIds(nodes: ChatNode[], rootIds: string[]): Set<string> {
+  const kids = new Map<string, string[]>()
+  for (const n of nodes) if (n.parentId) kids.set(n.parentId, [...(kids.get(n.parentId) ?? []), n.id])
+  const ids = new Set<string>()
+  const stack = [...rootIds]
+  while (stack.length) {
+    const id = stack.pop()!
+    if (ids.has(id)) continue
+    ids.add(id)
+    stack.push(...(kids.get(id) ?? []))
+  }
+  return ids
+}
+
+/** Nodes with a reply streaming in themselves or below them (archiving those is not allowed). */
+export function busyIds(nodes: ChatNode[]): Set<string> {
+  const ids = new Set<string>()
+  for (const n of nodes) if (n.attempt.status === 'streaming') for (const a of pathTo(nodes, n.id)) ids.add(a.id)
+  return ids
+}
+
+/** One archive entry: an archived main node, or a whole side-question thread. */
+export interface ArchivedItem {
+  /** The node id, or the thread id. */
+  key: string
+  kind: 'attempt' | 'branch' | 'side'
+  /** The archived node, or every root version of the thread (oldest first). */
+  nodes: ChatNode[]
+  archived: number
+  /** The node it hangs off (for side threads: the main node asked from); null at the top. */
+  parentId: string | null
+  /** Something above it is archived too, so it can't be restored before that is. */
+  blocked: boolean
+  /** Nodes it holds, itself included (everything that deleting it deletes). */
+  size: number
+}
+
+/** Everything archived in a conversation, newest archive first. */
+export function archivedItems(nodes: ChatNode[]): ArchivedItem[] {
+  const items: ArchivedItem[] = []
+  const threads = new Map<string, ChatNode[]>()
+  for (const n of nodes.filter((n) => n.archived).sort(byTime)) {
+    if (n.anchor && n.thread) threads.set(n.thread, [...(threads.get(n.thread) ?? []), n])
+    else if (n.kind === 'main') items.push(item(nodes, n.id, n.branch ? 'branch' : 'attempt', [n]))
+  }
+  for (const [thread, roots] of threads) items.push(item(nodes, thread, 'side', roots))
+  return items.sort((a, b) => b.archived - a.archived)
+}
+
+function item(nodes: ChatNode[], key: string, kind: ArchivedItem['kind'], list: ChatNode[]): ArchivedItem {
+  const parentId = list[0].parentId
+  return {
+    key,
+    kind,
+    nodes: list,
+    archived: Math.max(...list.map((n) => n.archived ?? 0)),
+    parentId,
+    blocked: !!parentId && isHidden(nodes, parentId),
+    size: subtreeIds(nodes, list.map((n) => n.id)).size,
+  }
 }

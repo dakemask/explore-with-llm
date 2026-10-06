@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid'
 import { db, ROOT_KEY, type ChatNode, type Conversation, type StoredImage } from '../db'
 import { SECRET_HEADER } from './attempt'
 import { imageMarker } from './images'
+import { deriveBranches } from './tree'
 
 /**
  * Single-conversation backup: the conversation, every node (all branches, side questions and edited
@@ -9,7 +10,8 @@ import { imageMarker } from './images'
  */
 export interface ConversationFile {
   format: typeof FORMAT
-  version: 1
+  /** 1: before node kinds (no `branch` / `archived`; branches are derived on import). */
+  version: 1 | 2
   exportedAt: number
   conversation: Conversation
   nodes: ChatNode[]
@@ -29,7 +31,7 @@ export async function exportConversation(id: string): Promise<{ name: string; js
   const keys = (await db.providers.toArray()).map((p) => p.apiKey)
   const file: ConversationFile = {
     format: FORMAT,
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
     conversation,
     nodes: stripSecrets(nodes, keys),
@@ -100,7 +102,7 @@ export async function importConversation(text: string): Promise<string> {
       ),
     }),
   }
-  const nodes: ChatNode[] = file.nodes.map((n) => ({
+  const nodes: ChatNode[] = (file.version === 1 ? deriveBranches(file.nodes) : file.nodes).map((n) => ({
     ...n,
     id: remap(n.id),
     conversationId: convId,
@@ -139,7 +141,7 @@ function parseFile(text: string): ConversationFile {
     throw new ImportError('not JSON')
   }
   if (!f || f.format !== FORMAT) throw new ImportError('not an exported conversation')
-  if (f.version !== 1) throw new ImportError(`unsupported version ${f.version}`)
+  if (f.version !== 1 && f.version !== 2) throw new ImportError(`unsupported version ${f.version}`)
   const c = f.conversation
   if (!c || typeof c.title !== 'string' || !isRecord(c.selectedChild) || !Array.isArray(f.nodes) || !Array.isArray(f.images))
     throw new ImportError('missing fields')
@@ -150,6 +152,8 @@ function parseFile(text: string): ConversationFile {
     if (!isRecord(n.assistant) || typeof n.assistant.content !== 'string' || !isRecord(n.attempt))
       throw new ImportError('bad message')
     if (n.kind !== 'main' && n.kind !== 'side') throw new ImportError('bad message')
+    if ((n.branch !== undefined && n.branch !== true) || (n.archived !== undefined && typeof n.archived !== 'number'))
+      throw new ImportError('bad message')
     nodeIds.add(n.id)
   }
   const imageIds = new Set<string>()
