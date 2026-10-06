@@ -100,7 +100,7 @@ export const MessageNode = memo(function MessageNode({
         ) : (
           streaming && !hasReasoning(thinking) && <TypingDots since={node.attempt.startedAt} />
         )}
-        {errorBox && <ErrorBox node={node} onDetail={toggleDetail} switcher={!editing && switcher} />}
+        {errorBox && <ErrorBox node={node} onDetail={toggleDetail} />}
         {streaming ? (
           // While streaming only the switcher shows (the reply's actions come once it's done).
           switcher && <div className="mt-2 flex h-7 items-center justify-end">{switcher}</div>
@@ -110,11 +110,12 @@ export const MessageNode = memo(function MessageNode({
               node={node}
               content={content}
               onRetry={retry}
-              onEdit={content ? () => setEditing(true) : undefined}
+              // Also on a reply without text (failed, stopped early): the user may write one, as a new version.
+              onEdit={() => setEditing(true)}
               detailOpen={detailOpen}
               onDetail={toggleDetail}
               busy={!!busy}
-              switcher={errorBox ? undefined : switcher}
+              switcher={switcher}
             />
           )
         )}
@@ -358,11 +359,9 @@ function TypingDots({ since }: { since: number }) {
 function ErrorBox({
   node,
   onDetail,
-  switcher,
 }: {
   node: ChatNode
   onDetail: () => void
-  switcher?: ReactNode
 }) {
   const t = useT()
   const err = node.attempt.error
@@ -381,12 +380,6 @@ function ErrorBox({
         <Button size="sm" variant="ghost" onClick={onDetail}>
           {t('detail.openShort')}
         </Button>
-        {switcher && (
-          <>
-            <span className="mx-0.5 h-4 w-px bg-danger/20" />
-            {switcher}
-          </>
-        )}
       </div>
     </div>
   )

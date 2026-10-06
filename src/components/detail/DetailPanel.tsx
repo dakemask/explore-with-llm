@@ -471,7 +471,11 @@ function VersionCard({ label, version }: { label: string; version: ReplyVersion 
         </button>
       </div>
       <div className="max-h-80 overflow-y-auto px-4 py-3">
-        <Markdown text={version.content} className="prose-compact" />
+        {version.content ? (
+          <Markdown text={version.content} className="prose-compact" />
+        ) : (
+          <p className="text-[13px] text-faint">{t('detail.version.empty')}</p>
+        )}
       </div>
     </div>
   )

@@ -26,6 +26,7 @@ export function AssistantEditor({
         value={text}
         autoFocus
         spellCheck={false}
+        placeholder={t('msg.editReplyPlaceholder')}
         onFocus={(e) => e.currentTarget.setSelectionRange(0, 0)}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -35,7 +36,7 @@ export function AssistantEditor({
             if (changed) onSave(text)
           }
         }}
-        className="block w-full resize-none overflow-hidden bg-transparent px-4 py-3 font-mono text-[13.5px] leading-relaxed [font-variant-ligatures:none] [overflow-wrap:anywhere] focus:outline-none"
+        className="block w-full resize-none overflow-hidden bg-transparent px-4 py-3 font-mono text-[13.5px] leading-relaxed [font-variant-ligatures:none] [overflow-wrap:anywhere] placeholder:font-sans placeholder:text-faint focus:outline-none"
       />
       <div className="flex items-center gap-2 border-t border-border py-2.5 pr-2.5 pl-4">
         <span className="min-w-0 flex-1 truncate text-xs text-faint">{t('msg.editReplyHint')}</span>
