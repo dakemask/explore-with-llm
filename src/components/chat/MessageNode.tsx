@@ -124,18 +124,21 @@ export const MessageNode = memo(function MessageNode({
  * where it changes (`lib/colors.ts`).
  */
 export function Turn({
+  id,
   first,
   color,
   from,
   children,
 }: {
+  /** The node id, as `data-turn` (the tree map finds turns in the chat by it). */
+  id?: string
   first: boolean
   color?: number
   from?: number
   children: ReactNode
 }) {
   return (
-    <div className={clsx(!first && 'mt-8 border-t border-border pt-8')}>
+    <div data-turn={id} className={clsx(!first && 'mt-8 border-t border-border pt-8')}>
       <div className="relative">
         {color !== undefined && (
           <div

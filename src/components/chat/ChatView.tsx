@@ -1,24 +1,26 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { KeyRound, Sparkles } from 'lucide-react'
+import { GitBranch, KeyRound, Sparkles } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { db, type ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import type { AnchorMark } from '../../lib/anchor'
-import { createConversation, sendMessage, stopGeneration } from '../../lib/chat'
+import { createConversation, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { branchColors, parentColor } from '../../lib/colors'
 import { activePath, busyIds, isHidden, sideThreads, threadPath } from '../../lib/tree'
-import { useAutoScroll } from '../../lib/hooks'
+import { jumpSelection, type MapUnit } from '../../lib/treeMap'
+import { glideTo, useAutoScroll } from '../../lib/hooks'
 import { useUi, type Panel } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
-import { Button } from '../ui/Button'
+import { Button, IconButton } from '../ui/Button'
 import { Dots } from '../ui/Dots'
 import { sideFallbackTitle } from '../../lib/naming'
 import { Composer } from './Composer'
 import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
 import { useSiblings } from './SiblingSwitcher'
+import { TreeMapPanel } from './TreeMap'
 import { useNodeActions } from './useNodeActions'
 
 export function ChatView() {
@@ -109,15 +111,77 @@ export function ChatView() {
   }
   const contentOf = (nodeId: string) => nodes?.find((n) => n.id === nodeId)?.assistant.content
 
+  // ---- tree map: drops down under the header; `current` = the turn in view when it opened ----
+  const treeButton = useRef<HTMLButtonElement>(null)
+  const [tree, setTree] = useState<{ current?: string; closing?: boolean } | null>(null)
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null)
+  const closeTree = () => setTree((s) => (s && !s.closing ? { ...s, closing: true } : s))
+  useEffect(() => {
+    if (!tree?.closing) return
+    const timer = setTimeout(() => setTree(null), 120)
+    return () => clearTimeout(timer)
+  }, [tree])
+  useEffect(() => setTree(null), [conversationId])
+  const toggleTree = () => {
+    if (tree && !tree.closing) return closeTree()
+    // The topmost turn still showing more than its footer.
+    const box = scroll.containerRef.current
+    const top = (box?.getBoundingClientRect().top ?? 0) + 48
+    const turn = [...(box?.querySelectorAll<HTMLElement>('[data-turn]') ?? [])].find(
+      (el) => el.getBoundingClientRect().bottom > top,
+    )
+    setTree({ current: turn?.dataset.turn ?? last?.id })
+  }
+  /** Shows the clicked turn: remember the selection at every fork above it, then scroll it to the top. */
+  const jump = (unit: MapUnit) => {
+    if (!conversation || !nodes) return
+    const { target, selection } = jumpSelection(nodes, unit, conversation.selectedChild)
+    closeTree()
+    scroll.unpin()
+    setScrollTarget(target.id)
+    void selectPath(conversation.id, selection)
+  }
+  useEffect(() => {
+    const box = scroll.containerRef.current
+    const el = scrollTarget && box?.querySelector<HTMLElement>(`[data-turn="${CSS.escape(scrollTarget)}"]`)
+    if (!box || !el) return // not on the path yet: the selection is still being saved
+    const top =
+      path[0]?.id === scrollTarget ? 0 : el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop + 1
+    glideTo(box, top)
+    setScrollTarget(null)
+  }, [path, scrollTarget, scroll.containerRef])
+
   const noProvider = providers && !provider
 
   return (
-    <main ref={mainRef} className="flex h-full min-w-0 flex-1 flex-col bg-bg">
+    <main ref={mainRef} className="relative flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
         <div className="flex min-w-0 flex-1 items-center px-2 text-sm font-medium">
           {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{conversation?.title}</span>}
         </div>
+        {path.length > 0 && (
+          <IconButton
+            ref={treeButton}
+            label={t('tree.title')}
+            active={!!tree && !tree.closing}
+            aria-expanded={!!tree && !tree.closing}
+            onClick={toggleTree}
+          >
+            <GitBranch size={17} />
+          </IconButton>
+        )}
       </header>
+
+      {tree && nodes && (
+        <TreeMapPanel
+          nodes={nodes}
+          currentNodeId={tree.current}
+          closing={!!tree.closing}
+          ignore={treeButton}
+          onClose={closeTree}
+          onJump={jump}
+        />
+      )}
 
       <div ref={scroll.containerRef} onClick={onContentClick} className="min-h-0 flex-1 overflow-y-auto">
         <div ref={scroll.contentRef} className="mx-auto w-full max-w-3xl px-6 py-8">
@@ -139,7 +203,7 @@ export function ChatView() {
           ) : (
             <div>
               {path.map((n, i) => (
-                <Turn key={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
+                <Turn key={n.id} id={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
                   <MessageNode
                     node={n}
                     siblings={siblings.get(n.id)}

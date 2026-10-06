@@ -163,6 +163,12 @@
     transform: translateY(-4px);
   }
 }
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
 @keyframes drawer-in {
   from {
     opacity: 0;
@@ -183,6 +189,9 @@
 }
 .anim-menu {
   animation: menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.anim-menu-out {
+  animation: menu-out 120ms ease-in forwards;
 }
 .anim-drawer {
   animation: drawer-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -335,6 +344,40 @@
 .prose .anchor-hl:hover,
 .prose .anchor-hl.active {
   background: var(--c-anchor-active);
+}
+
+/* ---------- Tree map (components/chat/TreeMap.tsx) ---------- */
+.tree-node {
+  cursor: pointer;
+  outline: none;
+}
+.tree-node .halo {
+  fill: var(--c-active);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.tree-node:hover .halo,
+.tree-node:focus-visible .halo {
+  opacity: 1;
+}
+.tree-node:focus-visible .halo {
+  stroke: var(--c-accent);
+  stroke-width: 1.5;
+}
+/* On the hovered path the dots swell as the growing line reaches them (`--delay`). */
+.tree-node .core {
+  transition: transform 100ms ease-out;
+  transition-delay: var(--delay, 0ms);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.tree-node.lit .core {
+  transform: scale(1.2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tree-node .core {
+    transition: none;
+  }
 }
 
 /* ---------- Syntax highlighting (highlight.js), theme-aware ---------- */

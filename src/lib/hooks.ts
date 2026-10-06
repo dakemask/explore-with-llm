@@ -64,6 +64,32 @@ export function useAutoScroll(resetKey: string | null) {
   const pin = () => {
     stick.current = true
   }
+  /** Stop following the bottom (before scrolling somewhere else on purpose). */
+  const unpin = () => {
+    stick.current = false
+  }
 
-  return { containerRef, contentRef, pin }
+  return { containerRef, contentRef, pin, unpin }
+}
+
+/**
+ * Scrolls `el` to `top` in a short ease-out (250 ms). From far away it first jumps to within part of a
+ * screen of the target, so long distances don't turn into a long animation.
+ */
+export function glideTo(el: HTMLElement, top: number) {
+  const end = Math.max(0, Math.min(top, el.scrollHeight - el.clientHeight))
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.scrollTop = end
+    return
+  }
+  const reach = el.clientHeight * 0.6
+  if (Math.abs(end - el.scrollTop) > reach) el.scrollTop = end - Math.sign(end - el.scrollTop) * reach
+  const start = el.scrollTop
+  const t0 = performance.now()
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / 250)
+    el.scrollTop = start + (end - start) * (1 - (1 - p) ** 3)
+    if (p < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
 }

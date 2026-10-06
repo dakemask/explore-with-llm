@@ -281,6 +281,14 @@ export async function selectBranch(conversationId: string, key: string | null, n
   await db.conversations.update(conversationId, { [`selectedChild.${key ?? ROOT_KEY}`]: nodeId })
 }
 
+/** Remembers several fork selections at once (fork key → node id), in one write. */
+export async function selectPath(conversationId: string, selection: Record<string, string>) {
+  await db.conversations.update(
+    conversationId,
+    Object.fromEntries(Object.entries(selection).map(([key, id]) => [`selectedChild.${key}`, id])),
+  )
+}
+
 /** Turns an attempt into a branch (by hand). Never undone. */
 export async function makeBranch(nodeId: string) {
   await db.nodes.update(nodeId, { branch: true })
