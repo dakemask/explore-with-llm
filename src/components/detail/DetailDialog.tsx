@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import hljs from 'highlight.js/lib/core'
 import jsonLang from 'highlight.js/lib/languages/json'
-import { AlertCircle, Check, ChevronLeft, ChevronsDownUp, Copy, ChevronsUpDown, Eye, EyeOff, Info, X } from 'lucide-react'
+import { AlertCircle, Check, ChevronsDownUp, Copy, ChevronsUpDown, Eye, EyeOff, Info } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { db, type Attempt, type AttemptStatus, type ChatNode } from '../../db'
 import { useT, type TKey } from '../../i18n'
@@ -24,17 +24,17 @@ import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { CodeBox, codeBoxAction } from '../ui/CodeBox'
 import { Segmented } from '../ui/Field'
-import { HelpTip, IconButton } from '../ui/Button'
+import { HelpTip } from '../ui/Button'
+import { Dialog } from '../ui/Dialog'
 
 hljs.registerLanguage('json', jsonLang)
 
 type Tab = 'request' | 'response' | 'error' | 'versions'
 
-/** Right-hand panel showing the single request behind a node: what was sent, what came back, and any error. */
-export function DetailPanel({ nodeId }: { nodeId: string }) {
+/** Dialog showing the single request behind a node: what was sent, what came back, and any error. */
+export function DetailDialog({ nodeId }: { nodeId: string }) {
   const t = useT()
   const setPanel = useUi((s) => s.setPanel)
-  const back = useUi((s) => s.panel?.back)
   // `null` once the query has run and found nothing (node deleted), `undefined` while loading.
   const node = useLiveQuery(async () => (await db.nodes.get(nodeId)) ?? null, [nodeId])
   const close = () => setPanel(null)
@@ -48,22 +48,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
   const current: Tab = tab ?? (hasError ? 'error' : 'response')
 
   return (
-    <aside className="anim-drawer flex h-full w-[440px] shrink-0 flex-col border-l border-border bg-surface">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border pr-3 pl-5">
-        {back ? (
-          <div className="-ml-2 flex items-center gap-1">
-            <IconButton label={t('detail.back')} size="sm" onClick={close}>
-              <ChevronLeft size={16} />
-            </IconButton>
-            <h2 className="text-[15px] font-semibold">{t('detail.title')}</h2>
-          </div>
-        ) : (
-          <h2 className="text-[15px] font-semibold">{t('detail.title')}</h2>
-        )}
-        <IconButton label={t('common.close')} size="sm" onClick={close}>
-          <X size={16} />
-        </IconButton>
-      </header>
+    <Dialog open onOpenChange={(open) => !open && close()} title={t('detail.title')} className="h-[85vh] max-w-3xl">
       {node && (
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-8">
           {node.edit && <EditedNote node={node} />}
@@ -88,7 +73,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
           </div>
         </div>
       )}
-    </aside>
+    </Dialog>
   )
 }
 
@@ -470,7 +455,7 @@ function VersionCard({ label, version }: { label: string; version: ReplyVersion 
           {copied ? t('msg.copied') : t('msg.copy')}
         </button>
       </div>
-      <div className="max-h-80 overflow-y-auto px-4 py-3">
+      <div className="px-4 py-3">
         {version.content ? (
           <Markdown text={version.content} className="prose-compact" />
         ) : (
@@ -488,8 +473,7 @@ function EditedNote({ node }: { node: ChatNode }) {
   const show = async () => {
     if (!source) return
     await selectBranch(source.conversationId, forkKey(source), source.id)
-    const { panel, setPanel } = useUi.getState()
-    setPanel({ type: 'detail', nodeId: source.id, back: panel?.back })
+    useUi.getState().setPanel({ type: 'detail', nodeId: source.id })
   }
   return (
     <Note className="mb-4">

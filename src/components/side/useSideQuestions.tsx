@@ -96,7 +96,7 @@ export function useSideQuestions(
   useEffect(() => {
     if (!expanded) return
     const onKey = (e: KeyboardEvent) => {
-      // (While the detail panel covers the column the card isn't seen, so it stays.)
+      // (Not while the detail dialog is open: Escape closes that.)
       if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented || useUi.getState().panel) return
       const focus = document.activeElement
       const busy = 'input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"], [role="listbox"]'

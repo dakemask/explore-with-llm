@@ -8,8 +8,8 @@ export interface LiveStream {
   reasoning: string
 }
 
-/** The docked right-hand panel: a node's request detail. `back`: opened from a side-question card (back closes it). */
-export type Panel = { type: 'detail'; nodeId: string; back?: boolean }
+/** The request detail dialog of a node. */
+export type Panel = { type: 'detail'; nodeId: string }
 
 /**
  * A side question not sent yet (its thread has no node): asked from main node `nodeId` about `anchor`.

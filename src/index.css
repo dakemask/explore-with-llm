@@ -7,6 +7,11 @@
  * Design tokens. Components only use these semantic colors (bg-surface, text-muted, …),
  * never raw palette values, so both themes stay consistent.
  */
+/* Background behind sticky headers inside a scroll area (the reasoning toggle); side cards set it to the surface. */
+:root {
+  --sticky-bg: var(--c-bg);
+}
+
 :root {
   --c-bg: #fbfbfa;
   --c-surface: #ffffff;

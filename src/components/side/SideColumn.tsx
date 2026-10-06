@@ -84,8 +84,22 @@ export function SideColumn({
   const extent = Math.max(0, ...tops.map((t) => t + CARD_HEIGHT), open === null ? 0 : open + cardHeight) + 32
 
   // Bring a card into view when it expands (its anchor may be off screen, or the card runs past the bottom),
-  // and keep its bottom (the composer) in view while it grows, if it was in view.
-  const shown = useRef<{ id: string; height: number } | null>(null)
+  // and keep its bottom (the composer) in view while it grows, if it was in view. `follow` stays on across
+  // growth steps (one may come while the last glide is still under way) until the user scrolls by hand.
+  const shown = useRef<{ id: string; height: number; follow: boolean } | null>(null)
+  useEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    const stop = () => {
+      if (shown.current) shown.current.follow = false
+    }
+    box.addEventListener('wheel', stop, { passive: true })
+    box.addEventListener('touchstart', stop, { passive: true })
+    return () => {
+      box.removeEventListener('wheel', stop)
+      box.removeEventListener('touchstart', stop)
+    }
+  }, [scroller])
   useEffect(() => {
     const box = scroller.current
     const card = cardRef.current
@@ -93,16 +107,17 @@ export function SideColumn({
       if (!expanded) shown.current = null
       return
     }
-    const prev = shown.current?.id === expanded ? shown.current.height : null
-    shown.current = { id: expanded, height: cardHeight }
+    const last = shown.current?.id === expanded ? shown.current : null
     const view = box.getBoundingClientRect()
     const r = card.getBoundingClientRect()
     const margin = 16
     const below = r.bottom - (view.bottom - margin)
+    const grew = !!last && cardHeight > last.height
     let delta = 0
-    if (prev === null && r.top < view.top + margin) delta = r.top - view.top - margin
-    else if (below > 0 && (prev === null || (cardHeight > prev && below <= cardHeight - prev + 1)))
+    if (!last && r.top < view.top + margin) delta = r.top - view.top - margin
+    else if (below > 0 && (!last || (grew && (last.follow || below <= cardHeight - last.height + 1))))
       delta = Math.min(below, r.top - view.top - margin)
+    shown.current = { id: expanded, height: cardHeight, follow: below - delta <= 1 || (!!last?.follow && !grew) }
     if (Math.abs(delta) > 1) glideTo(box, box.scrollTop + delta)
   }, [expanded, cardHeight, scroller])
 

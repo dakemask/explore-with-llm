@@ -12,7 +12,7 @@ import { columnFrame } from '../../lib/column'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { createNote, noteTitle } from '../../lib/notes'
-import { glideTo, useAutoScroll } from '../../lib/hooks'
+import { glideTo, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { NoteCard } from '../side/NoteCard'
@@ -60,7 +60,7 @@ export function ChatView() {
 
   const canSend = ready
 
-  // The node the detail panel shows was archived (or sits under something archived): close it.
+  // The node the detail dialog shows was archived (or sits under something archived): close it.
   useEffect(() => {
     if (nodes && panel && isHidden(nodes, panel.nodeId)) setPanel(null)
   }, [nodes, panel, setPanel])
@@ -79,7 +79,7 @@ export function ChatView() {
 
   const mainRef = useRef<HTMLElement>(null)
   const scroll = useAutoScroll(conversationId)
-  const actions = useNodeActions(nodes, scroll.pin)
+  const actions = useNodeActions(nodes, scroll.hold)
 
   // ---- side questions and notes: highlights in the messages, cards in the column right of the chat ----
   const notes = useNotes(path, conversation)
@@ -132,8 +132,7 @@ export function ChatView() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [scroll.containerRef])
-  // The detail panel covers the column for a while: the chat takes the room, cards and drafts stay as they are.
-  const showColumn = path.length > 0 && side.items.length > 0 && !panel
+  const showColumn = path.length > 0 && side.items.length > 0
   const frame = columnFrame(width, showColumn)
 
   // ---- tree map: drops down under the header; `current` = the turn in view when it opened ----
@@ -234,37 +233,39 @@ export function ChatView() {
           className="shrink-0 px-6 py-8"
           style={{ width: frame.chatWidth }}
         >
-          {path.length === 0 ? (
-            noProvider ? (
-              <EmptyState
-                icon={<KeyRound size={22} />}
-                title={t('chat.noProvider')}
-                hint={t('chat.noProviderHint')}
-                action={
-                  <Button variant="primary" onClick={() => openSettings('providers')}>
-                    {t('chat.addProvider')}
-                  </Button>
-                }
-              />
+          <ScrollHold.Provider value={scroll.hold}>
+            {path.length === 0 ? (
+              noProvider ? (
+                <EmptyState
+                  icon={<KeyRound size={22} />}
+                  title={t('chat.noProvider')}
+                  hint={t('chat.noProviderHint')}
+                  action={
+                    <Button variant="primary" onClick={() => openSettings('providers')}>
+                      {t('chat.addProvider')}
+                    </Button>
+                  }
+                />
+              ) : (
+                <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
+              )
             ) : (
-              <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
-            )
-          ) : (
-            <div>
-              {path.map((n, i) => (
-                <Turn key={n.id} id={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
-                  <MessageNode
-                    node={n}
-                    siblings={siblings.get(n.id)}
-                    canSend={canSend}
-                    actions={actions}
-                    marks={side.anchors.get(n.id)}
-                    busy={busy.has(n.id)}
-                  />
-                </Turn>
-              ))}
-            </div>
-          )}
+              <div>
+                {path.map((n, i) => (
+                  <Turn key={n.id} id={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
+                    <MessageNode
+                      node={n}
+                      siblings={siblings.get(n.id)}
+                      canSend={canSend}
+                      actions={actions}
+                      marks={side.anchors.get(n.id)}
+                      busy={busy.has(n.id)}
+                    />
+                  </Turn>
+                ))}
+              </div>
+            )}
+          </ScrollHold.Provider>
         </div>
         {showColumn && conversation && nodes && (
           <SideColumn

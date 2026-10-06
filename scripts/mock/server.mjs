@@ -14,6 +14,8 @@
 //   mock-cut    starts like mock-chat, then drops the connection mid-reply
 //   mock-empty  200 with an event stream that ends without any output
 //   mock-hang   accepts the request and never answers (for the waiting timer)
+//   mock-long   like mock-chat with long reasoning (40 paragraphs, streamed a line at a time) and the reply
+//               three times (for folding / sticky reasoning and scroll tests)
 //   mock-name   a short quoted title instead of the usual reply (automatic naming): which prompt it got
 //               (conversation / side question) and how many context messages the side prompt had
 // Every reply starts with a line echoing the request (counter, protocol, context size, echoed reasoning found
@@ -36,9 +38,13 @@ const cors = {
   'Access-Control-Expose-Headers': 'X-Request-Id',
 }
 const extra = Number(process.env.EXTRA_MODELS ?? 0)
-const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad', 'mock-cut', 'mock-empty', 'mock-hang', 'mock-name']
+const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad', 'mock-cut', 'mock-empty', 'mock-hang', 'mock-name', 'mock-long']
 if (extra > 0) MODELS.push(...Array.from({ length: extra }, (_, i) => `mock-extra-${String(i + 1).padStart(2, '0')}`), 'mock-chat')
 let count = 0
+const longReasoning = Array.from({ length: 40 }, (_, i) => `第 ${i + 1} 步：${reasoning.replace(/\n+/g, ' ')}`).join('\n\n')
+const reasoningOf = (model) => (model === 'mock-long' ? longReasoning : reasoning)
+/** The reasoning in streamed pieces: one character at a time, long reasoning a line at a time. */
+const pieces = (model, text = reasoningOf(model)) => (model === 'mock-long' ? text.match(/[^]{1,40}/g) : [...text])
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const blob = (n) => Buffer.from(`encrypted-reasoning-${n}-`.repeat(60)).toString('base64')
 
@@ -86,7 +92,7 @@ const userContents = (protocol, body) =>
 
 const replyText = (model, line, users, protocol) => {
   if (model === 'mock-name') return nameText(userParts(protocol, users.at(-1)).text)
-  return (model === 'mock-tags' ? `<think>\n${reasoning}\n</think>\n\n` : '') + line + reply
+  return (model === 'mock-tags' ? `<think>\n${reasoning}\n</think>\n\n` : '') + line + (model === 'mock-long' ? reply.repeat(3) : reply)
 }
 
 /** mock-name: "对话标题 #n" for a conversation prompt, "侧问标题 #n（背景 k 条）" for a side-question prompt. */
@@ -124,7 +130,7 @@ async function chat(res, body) {
     }
     delta({ reasoning_details: [{ type: 'reasoning.encrypted', data: blob(count), id: `rs_${count}`, index: 1, format: 'openai-responses-v1' }] })
   } else if (model !== 'mock-tags') {
-    for (const ch of reasoning) {
+    for (const ch of pieces(model)) {
       delta({ reasoning_content: ch })
       await sleep(15)
     }
@@ -158,7 +164,7 @@ async function anthropic(res, body) {
   }
   if (model !== 'mock-tags') {
     send({ type: 'content_block_start', index, content_block: { type: 'thinking', thinking: '', signature: '' } })
-    for (const ch of reasoning) {
+    for (const ch of pieces(model)) {
       send({ type: 'content_block_delta', index, delta: { type: 'thinking_delta', thinking: ch } })
       await sleep(15)
     }
@@ -187,11 +193,11 @@ async function responses(res, body) {
     const id = `rs_${count}`
     send({ type: 'response.output_item.added', output_index: 0, item: { id, type: 'reasoning', summary: [] } })
     // mock-think: two summary parts, as o-series models often send.
-    const parts = model === 'mock-think' ? reasoning.split('\n\n') : [reasoning]
+    const parts = model === 'mock-think' ? reasoning.split('\n\n') : [reasoningOf(model)]
     const summary = []
     for (const [summary_index, text] of parts.entries()) {
       send({ type: 'response.reasoning_summary_part.added', item_id: id, output_index: 0, summary_index, part: { type: 'summary_text', text: '' } })
-      for (const ch of text) {
+      for (const ch of pieces(model, text)) {
         send({ type: 'response.reasoning_summary_text.delta', item_id: id, output_index: 0, summary_index, delta: ch })
         await sleep(15)
       }

@@ -3,20 +3,22 @@ import { Archive, AlertCircle, Brain, Check, ChevronRight, Copy, GitBranch, Info
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
-import { useAutosize, useCopy } from '../../lib/hooks'
+import { useCopy, useScrollHold } from '../../lib/hooks'
 import type { AnchorMark } from '../../lib/anchor'
 import { archiveNode, editAssistant, makeBranch } from '../../lib/chat'
 import { colorVar } from '../../lib/colors'
-import { useStoredImages, type ImageFile } from '../../lib/images'
+import type { ImageFile } from '../../lib/images'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
+import { forkKey } from '../../lib/tree'
 import { useUi } from '../../store/ui'
 import { Button, IconButton, Tip } from '../ui/Button'
 import { Dots } from '../ui/Dots'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
-import { AssistantEditor } from './AssistantEditor'
-import { AttachButton, AttachmentStrip, DropHint, MessageImages, useAttachments } from './Images'
+import { AssistantEditDialog, UserEditDialog } from './EditDialogs'
+import { MessageImages } from './Images'
 import { Markdown } from './Markdown'
 import { SiblingSwitcher, type Siblings } from './SiblingSwitcher'
+import { atFork } from './useNodeActions'
 
 /** Callbacks from ChatView. Kept referentially stable so memoized nodes don't re-render. */
 export interface NodeActions {
@@ -61,23 +63,20 @@ export const MessageNode = memo(function MessageNode({
   const message = node.edit ? undefined : node.attempt.message
   const thinking = useMemo(() => reasoningView(reasoning, message), [reasoning, message])
   const retry = canSend ? () => actions.retry(node) : undefined
-  const detailOpen = useUi((s) => s.panel?.nodeId === node.id)
-  // From a side-question card the detail gets a back button (closing it returns to the card).
-  const toggleDetail = () =>
-    useUi
-      .getState()
-      .setPanel(detailOpen ? null : { type: 'detail', nodeId: node.id, back: node.kind === 'side' || undefined })
+  const openDetail = () => useUi.getState().setPanel({ type: 'detail', nodeId: node.id })
+  const hold = useScrollHold()
   const [editing, setEditing] = useState(false)
-  const saveEdit = async (text: string) => {
-    setEditing(false)
-    await editAssistant(node, text)
+  // The new version takes the original's place on screen.
+  const saveEdit = (text: string) => {
+    hold(atFork(node))
+    void editAssistant(node, text)
   }
   const errorBox = node.attempt.status === 'error' && !node.edit && !!node.attempt.error
   // Always visible (not only on hover), at the right end of the footer, or of the error box's actions.
   const switcher = siblings && <SiblingSwitcher info={siblings} onSelect={(id) => actions.select(node, id)} />
 
   return (
-    <div className="space-y-3">
+    <div data-fork={forkKey(node)} className="space-y-3">
       <UserMessage
         nodeId={node.id}
         anchors={marks?.user}
@@ -87,9 +86,10 @@ export const MessageNode = memo(function MessageNode({
       />
       <div className="group/assistant">
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
-        {editing ? (
-          <AssistantEditor initial={node.assistant.content} onCancel={() => setEditing(false)} onSave={saveEdit} />
-        ) : content ? (
+        {editing && (
+          <AssistantEditDialog initial={node.assistant.content} onClose={() => setEditing(false)} onSave={saveEdit} />
+        )}
+        {content ? (
           <div data-anchor-root={marks && !streaming ? node.id : undefined}>
             <Markdown
               text={content}
@@ -100,24 +100,25 @@ export const MessageNode = memo(function MessageNode({
         ) : (
           streaming && !hasReasoning(thinking) && <TypingDots since={node.attempt.startedAt} />
         )}
-        {errorBox && <ErrorBox node={node} onDetail={toggleDetail} />}
+        {errorBox && <ErrorBox node={node} onDetail={openDetail} />}
         {streaming ? (
           // While streaming only the switcher shows (the reply's actions come once it's done).
-          switcher && <div className="mt-2 flex h-7 items-center justify-end">{switcher}</div>
-        ) : (
-          !editing && (
-            <AssistantFooter
-              node={node}
-              content={content}
-              onRetry={retry}
-              // Also on a reply without text (failed, stopped early): the user may write one, as a new version.
-              onEdit={() => setEditing(true)}
-              detailOpen={detailOpen}
-              onDetail={toggleDetail}
-              busy={!!busy}
-              switcher={switcher}
-            />
+          switcher && (
+            <div data-switcher className="mt-2 flex h-7 items-center justify-end">
+              {switcher}
+            </div>
           )
+        ) : (
+          <AssistantFooter
+            node={node}
+            content={content}
+            onRetry={retry}
+            // Also on a reply without text (failed, stopped early): the user may write one, as a new version.
+            onEdit={() => setEditing(true)}
+            onDetail={openDetail}
+            busy={!!busy}
+            switcher={switcher}
+          />
         )}
       </div>
     </div>
@@ -185,22 +186,11 @@ function UserMessage({
   const [editing, setEditing] = useState(false)
   const { copied, copy } = useCopy()
 
-  if (editing && onEdit) {
-    return (
-      <UserEditor
-        initial={text}
-        initialImages={images}
-        onCancel={() => setEditing(false)}
-        onSend={(next, nextImages) => {
-          setEditing(false)
-          onEdit(next, nextImages)
-        }}
-      />
-    )
-  }
-
   return (
     <div className="group/user flex flex-col items-end">
+      {editing && onEdit && (
+        <UserEditDialog initial={text} initialImages={images} onClose={() => setEditing(false)} onSend={onEdit} />
+      )}
       {images && images.length > 0 && <MessageImages ids={images} />}
       {text && (
         <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5">
@@ -227,83 +217,29 @@ function UserMessage({
   )
 }
 
-/** Inline editor for a user message (text and images). Sending creates a new sibling branch. */
-function UserEditor({
-  initial,
-  initialImages,
-  onCancel,
-  onSend,
-}: {
-  initial: string
-  initialImages?: string[]
-  onCancel: () => void
-  onSend: (text: string, images: ImageFile[]) => void
-}) {
-  const t = useT()
-  const [text, setText] = useState(initial)
-  const ref = useRef<HTMLTextAreaElement>(null)
-  const box = useRef<HTMLDivElement>(null)
-  const attachments = useAttachments(box)
-  const stored = useStoredImages(initialImages)
-  const loaded = useRef(false)
-  if (stored && !loaded.current) {
-    loaded.current = true
-    if (stored.length) attachments.reset(stored)
-  }
-  useAutosize(ref, text, 400)
-  const canSend = text.trim().length > 0 || attachments.images.length > 0
-  const submit = () => {
-    if (canSend) onSend(text.trim(), attachments.images)
-  }
-
-  return (
-    <div
-      ref={box}
-      className="anim-fade relative ml-auto w-[85%] rounded-2xl border border-border-strong bg-surface shadow-composer"
-    >
-      <DropHint show={attachments.dragging} className="rounded-2xl" />
-      <AttachmentStrip attachments={attachments} className="px-3.5 pt-3.5" />
-      <textarea
-        ref={ref}
-        value={text}
-        autoFocus
-        onFocus={(e) => e.currentTarget.setSelectionRange(text.length, text.length)}
-        onChange={(e) => setText(e.target.value)}
-        onPaste={attachments.onPaste}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onCancel()
-          else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault()
-            submit()
-          }
-        }}
-        className="block w-full resize-none bg-transparent px-4 pt-3 pb-1 text-[15px] leading-relaxed focus:outline-none"
-      />
-      <div className="flex items-center gap-2 py-2.5 pr-2.5 pl-2.5">
-        <AttachButton onFiles={attachments.add} />
-        <span className="min-w-0 flex-1 truncate text-xs text-faint">{t('msg.editHint')}</span>
-        <Button size="sm" variant="ghost" onClick={onCancel}>
-          {t('common.cancel')}
-        </Button>
-        <Button size="sm" variant="primary" onClick={submit} disabled={!canSend}>
-          {t('common.send')}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
+/**
+ * The reasoning, folded under a toggle. Unfolded it shows in full (no inner scrolling); while the user
+ * reads further down, the toggle sticks to the top of the scroll area so it can be folded from there.
+ * Folding and unfolding keep the toggle where it was on screen (`useScrollHold`).
+ */
 function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
+  const hold = useScrollHold()
+  const toggle = useRef<HTMLButtonElement>(null)
   const expandable = !!view.text || view.summaries.length > 0
   const expanded = expandable && (open || live)
   const encryptedBytes = view.encrypted.reduce((a, b) => a + b, 0)
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-2">
+      {/* The fade under it covers text scrolling underneath while it sticks. */}
+      <div className="sticky top-0 z-[2] flex items-center gap-2 bg-(--sticky-bg) after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-1.5 after:bg-linear-to-b after:from-(--sticky-bg) after:to-transparent">
         <button
-          onClick={() => setOpen(!open)}
+          ref={toggle}
+          onClick={() => {
+            if (toggle.current) hold(toggle.current)
+            setOpen(!open)
+          }}
           disabled={!expandable}
           className="flex items-center gap-1.5 rounded-md py-1 pr-1 text-[13px] text-muted transition-colors enabled:hover:text-text"
         >
@@ -321,7 +257,7 @@ function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
         )}
       </div>
       {expanded && (
-        <div className="mt-1.5 max-h-80 space-y-3 overflow-y-auto border-l-2 border-border pl-4">
+        <div className="mt-1.5 space-y-3 border-l-2 border-border pl-4">
           {view.text && <Markdown text={view.text} className="prose-reasoning" />}
           {view.summaries.map((s, i) => (
             <div key={i}>
@@ -390,7 +326,6 @@ function AssistantFooter({
   content,
   onRetry,
   onEdit,
-  detailOpen,
   onDetail,
   busy,
   switcher,
@@ -399,7 +334,6 @@ function AssistantFooter({
   content: string
   onRetry?: () => void
   onEdit?: () => void
-  detailOpen: boolean
   onDetail: () => void
   busy: boolean
   switcher?: ReactNode
@@ -423,7 +357,7 @@ function AssistantFooter({
       <div
         className={clsx(
           'flex max-w-full min-w-0 items-center gap-1 transition-opacity group-hover/assistant:opacity-100 focus-within:opacity-100',
-          !detailOpen && !menuOpen && 'opacity-0',
+          !menuOpen && 'opacity-0',
         )}
       >
         {content && (
@@ -441,7 +375,7 @@ function AssistantFooter({
             <Pencil size={14} />
           </IconButton>
         )}
-        <IconButton label={t('detail.open')} size="sm" active={detailOpen} onClick={onDetail}>
+        <IconButton label={t('detail.open')} size="sm" onClick={onDetail}>
           <Info size={14} />
         </IconButton>
         <span className="ml-1 min-w-0 truncate whitespace-nowrap">{node.attempt.model}</span>
@@ -474,7 +408,11 @@ function AssistantFooter({
           </MenuRoot>
         )}
       </div>
-      {switcher && <div className="ml-auto flex h-7 items-center pl-2">{switcher}</div>}
+      {switcher && (
+        <div data-switcher className="ml-auto flex h-7 items-center pl-2">
+          {switcher}
+        </div>
+      )}
     </div>
   )
 }
