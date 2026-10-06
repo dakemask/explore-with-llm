@@ -56,7 +56,8 @@ export function topIn(page, sc, sel, index = -1) {
 export function state(page, sc = SC) {
   return page.evaluate((sc) => {
     const el = document.querySelector(sc)
-    return { scrollTop: Math.round(el.scrollTop), max: el.scrollHeight - el.clientHeight, pad: el.style.paddingBottom || '0' }
+    // (The blank is the bottom padding of the area's wrapper.)
+    return { scrollTop: Math.round(el.scrollTop), max: el.scrollHeight - el.clientHeight, pad: el.firstElementChild?.style.paddingBottom || '0' }
   }, sc)
 }
 

@@ -71,15 +71,20 @@ const NEAR_END = 40
  *    on every scroll and size change).
  * 4. `hold(target)` keeps what the user just clicked in place (at least at the top) for a moment: folding
  *    the reasoning, switching versions, a new attempt. The user scrolling ends it at once.
- * "The content" is `contentRef` (in the main chat: the messages, not the side column beside them).
+ * "The content" is `contentRef` (in the main chat: the messages, not the side column beside them). The blank
+ * is `blankRef`'s bottom padding: a wrapper of everything inside the area (padding on the area itself would
+ * make the area taller, pushing what's below it — the composer — off screen).
  */
 export function useAutoScroll(resetKey: string | null) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const blankRef = useRef<HTMLDivElement>(null)
   const state = useRef({
     following: true,
-    /** Blank space at the bottom (the container's bottom padding), px. */
+    /** Blank space at the bottom (`blankRef`'s bottom padding), px. */
     blank: 0,
+    /** Until then (or the user scrolls), the view is kept at the end: another conversation's messages load. */
+    resetUntil: 0,
     /** The scroll position this hook last saw or set: a scroll event elsewhere is the user's (or a pull-up). */
     last: 0,
     held: null as { target: HoldTarget; offset: number; until: number } | null,
@@ -89,23 +94,23 @@ export function useAutoScroll(resetKey: string | null) {
 
   const api = useMemo(() => {
     const s = state.current
-    const setBlank = (el: HTMLElement, px: number) => {
+    const setBlank = (px: number) => {
       px = Math.max(0, Math.round(px))
-      if (px === s.blank) return
+      if (px === s.blank || !blankRef.current) return
       s.blank = px
-      el.style.paddingBottom = px ? `${px}px` : ''
+      blankRef.current.style.paddingBottom = px ? `${px}px` : ''
     }
     /** Scrolls to `top`, adding blank below if the area is too short for it. */
     const scrollTo = (el: HTMLElement, top: number) => {
       top = Math.max(0, Math.round(top))
       const max = el.scrollHeight - el.clientHeight
-      if (top > max) setBlank(el, s.blank + top - max)
+      if (top > max) setBlank(s.blank + top - max)
       el.scrollTop = top
       s.last = el.scrollTop
     }
     /** Drops the blank that is below the screen. */
     const trim = (el: HTMLElement) => {
-      if (s.blank) setBlank(el, Math.min(s.blank, el.scrollTop + el.clientHeight - (el.scrollHeight - s.blank)))
+      if (s.blank) setBlank(Math.min(s.blank, el.scrollTop + el.clientHeight - (el.scrollHeight - s.blank)))
     }
     /** Where `node` is, in the area's scroll coordinates. */
     const topOf = (el: HTMLElement, node: Element) =>
@@ -148,16 +153,24 @@ export function useAutoScroll(resetKey: string | null) {
       if (cap) top = Math.min(top, Math.max(el.scrollTop, topOf(el, cap)))
       if (top > el.scrollTop + 0.5) scrollTo(el, top)
     }
+    /** Just after a reset: straight to the end, as the new messages come in (no blank, no pull-up checks). */
+    const toEnd = (el: HTMLElement) => {
+      setBlank(0)
+      el.scrollTop = Math.max(0, end(el) - el.clientHeight)
+      s.last = el.scrollTop
+    }
     /** After any size change: hold, else undo a pull-up, else follow (rule 1), then trim. */
     const settle = () => {
       const el = containerRef.current
       if (!el) return
+      if (performance.now() < s.resetUntil) return toEnd(el)
       if (!applyHold(el) && !unclamp(el) && s.following) follow(el)
       trim(el)
     }
     const onScroll = () => {
       const el = containerRef.current
       if (!el || Math.abs(el.scrollTop - s.last) < 1) return // our own scroll
+      if (performance.now() < s.resetUntil) return toEnd(el)
       if (s.held) return void applyHold(el) // (something scrolled in the middle of a hold: back in place)
       if (unclamp(el)) return // (reported here when layout ran before the size observer did)
       s.last = el.scrollTop
@@ -168,6 +181,7 @@ export function useAutoScroll(resetKey: string | null) {
     const release = () => {
       s.held = null
       s.cap = null
+      s.resetUntil = 0
     }
     const hold: Hold = (target, opts) => {
       const el = containerRef.current
@@ -187,10 +201,8 @@ export function useAutoScroll(resetKey: string | null) {
     }
     const reset = () => {
       const el = containerRef.current
-      Object.assign(s, { following: true, held: null, cap: null })
-      if (!el) return
-      setBlank(el, 0)
-      scrollTo(el, el.scrollHeight)
+      Object.assign(s, { following: true, held: null, cap: null, resetUntil: performance.now() + 1000 })
+      if (el) toEnd(el)
     }
     return { settle, onScroll, release, hold, reset }
   }, [])
@@ -210,16 +222,18 @@ export function useAutoScroll(resetKey: string | null) {
     }
     el.addEventListener('pointerdown', onPointer)
     el.addEventListener('keydown', onKey)
-    // Size changes of anything inside (chat, side column) and of the area itself.
+    // Size changes of the area, the content, and whatever else sits in the wrapper (the side column).
     const ro = new ResizeObserver(api.settle)
+    const wrapper = blankRef.current ?? el
     const observeChildren = () => {
       ro.disconnect()
       ro.observe(el)
-      for (const child of el.children) ro.observe(child)
+      if (contentRef.current) ro.observe(contentRef.current)
+      for (const child of wrapper.children) ro.observe(child)
     }
     observeChildren()
     const mo = new MutationObserver(observeChildren)
-    mo.observe(el, { childList: true })
+    mo.observe(wrapper, { childList: true })
     return () => {
       el.removeEventListener('scroll', api.onScroll)
       el.removeEventListener('wheel', api.release)
@@ -242,7 +256,7 @@ export function useAutoScroll(resetKey: string | null) {
     Object.assign(state.current, { following: false, held: null, cap: null })
   }
 
-  return { containerRef, contentRef, pin, unpin, hold: api.hold }
+  return { containerRef, contentRef, blankRef, pin, unpin, hold: api.hold }
 }
 
 const gliding = new WeakMap<HTMLElement, object>()

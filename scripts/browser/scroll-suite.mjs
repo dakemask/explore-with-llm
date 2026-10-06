@@ -210,5 +210,28 @@ await waitDone(page)
 check('C3 card follows its reply to the end', atEnd(await state(page, CS)), await state(page, CS))
 await page.screenshot({ path: `${SP}/C3.png` })
 
+// ---- N: new conversation / switching back, also leaving with blank at the bottom ----
+await page.locator(`${CARD} button[aria-label="收起"]`).click()
+await page.waitForTimeout(1300)
+await setScroll(page, SC, 1e6)
+await page.waitForTimeout(300)
+const composerTop = () => page.evaluate(() => Math.round(document.querySelector('main > div.shrink-0').getBoundingClientRect().top))
+const cTop = await composerTop()
+// make blank: fold a long reply's neighbour… simplest: switch the last turn to a shorter version at the end
+const swN = page.locator(`${SC} [data-switcher] button`)
+if (await swN.count()) {
+  await clickAt(page, swN.first())
+  await page.waitForTimeout(800)
+}
+const leaving = await state(page)
+await page.getByRole('button', { name: '新对话' }).click()
+await page.waitForTimeout(600)
+const empty = await page.getByText('开始一段新的探索').boundingBox()
+check('N new conversation: composer in place, empty state on screen', (await composerTop()) === cTop && !!empty && empty.y > 56 && empty.y < 794 && (await state(page)).scrollTop === 0, { leaving, now: await state(page), composer: await composerTop(), emptyY: empty?.y })
+await page.locator('aside').getByText('先来一轮').first().click()
+await page.waitForTimeout(800)
+const back = await state(page)
+check('N back to the conversation: at its end, no blank', back.max - back.scrollTop < 2 && back.pad === '0' && (await composerTop()) === cTop, back)
+
 console.log(failures ? `${failures} FAILED` : 'ALL PASS')
 await browser.close()

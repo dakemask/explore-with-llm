@@ -112,16 +112,19 @@ export function SideCard({
 
       <div ref={scroll.containerRef} className="min-h-0 flex-1 overflow-y-auto [--sticky-bg:var(--c-surface)]">
         <ScrollHold.Provider value={scroll.hold}>
-          <div ref={scroll.contentRef} className="px-4 pt-3 pb-5">
-            {path.length === 0 ? (
-              <p className="px-2 py-1 text-center text-[13px] leading-relaxed text-faint">{t('side.draftHint')}</p>
-            ) : (
-              path.map((n, i) => (
-                <Turn key={n.id} first={i === 0}>
-                  <MessageNode node={n} siblings={siblings.get(n.id)} canSend={ready} actions={actions} />
-                </Turn>
-              ))
-            )}
+          {/* The blank space at the bottom goes on this wrapper (see useAutoScroll). */}
+          <div ref={scroll.blankRef}>
+            <div ref={scroll.contentRef} className="px-4 pt-3 pb-5">
+              {path.length === 0 ? (
+                <p className="px-2 py-1 text-center text-[13px] leading-relaxed text-faint">{t('side.draftHint')}</p>
+              ) : (
+                path.map((n, i) => (
+                  <Turn key={n.id} first={i === 0}>
+                    <MessageNode node={n} siblings={siblings.get(n.id)} canSend={ready} actions={actions} />
+                  </Turn>
+                ))
+              )}
+            </div>
           </div>
         </ScrollHold.Provider>
       </div>

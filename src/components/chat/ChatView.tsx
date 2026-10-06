@@ -223,80 +223,82 @@ export function ChatView() {
       <div
         ref={scroll.containerRef}
         onClick={onContentClick}
-        className="flex min-h-0 flex-1 items-start overflow-x-hidden overflow-y-auto"
-        style={{ paddingLeft: frame.chatLeft }}
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
-        <div
-          ref={scroll.contentRef}
-          onMouseOver={(e) => hoverTo(threadsAt(e.target))}
-          onMouseLeave={() => hoverTo([])}
-          className="shrink-0 px-6 py-8"
-          style={{ width: frame.chatWidth }}
-        >
-          <ScrollHold.Provider value={scroll.hold}>
-            {path.length === 0 ? (
-              noProvider ? (
-                <EmptyState
-                  icon={<KeyRound size={22} />}
-                  title={t('chat.noProvider')}
-                  hint={t('chat.noProviderHint')}
-                  action={
-                    <Button variant="primary" onClick={() => openSettings('providers')}>
-                      {t('chat.addProvider')}
-                    </Button>
-                  }
-                />
+        {/* The blank space at the bottom goes on this wrapper (see useAutoScroll). */}
+        <div ref={scroll.blankRef} className="flex items-start" style={{ paddingLeft: frame.chatLeft }}>
+          <div
+            ref={scroll.contentRef}
+            onMouseOver={(e) => hoverTo(threadsAt(e.target))}
+            onMouseLeave={() => hoverTo([])}
+            className="shrink-0 px-6 py-8"
+            style={{ width: frame.chatWidth }}
+          >
+            <ScrollHold.Provider value={scroll.hold}>
+              {path.length === 0 ? (
+                noProvider ? (
+                  <EmptyState
+                    icon={<KeyRound size={22} />}
+                    title={t('chat.noProvider')}
+                    hint={t('chat.noProviderHint')}
+                    action={
+                      <Button variant="primary" onClick={() => openSettings('providers')}>
+                        {t('chat.addProvider')}
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
+                )
               ) : (
-                <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
-              )
-            ) : (
-              <div>
-                {path.map((n, i) => (
-                  <Turn key={n.id} id={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
-                    <MessageNode
-                      node={n}
-                      siblings={siblings.get(n.id)}
-                      canSend={canSend}
-                      actions={actions}
-                      marks={side.anchors.get(n.id)}
-                      busy={busy.has(n.id)}
-                    />
-                  </Turn>
-                ))}
-              </div>
-            )}
-          </ScrollHold.Provider>
+                <div>
+                  {path.map((n, i) => (
+                    <Turn key={n.id} id={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
+                      <MessageNode
+                        node={n}
+                        siblings={siblings.get(n.id)}
+                        canSend={canSend}
+                        actions={actions}
+                        marks={side.anchors.get(n.id)}
+                        busy={busy.has(n.id)}
+                      />
+                    </Turn>
+                  ))}
+                </div>
+              )}
+            </ScrollHold.Provider>
+          </div>
+          {showColumn && conversation && nodes && (
+            <SideColumn
+              items={side.items}
+              width={frame.sideWidth}
+              content={scroll.contentRef}
+              scroller={scroll.containerRef}
+              expanded={side.expanded}
+              hover={hover}
+              onHover={hoverTo}
+              onExpand={side.expand}
+              renderExpanded={(id, card) => {
+                const it = side.items.find((it) => it.id === id)!
+                if (it.kind === 'note') return <NoteCard key={id} note={it.note} onCollapse={() => side.expand(null)} />
+                return (
+                  <SideCard
+                    key={id}
+                    thread={id}
+                    nodeId={it.nodeId}
+                    path={it.path}
+                    draft={it.draft}
+                    conversation={conversation}
+                    nodes={nodes}
+                    fallback={it.fallback}
+                    dropTarget={card}
+                    onCollapse={() => side.expand(null)}
+                  />
+                )
+              }}
+            />
+          )}
         </div>
-        {showColumn && conversation && nodes && (
-          <SideColumn
-            items={side.items}
-            width={frame.sideWidth}
-            content={scroll.contentRef}
-            scroller={scroll.containerRef}
-            expanded={side.expanded}
-            hover={hover}
-            onHover={hoverTo}
-            onExpand={side.expand}
-            renderExpanded={(id, card) => {
-              const it = side.items.find((it) => it.id === id)!
-              if (it.kind === 'note') return <NoteCard key={id} note={it.note} onCollapse={() => side.expand(null)} />
-              return (
-                <SideCard
-                  key={id}
-                  thread={id}
-                  nodeId={it.nodeId}
-                  path={it.path}
-                  draft={it.draft}
-                  conversation={conversation}
-                  nodes={nodes}
-                  fallback={it.fallback}
-                  dropTarget={card}
-                  onCollapse={() => side.expand(null)}
-                />
-              )
-            }}
-          />
-        )}
       </div>
 
       <SelectionAsk
