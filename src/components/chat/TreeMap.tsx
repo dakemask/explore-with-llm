@@ -15,7 +15,7 @@ import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { branchColors, colorVar } from '../../lib/colors'
 import { plainLine } from '../../lib/anchor'
-import { currentUnit, layoutTree, routeTo, type MapUnit } from '../../lib/treeMap'
+import { currentUnit, layoutTree, routeTo, type MapUnit, type TreeLayout } from '../../lib/treeMap'
 
 const GX = 34
 const GY = 22
@@ -213,6 +213,10 @@ export function TreeMap({
   const litIds = lit ? new Map(lit.route.map((id, i) => [id, lit.delays[i]])) : undefined
   const currentLabel = t('tree.current')
   const pillW = Math.max(34, currentLabel.length * 6.5 + 16)
+  const pill = useMemo(() => {
+    const u = current ? layout.byId.get(current) : undefined
+    return u && pillSpot(layout, u, X, Y, pillW, W, H)
+  }, [layout, current, pillW])
 
   return (
     <div ref={scrollRef} className="flex max-h-[50vh] overflow-auto">
@@ -305,25 +309,69 @@ export function TreeMap({
                 ) : (
                   <circle className="core" r={5} style={{ fill: c }} />
                 )}
-                {here && (
-                  <>
-                    <circle r={9.5} fill="none" style={{ stroke: 'var(--c-text)' }} strokeWidth={2} />
-                    <g transform="translate(0 -16)">
-                      <rect x={-pillW / 2} y={-10} width={pillW} height={17} rx={8.5} style={{ fill: 'var(--c-text)' }} />
-                      <text y={3} textAnchor="middle" fontSize={10.5} fontWeight={600} style={{ fill: 'var(--c-surface)' }}>
-                        {currentLabel}
-                      </text>
-                    </g>
-                  </>
-                )}
+                {here && <circle r={9.5} fill="none" style={{ stroke: 'var(--c-text)' }} strokeWidth={2} />}
               </g>
             )
           })}
         </g>
+        {pill && (
+          <g transform={`translate(${pill.x} ${pill.y})`} pointerEvents="none">
+            <rect x={-pillW / 2} y={-8.5} width={pillW} height={17} rx={8.5} style={{ fill: 'var(--c-text)' }} />
+            <text y={4} textAnchor="middle" fontSize={10.5} fontWeight={600} style={{ fill: 'var(--c-surface)' }}>
+              {currentLabel}
+            </text>
+          </g>
+        )}
       </svg>
       {tip && <TreeTip ref={tipRef} unit={tip} />}
     </div>
   )
+}
+
+/**
+ * Center of the "current" pill: above the node, unless a neighbor (node, line or ×n) is drawn there; then
+ * below, left, right. Above when nothing is free.
+ */
+function pillSpot(
+  layout: TreeLayout,
+  u: MapUnit,
+  X: (u: MapUnit) => number,
+  Y: (u: MapUnit) => number,
+  pillW: number,
+  W: number,
+  H: number,
+) {
+  const pts: [number, number][] = []
+  for (const v of layout.units) {
+    if (v !== u) pts.push([X(v), Y(v)])
+    if (v.type === 'stack') for (const dx of [12, 20, 28]) pts.push([X(v) + dx, Y(v)])
+    const p = v.parent ? layout.byId.get(v.parent) : undefined
+    if (!p) continue
+    // Samples along the edge (same curve as drawn: horizontal tangents at both ends).
+    const [x1, y1, x2, y2] = [X(p), Y(p), X(v), Y(v)]
+    for (let i = 1; i < 12; i++) {
+      const s = i / 12
+      const a = (1 - s) ** 3 + 3 * (1 - s) ** 2 * s
+      const x = (1 - s) ** 3 * x1 + 3 * (1 - s) ** 2 * s * (x1 + GX * 0.6) + 3 * (1 - s) * s * s * (x2 - GX * 0.6) + s ** 3 * x2
+      pts.push([x, a * y1 + (1 - a) * y2])
+    }
+  }
+  const cx = X(u)
+  const cy = Y(u)
+  const hw = pillW / 2
+  const spots = [
+    { x: cx, y: cy - 17.5 },
+    { x: cx, y: cy + 17.5 },
+    { x: cx - hw - 13, y: cy },
+    { x: cx + hw + 13, y: cy },
+  ]
+  const free = (s: { x: number; y: number }) =>
+    s.x - hw >= 0 &&
+    s.x + hw <= W &&
+    s.y - 8.5 >= 0 &&
+    s.y + 8.5 <= H &&
+    pts.every(([x, y]) => Math.abs(x - s.x) > hw + 5 || Math.abs(y - s.y) > 8.5 + 5)
+  return spots.find(free) ?? spots[0]
 }
 
 /** Hover tip: the turn, then the first lines of the user message and the reply. */
