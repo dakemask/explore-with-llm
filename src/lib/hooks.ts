@@ -3,12 +3,28 @@ import { copyText } from './clipboard'
 
 /** Grows a textarea with its content up to `max` pixels. */
 export function useAutosize(ref: RefObject<HTMLTextAreaElement | null>, value: string, max = 240) {
-  useLayoutEffect(() => {
+  const fit = () => {
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, max) + 'px'
-  }, [ref, value, max])
+  }
+  useLayoutEffect(fit, [ref, value, max])
+  // Its width can change too (the chat column narrows when the side-question column appears).
+  const latest = useRef(fit)
+  latest.current = fit
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let width = el.clientWidth
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth === width) return
+      width = el.clientWidth
+      latest.current()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
 }
 
 /** Copies text and flips `copied` to true for a moment, for "Copied" feedback. */

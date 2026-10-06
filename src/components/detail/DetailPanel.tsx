@@ -34,7 +34,7 @@ type Tab = 'request' | 'response' | 'error' | 'versions'
 export function DetailPanel({ nodeId }: { nodeId: string }) {
   const t = useT()
   const setPanel = useUi((s) => s.setPanel)
-  const back = useUi((s) => (s.panel?.type === 'detail' ? s.panel.back : undefined))
+  const back = useUi((s) => s.panel?.back)
   // `null` once the query has run and found nothing (node deleted), `undefined` while loading.
   const node = useLiveQuery(async () => (await db.nodes.get(nodeId)) ?? null, [nodeId])
   const close = () => setPanel(null)
@@ -52,7 +52,7 @@ export function DetailPanel({ nodeId }: { nodeId: string }) {
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border pr-3 pl-5">
         {back ? (
           <div className="-ml-2 flex items-center gap-1">
-            <IconButton label={t('detail.back')} size="sm" onClick={() => setPanel(back)}>
+            <IconButton label={t('detail.back')} size="sm" onClick={close}>
               <ChevronLeft size={16} />
             </IconButton>
             <h2 className="text-[15px] font-semibold">{t('detail.title')}</h2>
@@ -485,7 +485,7 @@ function EditedNote({ node }: { node: ChatNode }) {
     if (!source) return
     await selectBranch(source.conversationId, forkKey(source), source.id)
     const { panel, setPanel } = useUi.getState()
-    setPanel({ type: 'detail', nodeId: source.id, back: panel?.type === 'detail' ? panel.back : undefined })
+    setPanel({ type: 'detail', nodeId: source.id, back: panel?.back })
   }
   return (
     <Note className="mb-4">

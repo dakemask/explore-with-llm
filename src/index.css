@@ -32,6 +32,11 @@
   --c-anchor: rgb(79 70 229 / 0.09);
   --c-anchor-active: rgb(79 70 229 / 0.2);
   --c-anchor-line: rgb(79 70 229 / 0.45);
+  /* Marker bars in the side-question column (side questions; notes, step 6.5). */
+  --c-mark-side: rgb(79 70 229 / 0.3);
+  --c-mark-side-strong: rgb(79 70 229 / 0.8);
+  --c-mark-note: oklch(0.76 0.13 75 / 0.55);
+  --c-mark-note-strong: oklch(0.68 0.15 70);
   /* Branch colors (lib/colors.ts): the 7-color ring, then grey for attempts with siblings. */
   --branch-0: oklch(0.62 0.2 27);
   --branch-1: oklch(0.72 0.17 55);
@@ -71,6 +76,10 @@
   --c-anchor: rgb(129 140 248 / 0.13);
   --c-anchor-active: rgb(129 140 248 / 0.28);
   --c-anchor-line: rgb(129 140 248 / 0.55);
+  --c-mark-side: rgb(129 140 248 / 0.35);
+  --c-mark-side-strong: rgb(129 140 248 / 0.9);
+  --c-mark-note: oklch(0.78 0.12 75 / 0.45);
+  --c-mark-note-strong: oklch(0.8 0.14 75);
   /* Light values + 0.06 lightness, capped at 0.86. */
   --branch-0: oklch(0.68 0.2 27);
   --branch-1: oklch(0.78 0.17 55);
@@ -110,6 +119,10 @@
   --color-anchor: var(--c-anchor);
   --color-anchor-active: var(--c-anchor-active);
   --color-anchor-line: var(--c-anchor-line);
+  --color-mark-side: var(--c-mark-side);
+  --color-mark-side-strong: var(--c-mark-side-strong);
+  --color-mark-note: var(--c-mark-note);
+  --color-mark-note-strong: var(--c-mark-note-strong);
   --shadow-pop: var(--shadow-pop);
   --shadow-composer: var(--shadow-composer);
   --font-sans:

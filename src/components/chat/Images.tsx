@@ -30,7 +30,12 @@ export function useAttachments(dropTarget: RefObject<HTMLElement | null>, initia
     const el = dropTarget.current
     if (!el) return
     let depth = 0
-    const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes('Files') ?? false
+    // Drop zones can nest (a side-question card inside the chat column); each handles only its own area.
+    el.dataset.dropZone = ''
+    const hasFiles = (e: DragEvent) => {
+      const target = e.target instanceof Element ? e.target : (e.target as Node | null)?.parentElement
+      return (e.dataTransfer?.types.includes('Files') ?? false) && target?.closest('[data-drop-zone]') === el
+    }
     const enter = (e: DragEvent) => {
       if (!hasFiles(e)) return
       depth++
@@ -51,8 +56,6 @@ export function useAttachments(dropTarget: RefObject<HTMLElement | null>, initia
     const drop = (e: DragEvent) => {
       if (!hasFiles(e)) return
       e.preventDefault()
-      // A nested input box (the user-message editor) takes its own drops.
-      e.stopPropagation()
       depth = 0
       setDragging(false)
       void latestAdd.current([...e.dataTransfer!.files])
@@ -62,6 +65,7 @@ export function useAttachments(dropTarget: RefObject<HTMLElement | null>, initia
     el.addEventListener('dragleave', leave)
     el.addEventListener('drop', drop)
     return () => {
+      delete el.dataset.dropZone
       el.removeEventListener('dragenter', enter)
       el.removeEventListener('dragover', over)
       el.removeEventListener('dragleave', leave)

@@ -93,7 +93,7 @@ export function fallbackTitle(text: string, images: number, lang: Lang) {
 }
 
 /** A side question's title until the model names it: its first line that isn't part of the quote, else the quoted text. */
-export function sideFallbackTitle(root: ChatNode | undefined, anchorText: string) {
+export function sideFallbackTitle(root: Pick<ChatNode, 'user'> | undefined, anchorText: string) {
   const own = root?.user.text.split('\n').find((l) => l.trim() && !l.trimStart().startsWith('>'))?.trim()
   return own || anchorText.replace(/\s+/g, ' ').trim()
 }

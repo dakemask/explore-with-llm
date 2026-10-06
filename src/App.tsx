@@ -3,7 +3,6 @@ import { useEffect } from 'react'
 import { ChatView } from './components/chat/ChatView'
 import { DetailPanel } from './components/detail/DetailPanel'
 import { Sidebar } from './components/layout/Sidebar'
-import { SidePanel } from './components/side/SidePanel'
 import { SettingsDialog } from './components/settings/SettingsDialog'
 import { DialogHost } from './components/ui/Dialog'
 import { ToastHost } from './components/ui/Toast'
@@ -35,8 +34,7 @@ export function App() {
       <div className="flex h-full overflow-hidden">
         <Sidebar />
         <ChatView />
-        {panel?.type === 'detail' && <DetailPanel key={panel.nodeId} nodeId={panel.nodeId} />}
-        {panel?.type === 'side' && <SidePanel key={panel.thread} panel={panel} />}
+        {panel && <DetailPanel key={panel.nodeId} nodeId={panel.nodeId} />}
       </div>
       <SettingsDialog />
       <DialogHost />

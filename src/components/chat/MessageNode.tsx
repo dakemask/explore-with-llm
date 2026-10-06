@@ -55,18 +55,15 @@ export const MessageNode = memo(function MessageNode({
   const message = node.edit ? undefined : node.attempt.message
   const thinking = useMemo(() => reasoningView(reasoning, message), [reasoning, message])
   const retry = canSend ? () => actions.retry(node) : undefined
-  const detailOpen = useUi((s) => s.panel?.type === 'detail' && s.panel.nodeId === node.id)
-  const toggleDetail = () => {
-    const { panel, setPanel } = useUi.getState()
-    if (detailOpen) setPanel(panel?.type === 'detail' ? (panel.back ?? null) : null)
-    else setPanel({ type: 'detail', nodeId: node.id, back: panel?.type === 'side' ? panel : undefined })
-  }
+  const detailOpen = useUi((s) => s.panel?.nodeId === node.id)
+  // From a side-question card the detail gets a back button (closing it returns to the card).
+  const toggleDetail = () =>
+    useUi
+      .getState()
+      .setPanel(detailOpen ? null : { type: 'detail', nodeId: node.id, back: node.kind === 'side' || undefined })
   const [editing, setEditing] = useState(false)
   const saveEdit = async (text: string) => {
     setEditing(false)
-    // The edit is shown in this node's place; an unsent side question on this node would be left behind.
-    const { panel, setPanel } = useUi.getState()
-    if (panel?.type === 'side' && panel.draft && panel.nodeId === node.id) setPanel(null)
     await editAssistant(node, text)
   }
   const errorBox = node.attempt.status === 'error' && !node.edit && !!node.attempt.error
@@ -415,7 +412,8 @@ function AssistantFooter({
     node.edit && t('msg.edited'),
   ].filter(Boolean)
   return (
-    <div className="mt-2 flex h-7 items-center gap-1 text-xs text-faint">
+    // Wraps only in narrow places (a side-question card): the switcher then gets its own line, right-aligned.
+    <div className="mt-2 flex min-h-7 flex-wrap items-center gap-x-1 gap-y-1 text-xs text-faint">
       {/* Status tags stay visible; actions reveal on hover. */}
       {tags.map((tag) => (
         <span key={String(tag)} className="mr-1 rounded bg-subtle px-1.5 py-0.5 text-[11px] text-muted">
@@ -424,7 +422,7 @@ function AssistantFooter({
       ))}
       <div
         className={clsx(
-          'flex items-center gap-1 transition-opacity group-hover/assistant:opacity-100 focus-within:opacity-100',
+          'flex max-w-full min-w-0 items-center gap-1 transition-opacity group-hover/assistant:opacity-100 focus-within:opacity-100',
           !detailOpen && !menuOpen && 'opacity-0',
         )}
       >
@@ -446,8 +444,8 @@ function AssistantFooter({
         <IconButton label={t('detail.open')} size="sm" active={detailOpen} onClick={onDetail}>
           <Info size={14} />
         </IconButton>
-        <span className="ml-1">{node.attempt.model}</span>
-        {/* Side-thread nodes have no menu: a side question is archived as a whole from its panel. */}
+        <span className="ml-1 min-w-0 truncate whitespace-nowrap">{node.attempt.model}</span>
+        {/* Side-thread nodes have no menu: a side question is archived as a whole from its card. */}
         {node.kind === 'main' && (
           <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
             <MenuTrigger asChild>
@@ -476,7 +474,7 @@ function AssistantFooter({
           </MenuRoot>
         )}
       </div>
-      {switcher && <div className="ml-auto pl-2">{switcher}</div>}
+      {switcher && <div className="ml-auto flex h-7 items-center pl-2">{switcher}</div>}
     </div>
   )
 }

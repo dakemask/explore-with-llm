@@ -1,21 +1,24 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { GitBranch, KeyRound, Sparkles } from 'lucide-react'
 import { nanoid } from 'nanoid'
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
-import { db, type ChatNode } from '../../db'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { db } from '../../db'
 import { useT } from '../../i18n'
-import type { AnchorMark } from '../../lib/anchor'
+import { quoteForInput } from '../../lib/anchor'
 import { createConversation, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { branchColors, parentColor } from '../../lib/colors'
-import { activePath, busyIds, isHidden, sideThreads, threadPath } from '../../lib/tree'
+import { columnFrame } from '../../lib/column'
+import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { glideTo, useAutoScroll } from '../../lib/hooks'
-import { useUi, type Panel } from '../../store/ui'
+import { useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
+import { SideCard } from '../side/SideCard'
+import { SideColumn } from '../side/SideColumn'
+import { useSideQuestions } from '../side/useSideQuestions'
 import { Button, IconButton } from '../ui/Button'
 import { Dots } from '../ui/Dots'
-import { sideFallbackTitle } from '../../lib/naming'
 import { Composer } from './Composer'
 import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
@@ -30,6 +33,7 @@ export function ChatView() {
   const openSettings = useUi((s) => s.openSettings)
   const panel = useUi((s) => s.panel)
   const setPanel = useUi((s) => s.setPanel)
+  const startDraft = useUi((s) => s.startDraft)
   const { providers, provider, model, ready } = useCurrentModel()
   const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
 
@@ -53,7 +57,7 @@ export function ChatView() {
 
   const canSend = ready
 
-  // What the panel shows was archived (or sits under something archived): close it.
+  // The node the detail panel shows was archived (or sits under something archived): close it.
   useEffect(() => {
     if (nodes && panel && isHidden(nodes, panel.nodeId)) setPanel(null)
   }, [nodes, panel, setPanel])
@@ -73,43 +77,54 @@ export function ChatView() {
   const mainRef = useRef<HTMLElement>(null)
   const scroll = useAutoScroll(conversationId)
   const actions = useNodeActions(nodes, scroll.pin)
-  const anchors = useAnchors(path, nodes, panel)
-  const [picker, setPicker] = useState<{
-    x: number
-    y: number
-    nodeId: string
-    items: { thread: string; question: string }[]
-  } | null>(null)
 
-  const openThread = (nodeId: string, thread: string) => setPanel({ type: 'side', nodeId, thread })
+  // ---- side questions: highlights in the replies, cards in the column right of the chat ----
+  const side = useSideQuestions(path, nodes, conversation)
+  const [picker, setPicker] = useState<{ x: number; y: number; items: { thread: string; question: string }[] } | null>(
+    null,
+  )
 
-  /** Clicking highlighted text opens its side question, or offers a choice where several overlap. */
+  /** The side questions whose highlight is under `target` (a draft's included). */
+  const threadsAt = (target: EventTarget) => {
+    const ids = (target as Element).closest?.<HTMLElement>('[data-threads]')?.dataset.threads?.split(' ') ?? []
+    return ids.map((id) => (id.startsWith(DRAFT_PREFIX) ? id.slice(DRAFT_PREFIX.length) : id))
+  }
+
+  /** Clicking highlighted text expands its side question's card, or offers a choice where several overlap. */
   const onContentClick = (e: MouseEvent) => {
     const sel = getSelection()
     if (sel && !sel.isCollapsed) return
-    const mark = (e.target as Element).closest<HTMLElement>('[data-threads]')
-    const root = mark?.closest<HTMLElement>('[data-anchor-root]')
-    if (!mark || !root) return
-    const nodeId = root.dataset.anchorRoot!
-    const threads = mark.dataset.threads!.split(' ').filter((id) => !id.startsWith(DRAFT_PREFIX))
-    if (threads.length === 1) openThread(nodeId, threads[0])
+    const threads = threadsAt(e.target)
+    if (threads.length === 1) side.expand(threads[0])
     else if (threads.length > 1) {
-      const all = nodes ?? []
-      setPicker({
-        x: e.clientX,
-        y: e.clientY,
-        nodeId,
-        items: threads.map((thread) => ({
-          thread,
-          question: (() => {
-            const root = threadPath(all, thread, conversation?.selectedChild ?? {})[0]
-            return conversation?.threadTitles?.[thread] ?? (sideFallbackTitle(root, root?.anchor?.text ?? '') || t('image.only'))
-          })(),
-        })),
-      })
+      const title = (id: string) => {
+        const it = side.items.find((it) => it.id === id)
+        return conversation?.threadTitles?.[id] ?? (it?.fallback || t('image.only'))
+      }
+      setPicker({ x: e.clientX, y: e.clientY, items: threads.map((thread) => ({ thread, question: title(thread) })) })
     }
   }
   const contentOf = (nodeId: string) => nodes?.find((n) => n.id === nodeId)?.assistant.content
+
+  // Hover links: a highlight in the text lights up its card and bar; a card or bar deepens its highlight.
+  const [hover, setHover] = useState<string[]>([])
+  const hoverTo = (ids: string[]) => setHover((prev) => (prev.join(' ') === ids.join(' ') ? prev : ids))
+  const hoverMarks = side.items.filter((it) => hover.includes(it.id)).map((it) => it.mark)
+
+  // The chat and the column share the scroll area's width (`lib/column.ts`).
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = scroll.containerRef.current
+    if (!el) return
+    const update = () => setWidth(el.clientWidth)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [scroll.containerRef])
+  // The detail panel covers the column for a while: the chat takes the room, cards and drafts stay as they are.
+  const showColumn = path.length > 0 && side.items.length > 0 && !panel
+  const frame = columnFrame(width, showColumn)
 
   // ---- tree map: drops down under the header; `current` = the turn in view when it opened ----
   const treeButton = useRef<HTMLButtonElement>(null)
@@ -183,8 +198,26 @@ export function ChatView() {
         />
       )}
 
-      <div ref={scroll.containerRef} onClick={onContentClick} className="min-h-0 flex-1 overflow-y-auto">
-        <div ref={scroll.contentRef} className="mx-auto w-full max-w-3xl px-6 py-8">
+      {hoverMarks.length > 0 && (
+        <style>
+          {hoverMarks.map((m) => `.prose mark[data-threads~="${CSS.escape(m)}"]`).join(',') +
+            '{background: var(--c-anchor-active)}'}
+        </style>
+      )}
+
+      <div
+        ref={scroll.containerRef}
+        onClick={onContentClick}
+        className="flex min-h-0 flex-1 items-start overflow-x-hidden overflow-y-auto"
+        style={{ paddingLeft: frame.chatLeft }}
+      >
+        <div
+          ref={scroll.contentRef}
+          onMouseOver={(e) => hoverTo(threadsAt(e.target))}
+          onMouseLeave={() => hoverTo([])}
+          className="shrink-0 px-6 py-8"
+          style={{ width: frame.chatWidth }}
+        >
           {path.length === 0 ? (
             noProvider ? (
               <EmptyState
@@ -209,7 +242,7 @@ export function ChatView() {
                     siblings={siblings.get(n.id)}
                     canSend={canSend}
                     actions={actions}
-                    anchors={anchors.get(n.id)}
+                    anchors={side.anchors.get(n.id)}
                     busy={busy.has(n.id)}
                   />
                 </Turn>
@@ -217,26 +250,51 @@ export function ChatView() {
             </div>
           )}
         </div>
+        {showColumn && conversation && nodes && (
+          <SideColumn
+            items={side.items}
+            width={frame.sideWidth}
+            content={scroll.contentRef}
+            scroller={scroll.containerRef}
+            expanded={side.expanded}
+            hover={hover}
+            onHover={hoverTo}
+            onExpand={side.expand}
+            renderExpanded={(id, card) => {
+              const it = side.items.find((it) => it.id === id)!
+              return (
+                <SideCard
+                  key={id}
+                  thread={id}
+                  nodeId={it.nodeId}
+                  path={it.path}
+                  draft={it.draft}
+                  conversation={conversation}
+                  nodes={nodes}
+                  fallback={it.fallback}
+                  dropTarget={card}
+                  onCollapse={() => side.expand(null)}
+                />
+              )
+            }}
+          />
+        )}
       </div>
 
       <SelectionAsk
         containerRef={scroll.containerRef}
         contentOf={contentOf}
-        onAsk={(nodeId, anchor) =>
-          setPanel({ type: 'side', nodeId, thread: nanoid(), draft: anchor })
-        }
+        onAsk={(nodeId, anchor) => {
+          if (conversationId)
+            startDraft(nanoid(), { conversationId, nodeId, anchor, prefill: quoteForInput(anchor.text) })
+        }}
       />
       {picker && (
-        <ThreadPicker
-          at={picker}
-          items={picker.items}
-          onPick={(thread) => openThread(picker.nodeId, thread)}
-          onClose={() => setPicker(null)}
-        />
+        <ThreadPicker at={picker} items={picker.items} onPick={side.expand} onClose={() => setPicker(null)} />
       )}
 
-      <div className="shrink-0 px-6 pb-5">
-        <div className="mx-auto w-full max-w-3xl">
+      <div className="shrink-0 pb-5" style={{ paddingLeft: frame.chatLeft }}>
+        <div className="px-6" style={{ width: frame.chatWidth }}>
           <Composer
             onSend={(text, images) => send(last?.id ?? null, text, images)}
             dropTarget={mainRef}
@@ -249,33 +307,6 @@ export function ChatView() {
       </div>
     </main>
   )
-}
-
-/**
- * Side-question highlights for each node on the path (an empty list still enables selecting text).
- * Lists are reused while unchanged so memoized messages don't re-render their Markdown.
- */
-function useAnchors(path: ChatNode[], nodes: ChatNode[] | undefined, panel: Panel | null) {
-  const cache = useRef(new Map<string, AnchorMark[]>())
-  return useMemo(() => {
-    const side = panel?.type === 'side' ? panel : panel?.type === 'detail' ? panel.back : undefined
-    const next = new Map<string, AnchorMark[]>()
-    for (const n of path) {
-      const list: AnchorMark[] = sideThreads(nodes ?? [], n.id).map((t) => ({
-        id: t.thread,
-        start: t.anchor.start,
-        end: t.anchor.end,
-        active: side?.thread === t.thread,
-      }))
-      if (side?.draft && side.nodeId === n.id) {
-        list.push({ id: DRAFT_PREFIX + side.thread, start: side.draft.start, end: side.draft.end, active: true })
-      }
-      const prev = cache.current.get(n.id)
-      next.set(n.id, prev && JSON.stringify(prev) === JSON.stringify(list) ? prev : list)
-    }
-    cache.current = next
-    return next
-  }, [path, nodes, panel])
 }
 
 function EmptyState({
