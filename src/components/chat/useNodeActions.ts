@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { db, type ChatNode } from '../../db'
 import { resend, selectBranch } from '../../lib/chat'
-import type { HoldTarget } from '../../lib/hooks'
+import type { Hold } from '../../lib/hooks'
 import type { ImageFile } from '../../lib/images'
 import { forkKey } from '../../lib/tree'
 import type { NodeActions } from './MessageNode'
@@ -13,10 +13,10 @@ export const atFork = (node: ChatNode, inner = '') => `[data-fork="${CSS.escape(
 /**
  * Retry / edit / branch switching for MessageNode, for main and side nodes alike. The returned object
  * never changes (memoized nodes stay put); it reads the latest nodes and model through a ref.
- * `hold` (the scroll area's) keeps things in place: a new attempt's top where the old node's was, the
- * switcher where it was clicked.
+ * `hold` (the scroll area's) keeps things in place: a new attempt's top where the old node's was (its reply
+ * is then followed until that top reaches the top of the screen), the switcher where it was clicked.
  */
-export function useNodeActions(nodes: ChatNode[] | undefined, hold: (target: HoldTarget) => void): NodeActions {
+export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold): NodeActions {
   const { provider, model } = useCurrentModel()
   const latest = useRef({ nodes, provider, model, hold })
   latest.current = { nodes, provider, model, hold }
@@ -24,7 +24,7 @@ export function useNodeActions(nodes: ChatNode[] | undefined, hold: (target: Hol
     const again = (node: ChatNode, text: string, images: ImageFile[]) => {
       const { provider, model, hold } = latest.current
       if (!provider || !model) return
-      hold(atFork(node))
+      hold(atFork(node), { follow: true })
       void resend(node, text, images, provider, model)
     }
     return {

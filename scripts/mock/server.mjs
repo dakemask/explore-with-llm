@@ -14,7 +14,7 @@
 //   mock-cut    starts like mock-chat, then drops the connection mid-reply
 //   mock-empty  200 with an event stream that ends without any output
 //   mock-hang   accepts the request and never answers (for the waiting timer)
-//   mock-long   like mock-chat with long reasoning (40 paragraphs, streamed a line at a time) and the reply
+//   mock-long   like mock-chat with long reasoning (40 paragraphs, a line every 120 ms) and the reply
 //               three times (for folding / sticky reasoning and scroll tests)
 //   mock-name   a short quoted title instead of the usual reply (automatic naming): which prompt it got
 //               (conversation / side question) and how many context messages the side prompt had
@@ -42,6 +42,8 @@ const MODELS = ['mock-chat', 'mock-think', 'mock-tags', 'mock-bad', 'mock-cut', 
 if (extra > 0) MODELS.push(...Array.from({ length: extra }, (_, i) => `mock-extra-${String(i + 1).padStart(2, '0')}`), 'mock-chat')
 let count = 0
 const longReasoning = Array.from({ length: 40 }, (_, i) => `第 ${i + 1} 步：${reasoning.replace(/\n+/g, ' ')}`).join('\n\n')
+/** Pause between reasoning pieces: mock-long thinks slowly (a few seconds), for watching it stream. */
+const pause = (model) => (model === 'mock-long' ? 120 : 15)
 const reasoningOf = (model) => (model === 'mock-long' ? longReasoning : reasoning)
 /** The reasoning in streamed pieces: one character at a time, long reasoning a line at a time. */
 const pieces = (model, text = reasoningOf(model)) => (model === 'mock-long' ? text.match(/[^]{1,40}/g) : [...text])
@@ -126,13 +128,13 @@ async function chat(res, body) {
   if (model === 'mock-think') {
     for (const ch of reasoning) {
       delta({ reasoning: ch, reasoning_details: [{ type: 'reasoning.summary', summary: ch, index: 0, format: 'openai-responses-v1' }] })
-      await sleep(15)
+      await sleep(pause(model))
     }
     delta({ reasoning_details: [{ type: 'reasoning.encrypted', data: blob(count), id: `rs_${count}`, index: 1, format: 'openai-responses-v1' }] })
   } else if (model !== 'mock-tags') {
     for (const ch of pieces(model)) {
       delta({ reasoning_content: ch })
-      await sleep(15)
+      await sleep(pause(model))
     }
   }
   const line = echoLine({ protocol: 'chat', context: messages.length, echoed, params, users: userContents('chat', body) })
@@ -166,7 +168,7 @@ async function anthropic(res, body) {
     send({ type: 'content_block_start', index, content_block: { type: 'thinking', thinking: '', signature: '' } })
     for (const ch of pieces(model)) {
       send({ type: 'content_block_delta', index, delta: { type: 'thinking_delta', thinking: ch } })
-      await sleep(15)
+      await sleep(pause(model))
     }
     send({ type: 'content_block_delta', index, delta: { type: 'signature_delta', signature: `sig-${count}-` + 'x'.repeat(40) } })
     send({ type: 'content_block_stop', index: index++ })
@@ -199,7 +201,7 @@ async function responses(res, body) {
       send({ type: 'response.reasoning_summary_part.added', item_id: id, output_index: 0, summary_index, part: { type: 'summary_text', text: '' } })
       for (const ch of pieces(model, text)) {
         send({ type: 'response.reasoning_summary_text.delta', item_id: id, output_index: 0, summary_index, delta: ch })
-        await sleep(15)
+        await sleep(pause(model))
       }
       send({ type: 'response.reasoning_summary_text.done', item_id: id, output_index: 0, summary_index, text })
       summary.push({ type: 'summary_text', text })

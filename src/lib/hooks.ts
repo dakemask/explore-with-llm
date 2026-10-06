@@ -43,52 +43,58 @@ export function useCopy() {
 
 /** What `hold` keeps in place: an element, or a selector looked up in the scroll area on every frame. */
 export type HoldTarget = Element | string
+/**
+ * Keeps `target` at its place on screen while the change the user just caused lands. `follow`: a new
+ * reply is coming (retry / edit): follow it afterwards, but never scroll the target above the top.
+ */
+export type Hold = (target: HoldTarget, opts?: { follow?: boolean }) => void
 
 /** The nearest scroll area's `hold` (see `useAutoScroll`); a no-op outside one. */
-export const ScrollHold = createContext<(target: HoldTarget) => void>(() => {})
+export const ScrollHold = createContext<Hold>(() => {})
 export const useScrollHold = () => useContext(ScrollHold)
 
 /** How long `hold` keeps its target in place (the change may arrive late: IndexedDB writes are async). */
 const HOLD_MS = 1200
+/** Within this distance of the end of the content, a scroll by the user turns following on. */
+const NEAR_END = 40
 
 /**
- * A chat scroll area's scrolling rules:
- * - Follows the bottom while content grows, unless the user has scrolled up. Jumps to the bottom when
- *   `resetKey` changes (e.g. switching conversations).
- * - Never jumps because content got shorter: where the browser would pull the view up (the page can't
- *   scroll that far any more), blank space is added at the bottom instead. The blank goes away unnoticed:
- *   it is trimmed to what is on screen whenever the view scrolls up or content grows into it.
- * - `hold(target)` keeps what the user just clicked at its place on screen (at least at the area's top)
- *   while the change it caused lands: folding the reasoning, switching versions, a new attempt. Following
- *   the bottom afterwards (a new attempt's reply streaming in) stops once the target reaches the top, so
- *   it never scrolls out of view on its own.
+ * A chat scroll area's scrolling rules (the main chat and each side card's messages), all here:
+ * 1. The view moves on its own only while *following*: then it keeps the end of the content in view as it
+ *    grows. Anything else that changes size leaves what's on screen where it is.
+ * 2. Following turns on when the user sends (`pin`), when `resetKey` changes (another conversation: it
+ *    jumps to the end) and when the user scrolls to the end; it turns off when the user scrolls away from
+ *    the end. Nothing else changes it — content getting shorter doesn't.
+ * 3. Never pulled up: where content got shorter at the end and the browser would pull the view up, blank
+ *    space is added at the bottom instead; it is trimmed away unnoticed (whatever of it is below the screen,
+ *    on every scroll and size change).
+ * 4. `hold(target)` keeps what the user just clicked in place (at least at the top) for a moment: folding
+ *    the reasoning, switching versions, a new attempt. The user scrolling ends it at once.
+ * "The content" is `contentRef` (in the main chat: the messages, not the side column beside them).
  */
 export function useAutoScroll(resetKey: string | null) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const stick = useRef(true)
   const state = useRef({
+    following: true,
     /** Blank space at the bottom (the container's bottom padding), px. */
     blank: 0,
-    /** The scroll position as last seen or set, to tell when the browser pulled it up. */
+    /** The scroll position this hook last saw or set: a scroll event elsewhere is the user's (or a pull-up). */
     last: 0,
     held: null as { target: HoldTarget; offset: number; until: number } | null,
-    /** The last held target: following the bottom doesn't scroll it above the top. Cleared by the user scrolling. */
+    /** After a retry / edit: following doesn't scroll this above the top. Cleared by the user scrolling. */
     cap: null as HoldTarget | null,
   })
 
   const api = useMemo(() => {
     const s = state.current
-    const box = () => containerRef.current
     const setBlank = (el: HTMLElement, px: number) => {
       px = Math.max(0, Math.round(px))
       if (px === s.blank) return
       s.blank = px
       el.style.paddingBottom = px ? `${px}px` : ''
     }
-    /** Height without the blank. */
-    const natural = (el: HTMLElement) => el.scrollHeight - s.blank
-    /** Scrolls to `top`, adding blank below if the page is too short for it. */
+    /** Scrolls to `top`, adding blank below if the area is too short for it. */
     const scrollTo = (el: HTMLElement, top: number) => {
       top = Math.max(0, Math.round(top))
       const max = el.scrollHeight - el.clientHeight
@@ -96,97 +102,109 @@ export function useAutoScroll(resetKey: string | null) {
       el.scrollTop = top
       s.last = el.scrollTop
     }
-    /** Drops blank that is below the screen. */
+    /** Drops the blank that is below the screen. */
     const trim = (el: HTMLElement) => {
-      if (s.blank) setBlank(el, Math.min(s.blank, el.scrollTop + el.clientHeight - natural(el)))
+      if (s.blank) setBlank(el, Math.min(s.blank, el.scrollTop + el.clientHeight - (el.scrollHeight - s.blank)))
+    }
+    /** Where `node` is, in the area's scroll coordinates. */
+    const topOf = (el: HTMLElement, node: Element) =>
+      node.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
+    /** The end of the content, in the area's scroll coordinates. */
+    const end = (el: HTMLElement) => {
+      const c = contentRef.current
+      return c ? c.getBoundingClientRect().bottom - el.getBoundingClientRect().top + el.scrollTop : el.scrollHeight - s.blank
     }
     const find = (el: HTMLElement, target: HoldTarget) =>
       typeof target === 'string' ? el.querySelector(target) : target.isConnected ? target : null
-    /** Moves the held target back to its place; ends the hold when its time is up. */
+
+    /** Puts the held target back at its place; false once there's no hold (any more). */
     const applyHold = (el: HTMLElement) => {
       const h = s.held
       if (!h) return false
       if (performance.now() > h.until) {
         s.held = null
-        stick.current = natural(el) - el.scrollTop - el.clientHeight < 80
         return false
       }
       const t = find(el, h.target)
       if (t) {
-        const delta = t.getBoundingClientRect().top - el.getBoundingClientRect().top - h.offset
+        const delta = topOf(el, t) - el.scrollTop - h.offset
         if (Math.abs(delta) >= 1) scrollTo(el, el.scrollTop + delta)
       }
       return true
     }
     /**
-     * The content shrank under the view and the browser pulled it up (it's now further up and at the very
-     * bottom, which scrolling up by hand never leaves it at): put it back, over blank space.
+     * The browser pulled the view up because content shrank (it's now further up and at the very bottom,
+     * which scrolling up by hand never leaves it at): put it back, over blank space.
      */
     const unclamp = (el: HTMLElement) => {
       if (el.scrollTop >= s.last - 1 || el.scrollTop < el.scrollHeight - el.clientHeight - 1) return false
       scrollTo(el, s.last)
       return true
     }
-    /** After any layout change: keep the held target in place, else undo a pull-up, else follow the bottom. */
+    const follow = (el: HTMLElement) => {
+      let top = Math.max(el.scrollTop, end(el) - el.clientHeight)
+      const cap = s.cap && find(el, s.cap)
+      if (cap) top = Math.min(top, Math.max(el.scrollTop, topOf(el, cap)))
+      if (top > el.scrollTop + 0.5) scrollTo(el, top)
+    }
+    /** After any size change: hold, else undo a pull-up, else follow (rule 1), then trim. */
     const settle = () => {
-      const el = box()
+      const el = containerRef.current
       if (!el) return
-      if (applyHold(el)) return
-      if (!unclamp(el) && stick.current) {
-        let top = Math.max(el.scrollTop, natural(el) - el.clientHeight)
-        const cap = s.cap && find(el, s.cap)
-        if (cap) {
-          const capTop = el.scrollTop + cap.getBoundingClientRect().top - el.getBoundingClientRect().top
-          top = Math.min(top, Math.max(el.scrollTop, capTop))
-        }
-        scrollTo(el, top)
-      }
+      if (!applyHold(el) && !unclamp(el) && s.following) follow(el)
       trim(el)
     }
-    const hold = (target: HoldTarget) => {
-      const el = box()
+    const onScroll = () => {
+      const el = containerRef.current
+      if (!el || Math.abs(el.scrollTop - s.last) < 1) return // our own scroll
+      if (s.held) return void applyHold(el) // (something scrolled in the middle of a hold: back in place)
+      if (unclamp(el)) return // (reported here when layout ran before the size observer did)
+      s.last = el.scrollTop
+      trim(el)
+      s.following = end(el) - el.scrollTop - el.clientHeight < NEAR_END
+    }
+    /** The user scrolls by hand: a hold or a cap ends (the scroll event then decides about following). */
+    const release = () => {
+      s.held = null
+      s.cap = null
+    }
+    const hold: Hold = (target, opts) => {
+      const el = containerRef.current
       const t = el && find(el, target)
       if (!el || !t) return
-      const offset = Math.max(0, t.getBoundingClientRect().top - el.getBoundingClientRect().top)
+      const offset = Math.max(0, topOf(el, t) - el.scrollTop)
       s.held = { target, offset, until: performance.now() + HOLD_MS }
-      s.cap = target
-      stick.current = false
+      if (opts?.follow) {
+        s.cap = target
+        s.following = true
+      }
+      // Every frame (the change may be a re-render without any size change in the observed boxes).
       const tick = () => {
-        if (!s.held || !applyHold(el)) return
-        requestAnimationFrame(tick)
+        if (s.held && applyHold(el)) requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
     }
-    return { scrollTo, trim, natural, settle, hold, setBlank, unclamp }
+    const reset = () => {
+      const el = containerRef.current
+      Object.assign(s, { following: true, held: null, cap: null })
+      if (!el) return
+      setBlank(el, 0)
+      scrollTo(el, el.scrollHeight)
+    }
+    return { settle, onScroll, release, hold, reset }
   }, [])
 
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const s = state.current
-    const onScroll = () => {
-      // A pull-up can be reported here first (layout forced while rendering), before the size observer runs.
-      if (!s.held && api.unclamp(el)) return
-      s.last = el.scrollTop
-      api.trim(el)
-      if (!s.held) stick.current = api.natural(el) - el.scrollTop - el.clientHeight < 80
-    }
-    // The user scrolling on their own ends a hold.
-    const release = () => {
-      s.cap = null
-      if (s.held) {
-        s.held = null
-        stick.current = api.natural(el) - el.scrollTop - el.clientHeight < 80
-      }
-    }
     const onKey = (e: KeyboardEvent) => {
-      if (['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', ' ', 'Tab'].includes(e.key)) release()
+      if (['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', ' ', 'Tab'].includes(e.key)) api.release()
     }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    el.addEventListener('wheel', release, { passive: true })
-    el.addEventListener('touchstart', release, { passive: true })
+    el.addEventListener('scroll', api.onScroll, { passive: true })
+    el.addEventListener('wheel', api.release, { passive: true })
+    el.addEventListener('touchstart', api.release, { passive: true })
     // (Also dragging the scrollbar; a click that starts a new hold does so after this.)
-    el.addEventListener('pointerdown', release)
+    el.addEventListener('pointerdown', api.release)
     el.addEventListener('keydown', onKey)
     // Size changes of anything inside (chat, side column) and of the area itself.
     const ro = new ResizeObserver(api.settle)
@@ -199,37 +217,25 @@ export function useAutoScroll(resetKey: string | null) {
     const mo = new MutationObserver(observeChildren)
     mo.observe(el, { childList: true })
     return () => {
-      el.removeEventListener('scroll', onScroll)
-      el.removeEventListener('wheel', release)
-      el.removeEventListener('touchstart', release)
-      el.removeEventListener('pointerdown', release)
+      el.removeEventListener('scroll', api.onScroll)
+      el.removeEventListener('wheel', api.release)
+      el.removeEventListener('touchstart', api.release)
+      el.removeEventListener('pointerdown', api.release)
       el.removeEventListener('keydown', onKey)
       ro.disconnect()
       mo.disconnect()
     }
   }, [api])
 
-  useEffect(() => {
-    stick.current = true
-    const el = containerRef.current
-    state.current.held = null
-    state.current.cap = null
-    if (!el) return
-    api.setBlank(el, 0)
-    el.scrollTop = el.scrollHeight
-    state.current.last = el.scrollTop
-  }, [resetKey, api])
+  useEffect(api.reset, [resetKey, api])
 
+  /** The user sends: follow the new reply. */
   const pin = () => {
-    state.current.held = null
-    state.current.cap = null
-    stick.current = true
+    Object.assign(state.current, { following: true, held: null, cap: null })
   }
-  /** Stop following the bottom and holding anything (before scrolling somewhere else on purpose). */
+  /** Stop following and holding (before scrolling somewhere else on purpose). */
   const unpin = () => {
-    state.current.held = null
-    state.current.cap = null
-    stick.current = false
+    Object.assign(state.current, { following: false, held: null, cap: null })
   }
 
   return { containerRef, contentRef, pin, unpin, hold: api.hold }

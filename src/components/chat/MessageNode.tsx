@@ -218,9 +218,10 @@ function UserMessage({
 }
 
 /**
- * The reasoning, folded under a toggle. Unfolded it shows in full (no inner scrolling); while the user
- * reads further down, the toggle sticks to the top of the scroll area so it can be folded from there.
- * Folding and unfolding keep the toggle where it was on screen (`useScrollHold`).
+ * The reasoning, folded under a toggle; it opens and closes only when the user says so, also while it is
+ * still streaming (owner). Unfolded it shows in full (no inner scrolling); while the user reads further
+ * down, the toggle sticks to the top of the scroll area so it can be folded from there. Folding and
+ * unfolding keep the toggle where it was on screen (`useScrollHold`).
  */
 function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
   const t = useT()
@@ -228,7 +229,7 @@ function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
   const hold = useScrollHold()
   const toggle = useRef<HTMLButtonElement>(null)
   const expandable = !!view.text || view.summaries.length > 0
-  const expanded = expandable && (open || live)
+  const expanded = expandable && open
   const encryptedBytes = view.encrypted.reduce((a, b) => a + b, 0)
   return (
     <div className="mb-4">
