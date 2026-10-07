@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db, ROOT_KEY, type ChatNode } from './db'
 import { activePath, threadPath } from './lib/tree'
+import { setLabel } from './lib/chat'
 import { exportConversation, importConversation, REMOVED } from './lib/transfer'
 
 const KEY = 'sk-secret-key-1234567890'
@@ -37,7 +38,7 @@ beforeEach(async () => {
   await db.nodes.bulkAdd([
     node('n1', null, { user: { text: 'look', images: ['img1'] } }),
     node('n2', 'n1'),
-    node('n3', 'n1', { edit: { from: 'n2', history: [{ content: 'a n2', at: 0 }], at: 1 } }),
+    node('n3', 'n1', { edit: { from: 'n2', history: [{ content: 'a n2', at: 0 }], at: 1 }, label: '改过的版本' }),
     node('s1', 'n1', { kind: 'side', thread: 'th', anchor: { start: 0, end: 1, text: 'a' } }),
     node('s2', 's1', { kind: 'side', thread: 'th' }),
   ])
@@ -67,6 +68,7 @@ describe('conversation export / import', () => {
     const path = activePath(nodes, conv.selectedChild)
     expect(path.map((n) => n.assistant.content)).toEqual(['a n1', 'a n3'])
     expect(path[1].edit!.from).toBe(nodes.find((n) => n.assistant.content === 'a n2')!.id)
+    expect(path.map((n) => n.label)).toEqual([undefined, '改过的版本'])
     const thread = nodes.find((n) => n.anchor)!.thread!
     expect(thread).not.toBe('th')
     expect(threadPath(nodes, thread, conv.selectedChild).map((n) => n.assistant.content)).toEqual(['a s1', 'a s2'])
@@ -79,12 +81,33 @@ describe('conversation export / import', () => {
     expect(path[0].attempt.rawChunks).toEqual([{ t: 1, text: 'data: {}' }])
   })
 
+  it('exports version 4 and still imports version 3 (no labels)', async () => {
+    const f = JSON.parse((await exportConversation('c')).json)
+    expect(f.version).toBe(4)
+    f.version = 3
+    for (const n of f.nodes) delete n.label
+    const id = await importConversation(JSON.stringify(f))
+    expect((await db.nodes.where('conversationId').equals(id).toArray()).some((n) => n.label)).toBe(false)
+  })
+
   it('rejects files that are not exported conversations', async () => {
     await expect(importConversation('nope')).rejects.toThrow('not JSON')
     await expect(importConversation('{"a":1}')).rejects.toThrow('not an exported conversation')
     const f = JSON.parse((await exportConversation('c')).json)
+    f.nodes[2].label = 42
+    await expect(importConversation(JSON.stringify(f))).rejects.toThrow('bad message')
+    delete f.nodes[2].label
     f.nodes[1].parentId = 'missing'
     await expect(importConversation(JSON.stringify(f))).rejects.toThrow('broken message tree')
     expect(await db.conversations.count()).toBe(1)
+  })
+})
+
+describe('labels', () => {
+  it('sets a trimmed label, and an empty one removes it', async () => {
+    await setLabel('n1', '  first  ')
+    expect((await db.nodes.get('n1'))!.label).toBe('first')
+    await setLabel('n1', '   ')
+    expect('label' in (await db.nodes.get('n1'))!).toBe(false)
   })
 })

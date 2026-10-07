@@ -10,8 +10,8 @@ import { deriveBranches } from './tree'
  */
 export interface ConversationFile {
   format: typeof FORMAT
-  /** 1: before node kinds (no `branch` / `archived`; branches are derived on import). 2: before notes. */
-  version: 1 | 2 | 3
+  /** 1: before node kinds (no `branch` / `archived`; branches are derived on import). 2: before notes. 3: before labels. */
+  version: 1 | 2 | 3 | 4
   exportedAt: number
   conversation: Conversation
   nodes: ChatNode[]
@@ -34,7 +34,7 @@ export async function exportConversation(id: string): Promise<{ name: string; js
   const keys = (await db.providers.toArray()).map((p) => p.apiKey)
   const file: ConversationFile = {
     format: FORMAT,
-    version: 3,
+    version: 4,
     exportedAt: Date.now(),
     conversation,
     nodes: stripSecrets(nodes, keys),
@@ -152,7 +152,7 @@ function parseFile(text: string): ConversationFile {
     throw new ImportError('not JSON')
   }
   if (!f || f.format !== FORMAT) throw new ImportError('not an exported conversation')
-  if (f.version !== 1 && f.version !== 2 && f.version !== 3) throw new ImportError(`unsupported version ${f.version}`)
+  if (![1, 2, 3, 4].includes(f.version)) throw new ImportError(`unsupported version ${f.version}`)
   const c = f.conversation
   if (!c || typeof c.title !== 'string' || !isRecord(c.selectedChild) || !Array.isArray(f.nodes) || !Array.isArray(f.images))
     throw new ImportError('missing fields')
@@ -166,6 +166,7 @@ function parseFile(text: string): ConversationFile {
     if (n.kind !== 'main' && n.kind !== 'side') throw new ImportError('bad message')
     if ((n.branch !== undefined && n.branch !== true) || (n.archived !== undefined && typeof n.archived !== 'number'))
       throw new ImportError('bad message')
+    if (n.label !== undefined && typeof n.label !== 'string') throw new ImportError('bad message')
     nodeIds.add(n.id)
   }
   const imageIds = new Set<string>()

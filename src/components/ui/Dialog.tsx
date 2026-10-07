@@ -93,7 +93,7 @@ export function Dialog({
 
 type Pending = { id: number } & (
   | { kind: 'confirm'; message: string; danger?: boolean; resolve: (ok: boolean) => void }
-  | { kind: 'prompt'; message: string; initial: string; resolve: (value: string | null) => void }
+  | { kind: 'prompt'; message: string; initial: string; placeholder?: string; resolve: (value: string | null) => void }
 )
 
 const usePending = create<{ pending: Pending | null }>(() => ({ pending: null }))
@@ -105,9 +105,9 @@ export function confirmDialog(message: string, opts?: { danger?: boolean }) {
   )
 }
 
-export function promptDialog(message: string, initial = '') {
+export function promptDialog(message: string, initial = '', opts?: { placeholder?: string }) {
   return new Promise<string | null>((resolve) =>
-    usePending.setState({ pending: { id: ++nextId, kind: 'prompt', message, initial, resolve } }),
+    usePending.setState({ pending: { id: ++nextId, kind: 'prompt', message, initial, placeholder: opts?.placeholder, resolve } }),
   )
 }
 
@@ -151,7 +151,8 @@ function PendingDialog({ pending }: { pending: Pending }) {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onFocus={(e) => e.target.select()}
-                className="mt-3 h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:border-accent focus:ring-3 focus:ring-accent/15 focus:outline-none"
+                placeholder={pending.placeholder}
+                className="mt-3 h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-accent/15 focus:outline-none"
               />
             )}
             <div className="mt-5 flex justify-end gap-2">

@@ -131,6 +131,8 @@ export interface ChatNode {
    * not marked; they are hidden because an ancestor is archived (`lib/tree.ts`).
    */
   archived?: number
+  /** Main nodes only: the user's one-line label, shown first in the tree map's and the switcher's tips. */
+  label?: string
   createdAt: number
   user: {
     text: string

@@ -300,6 +300,18 @@ export async function makeBranch(nodeId: string) {
   await db.nodes.update(nodeId, { branch: true })
 }
 
+/** Sets a main node's label (`ChatNode.label`); an empty one removes it. */
+export async function setLabel(nodeId: string, label: string) {
+  const text = label.trim()
+  await db.nodes
+    .where(':id')
+    .equals(nodeId)
+    .modify((n) => {
+      if (text) n.label = text
+      else delete n.label
+    })
+}
+
 /** Archives a main node (with everything below it, which stays unmarked but hidden). */
 export async function archiveNode(nodeId: string) {
   await db.nodes.update(nodeId, { archived: Date.now() })

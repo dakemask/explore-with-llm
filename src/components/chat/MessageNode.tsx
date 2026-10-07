@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Archive, AlertCircle, Brain, Check, ChevronRight, Copy, GitBranch, Info, Lock, MoreHorizontal, Pencil, RotateCcw } from 'lucide-react'
+import { Archive, AlertCircle, Brain, Check, ChevronRight, Copy, GitBranch, Info, Lock, MoreHorizontal, Pencil, RotateCcw, Tag } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
@@ -17,6 +17,7 @@ import { Dots } from '../ui/Dots'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
 import { AssistantEditDialog, UserEditDialog } from './EditDialogs'
 import { MessageImages } from './Images'
+import { editLabel } from './labels'
 import { Markdown } from './Markdown'
 import { SiblingSwitcher, type Siblings } from './SiblingSwitcher'
 import { atFork } from './useNodeActions'
@@ -404,6 +405,9 @@ function AssistantFooter({
               </IconButton>
             </MenuTrigger>
             <MenuContent align="end">
+              <MenuItem icon={<Tag size={14} />} onSelect={() => void editLabel(node, t)}>
+                {t('label.menu')}
+              </MenuItem>
               {!node.branch && (
                 <MenuItem icon={<GitBranch size={14} />} onSelect={() => void makeBranch(node.id)}>
                   {t('msg.makeBranch')}

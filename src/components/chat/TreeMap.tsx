@@ -17,6 +17,7 @@ import { branchColors, colorVar } from '../../lib/colors'
 import { plainLine } from '../../lib/anchor'
 import { currentUnit, layoutTree, routeTo, type MapUnit, type TreeLayout } from '../../lib/treeMap'
 import { Layer } from '../ui/Layer'
+import { editLabel } from './labels'
 
 const GX = 34
 const GY = 22
@@ -62,6 +63,7 @@ export function TreeMapPanel({
  * The tree map panel's content (`docs/tree-preview.html`): a tidy horizontal tree of the main line in
  * branch colors. Laid out once when it opens; hovering a unit grows a bold path to it from the root.
  * `currentNodeId` = the turn the user was looking at (marked "current"); `onJump` gets the clicked unit.
+ * Right-clicking a node edits its label (labels are read live, the layout stays as it was).
  */
 export function TreeMap({
   nodes,
@@ -105,6 +107,7 @@ export function TreeMap({
     return list
   }, [layout, colors, uid])
   const edgeById = useMemo(() => new Map(edges.map((e) => [e.id, e])), [edges])
+  const labels = useMemo(() => new Map(nodes.flatMap((n) => (n.label ? [[n.id, n.label]] : []))), [nodes])
 
   // ---- hover: the root→unit path grows in bold from the root; the shared prefix isn't redrawn ----
   const svgRef = useRef<SVGSVGElement>(null)
@@ -197,9 +200,9 @@ export function TreeMap({
   }
   const label = (u: MapUnit) => {
     const n = u.nodes[0]
-    return u.type === 'stack'
-      ? t('tree.stack', { n: u.col + 1, m: u.nodes.length })
-      : `${t('tree.turn', { n: u.col + 1 })} ${plainLine(n.user.text) || t('image.only')}`
+    if (u.type === 'stack') return t('tree.stack', { n: u.col + 1, m: u.nodes.length })
+    const own = labels.get(n.id)
+    return `${own ? own + ' · ' : ''}${t('tree.turn', { n: u.col + 1 })} ${plainLine(n.user.text) || t('image.only')}`
   }
   const litIds = lit ? new Map(lit.route.map((id, i) => [id, lit.delays[i]])) : undefined
   const currentLabel = t('tree.current')
@@ -277,6 +280,10 @@ export function TreeMap({
                 aria-label={label(u)}
                 aria-current={here || undefined}
                 onClick={() => onJump(u)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  if (u.type === 'node') void editLabel({ id: u.nodes[0].id, label: labels.get(u.nodes[0].id) }, t)
+                }}
                 onKeyDown={(e) => onKey(e, u)}
                 onMouseEnter={() => highlight(u.id)}
                 onMouseMove={(e) => showTip(e.clientX, e.clientY, u)}
@@ -314,7 +321,7 @@ export function TreeMap({
           </g>
         )}
       </svg>
-      {tip && <TreeTip ref={tipRef} unit={tip} />}
+      {tip && <TreeTip ref={tipRef} unit={tip} labels={labels} />}
     </div>
   )
 }
@@ -365,21 +372,36 @@ function pillSpot(
   return spots.find(free) ?? spots[0]
 }
 
-/** Hover tip: the turn, then the first lines of the user message and the reply. */
-function TreeTip({ unit, ref }: { unit: MapUnit; ref: Ref<HTMLDivElement> }) {
+/**
+ * Hover tip: the node's label, the turn, then the first lines of the user message and the reply. Stacks:
+ * the turn and count, then the labels of the attempts that have one.
+ */
+function TreeTip({ unit, labels, ref }: { unit: MapUnit; labels: Map<string, string>; ref: Ref<HTMLDivElement> }) {
   const t = useT()
   const n = unit.nodes[0]
   const reply = plainLine(n.assistant.content)
+  const label = labels.get(n.id)
   return (
     <div
       ref={ref}
       className="pointer-events-none fixed z-50 max-w-80 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs leading-relaxed shadow-pop"
     >
       {unit.type === 'stack' ? (
-        <div className="font-medium">{t('tree.stack', { n: unit.col + 1, m: unit.nodes.length })}</div>
+        <>
+          <div className="font-medium">{t('tree.stack', { n: unit.col + 1, m: unit.nodes.length })}</div>
+          {unit.nodes.map(
+            (a) =>
+              labels.has(a.id) && (
+                <div key={a.id} className="truncate">
+                  · {labels.get(a.id)}
+                </div>
+              ),
+          )}
+        </>
       ) : (
         <>
-          <div className="font-medium">{t('tree.turn', { n: unit.col + 1 })}</div>
+          {label && <div className="truncate font-semibold">{label}</div>}
+          <div className={label ? 'text-muted' : 'font-medium'}>{t('tree.turn', { n: unit.col + 1 })}</div>
           <div className="truncate">{plainLine(n.user.text) || t('image.only')}</div>
           {reply && <div className="truncate text-muted">{reply}</div>}
         </>

@@ -12,9 +12,9 @@ import { IconButton, Tip } from '../ui/Button'
 export interface Siblings {
   current: string
   /** Main nodes: the branches at this fork with their colors, oldest first. Side nodes: none. */
-  branches: { id: string; color: number; title: string }[]
+  branches: { id: string; color: number; title: string; label?: string }[]
   /** Main nodes: the attempts at this fork; side nodes: every version. Oldest first. */
-  attempts: { id: string; title: string }[]
+  attempts: { id: string; title: string; label?: string }[]
   /** Side-thread node: a plain ‹n/m› over all versions. */
   side: boolean
 }
@@ -42,8 +42,10 @@ export function useSiblings(path: ChatNode[], nodes: ChatNode[] | undefined, col
         side,
         branches: side
           ? []
-          : sibs.filter((s) => s.branch).map((s) => ({ id: s.id, color: colors?.get(s.id) ?? GREY, title: title(s) })),
-        attempts: sibs.filter((s) => side || !s.branch).map((s) => ({ id: s.id, title: title(s) })),
+          : sibs
+              .filter((s) => s.branch)
+              .map((s) => ({ id: s.id, color: colors?.get(s.id) ?? GREY, title: title(s), label: s.label })),
+        attempts: sibs.filter((s) => side || !s.branch).map((s) => ({ id: s.id, title: title(s), label: s.label })),
       }
       const prev = cache.current.get(n.id)
       next.set(n.id, prev && JSON.stringify(prev) === JSON.stringify(info) ? prev : info)
@@ -89,14 +91,15 @@ export function SiblingSwitcher({ info, onSelect }: { info: Siblings; onSelect: 
   return (
     <div className="flex shrink-0 items-center">
       {branches.map((b) => (
-        <Dot key={b.id} color={b.color} label={b.title} current={b.id === current} onClick={() => onSelect(b.id)} />
+        <Dot key={b.id} color={b.color} title={b.title} label={b.label} current={b.id === current} onClick={() => onSelect(b.id)} />
       ))}
       {branches.length > 0 && attempts.length > 0 && <span className="mx-1.5 h-3.5 w-px bg-border-strong" />}
       {attempts.length === 1 ? (
         // A single attempt beside branches is just one more (grey) dot.
         <Dot
           color={GREY}
-          label={attempts[0].title}
+          title={attempts[0].title}
+          label={attempts[0].label}
           current={at === 0}
           onClick={() => onSelect(attempts[0].id)}
         />
@@ -131,13 +134,36 @@ export function SiblingSwitcher({ info, onSelect }: { info: Siblings; onSelect: 
   )
 }
 
-/** One branch (or a lone attempt): a dot in its color; the shown one is ringed. */
-function Dot({ color, label, current, onClick }: { color: number; label: string; current: boolean; onClick: () => void }) {
+/** One branch (or a lone attempt): a dot in its color; the shown one is ringed. Tip: its label, then `title`. */
+function Dot({
+  color,
+  title,
+  label,
+  current,
+  onClick,
+}: {
+  color: number
+  title: string
+  label?: string
+  current: boolean
+  onClick: () => void
+}) {
   return (
-    <Tip content={label}>
+    <Tip
+      content={
+        label ? (
+          <>
+            <div className="font-semibold">{label}</div>
+            <div className="opacity-75">{title}</div>
+          </>
+        ) : (
+          title
+        )
+      }
+    >
       <button
         type="button"
-        aria-label={label}
+        aria-label={label ? `${label} · ${title}` : title}
         aria-current={current || undefined}
         onClick={onClick}
         className={clsx(
