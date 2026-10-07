@@ -7,6 +7,7 @@ import { createConversation, lacksReply, selectPath, sendMessage, stopGeneration
 import type { ImageFile } from '../../lib/images'
 import { branchColors, parentColor } from '../../lib/colors'
 import { columnFrame } from '../../lib/column'
+import { focusComposer } from '../../lib/focus'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { createNote, noteTitle } from '../../lib/notes'
@@ -74,6 +75,8 @@ export function ChatView() {
 
   const mainRef = useRef<HTMLElement>(null)
   const scroll = useAutoScroll(conversationId)
+  // Opening a conversation (new, from the list, imported): ready to type.
+  useEffect(() => focusComposer(), [conversationId])
   const actions = useNodeActions(nodes, scroll.hold)
 
   // ---- side questions and notes: highlights in the messages, cards in the column right of the chat ----

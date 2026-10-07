@@ -22,18 +22,31 @@ function EditDialog({
 }: {
   title: string
   dirty: boolean
+  /** Closes it; `done` = sent / saved (focus then goes to the input box, not back to the edit button). */
   onClose: () => void
   className: string
-  children: (cancel: () => void) => ReactNode
+  children: (cancel: () => void, done: () => void) => ReactNode
 }) {
   const t = useT()
   const cancel = async () => {
     if (dirty && !(await confirmDialog(t('msg.discardEdit')))) return
     onClose()
   }
+  const sent = useRef(false)
+  const done = () => {
+    sent.current = true
+    onClose()
+  }
   return (
-    <Dialog open onOpenChange={(open) => !open && void cancel()} title={title} className={className} initialFocus="textarea">
-      {children(cancel)}
+    <Dialog
+      open
+      onOpenChange={(open) => !open && void cancel()}
+      title={title}
+      className={className}
+      initialFocus="textarea"
+      toComposer={() => sent.current}
+    >
+      {children(cancel, done)}
     </Dialog>
   )
 }
@@ -54,14 +67,14 @@ export function UserEditDialog({
   const [dirty, setDirty] = useState(false)
   return (
     <EditDialog title={t('msg.editTitle')} dirty={dirty} onClose={onClose} className="max-w-2xl">
-      {(cancel) => (
+      {(cancel, done) => (
         <UserEditBody
           initial={initial}
           initialImages={initialImages}
           onDirty={setDirty}
           onCancel={cancel}
           onSend={(text, images) => {
-            onClose()
+            done()
             onSend(text, images)
           }}
         />
@@ -151,15 +164,15 @@ export function AssistantEditDialog({
   const t = useT()
   const [text, setText] = useState(initial)
   const changed = text !== initial && text.trim().length > 0
-  const save = () => {
+  const save = (done: () => void) => {
     if (!changed) return
-    onClose()
+    done()
     onSave(text)
   }
 
   return (
     <EditDialog title={t('msg.editReply')} dirty={text !== initial} onClose={onClose} className="max-w-3xl">
-      {(cancel) => (
+      {(cancel, done) => (
         <>
           <div className="min-h-0 overflow-y-auto px-5 pt-4">
             <GrowingTextarea
@@ -171,7 +184,7 @@ export function AssistantEditDialog({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault()
-                  save()
+                  save(done)
                 }
               }}
               className="block min-h-24 w-full resize-none rounded-lg border border-border bg-surface px-3.5 py-2.5 font-mono text-[13.5px] leading-relaxed [font-variant-ligatures:none] [overflow-wrap:anywhere] placeholder:font-sans placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-accent/15 focus:outline-none"
@@ -182,7 +195,7 @@ export function AssistantEditDialog({
             <Button size="sm" variant="ghost" onClick={cancel}>
               {t('common.cancel')}
             </Button>
-            <Button size="sm" variant="primary" onClick={save} disabled={!changed}>
+            <Button size="sm" variant="primary" onClick={() => save(done)} disabled={!changed}>
               {t('common.save')}
             </Button>
           </div>

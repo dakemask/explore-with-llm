@@ -7,6 +7,7 @@ import { useCopy, useScrollHold } from '../../lib/hooks'
 import type { AnchorMark } from '../../lib/anchor'
 import { archiveNode, editAssistant, makeBranch } from '../../lib/chat'
 import { colorVar } from '../../lib/colors'
+import { focusComposer } from '../../lib/focus'
 import type { ImageFile } from '../../lib/images'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
 import { forkKey } from '../../lib/tree'
@@ -373,7 +374,15 @@ function AssistantFooter({
           </IconButton>
         )}
         {onRetry && (
-          <IconButton label={t('msg.retry')} size="sm" onClick={onRetry}>
+          <IconButton
+            label={t('msg.retry')}
+            size="sm"
+            onClick={(e) => {
+              onRetry()
+              // The button goes away with the new attempt; typing continues in this place's box.
+              focusComposer(e.currentTarget)
+            }}
+          >
             <RotateCcw size={14} />
           </IconButton>
         )}

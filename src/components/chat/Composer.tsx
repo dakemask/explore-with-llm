@@ -66,7 +66,15 @@ export function Composer({
     <>
       {regenerate && (
         <div className="mb-2.5 flex justify-center">
-          <Button size="sm" disabled={!regenerate.onClick} onClick={regenerate.onClick}>
+          <Button
+            size="sm"
+            disabled={!regenerate.onClick}
+            onClick={() => {
+              regenerate.onClick?.()
+              // The button goes away with the new attempt; typing continues here.
+              ref.current?.focus({ preventScroll: true })
+            }}
+          >
             <RotateCcw size={13} />
             {t('msg.retry')}
           </Button>
@@ -83,6 +91,7 @@ export function Composer({
         <AttachmentStrip attachments={attachments} className="px-3.5 pt-3.5" />
         <textarea
           ref={ref}
+          data-composer
           rows={1}
           value={text}
           onFocus={(e) => {

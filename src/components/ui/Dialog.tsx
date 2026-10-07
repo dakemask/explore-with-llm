@@ -1,11 +1,35 @@
 import * as RD from '@radix-ui/react-dialog'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useT } from '../../i18n'
+import { focusComposer } from '../../lib/focus'
 import { Button, IconButton } from './Button'
 import { inToast } from './Toast'
+
+/**
+ * Our dialogs are opened from app state, not by a Radix `Trigger`, so Radix doesn't know where to hand
+ * focus back on close (it dropped it on the page). This remembers what had focus when the dialog opened
+ * and returns to it if it's still there; `toComposer()` true sends it to that place's input box instead
+ * (see `lib/focus.ts`).
+ */
+function useReturnFocus(toComposer?: () => boolean) {
+  const opener = useRef<{ el: HTMLElement; side: Element | null } | null>(null)
+  return {
+    remember: () => {
+      const el = document.activeElement
+      opener.current =
+        el instanceof HTMLElement && el !== document.body ? { el, side: el.closest('[data-side-column]') } : null
+    },
+    onCloseAutoFocus: (e: Event) => {
+      e.preventDefault()
+      const o = opener.current
+      if (toComposer?.()) focusComposer(o?.side)
+      else if (o?.el.isConnected) o.el.focus({ preventScroll: true })
+    },
+  }
+}
 
 export function Dialog({
   open,
@@ -14,6 +38,7 @@ export function Dialog({
   children,
   className,
   initialFocus,
+  toComposer,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -22,8 +47,11 @@ export function Dialog({
   className?: string
   /** Selector of the element to focus on open (e.g. a search box); the panel itself otherwise. */
   initialFocus?: string
+  /** Asked on close: true = focus the input box of the place it was opened from, not its opener. */
+  toComposer?: () => boolean
 }) {
   const t = useT()
+  const focus = useReturnFocus(toComposer)
   return (
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
@@ -34,9 +62,11 @@ export function Dialog({
           tabIndex={-1}
           onOpenAutoFocus={(e) => {
             e.preventDefault()
+            focus.remember()
             const panel = e.currentTarget as HTMLElement
             ;((initialFocus && panel.querySelector<HTMLElement>(initialFocus)) || panel).focus()
           }}
+          onCloseAutoFocus={focus.onCloseAutoFocus}
           onInteractOutside={(e) => inToast(e.target) && e.preventDefault()}
           className={clsx(
             'anim-pop fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col',
@@ -90,6 +120,9 @@ export function DialogHost() {
 function PendingDialog({ pending }: { pending: Pending }) {
   const t = useT()
   const [value, setValue] = useState(pending.kind === 'prompt' ? pending.initial : '')
+  const focus = useReturnFocus()
+  // On the first render, before the autoFocus inside takes focus (Radix's open event then doesn't fire).
+  useState(focus.remember)
   const close = (ok: boolean) => {
     usePending.setState({ pending: null })
     if (pending.kind === 'prompt') pending.resolve(ok ? value : null)
@@ -101,6 +134,7 @@ function PendingDialog({ pending }: { pending: Pending }) {
         <RD.Overlay className="anim-fade fixed inset-0 z-40 bg-black/30 dark:bg-black/50" />
         <RD.Content
           aria-describedby={undefined}
+          onCloseAutoFocus={focus.onCloseAutoFocus}
           onInteractOutside={(e) => inToast(e.target) && e.preventDefault()}
           className="anim-pop fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-surface p-5 shadow-pop focus:outline-none"
         >
