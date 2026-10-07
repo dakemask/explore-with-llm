@@ -1,6 +1,7 @@
 import { GitBranch, KeyRound, PanelLeftOpen, Sparkles, SquarePen } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
 import { createConversation, lacksReply, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
@@ -125,14 +126,15 @@ export function ChatView() {
   const hoverTo = (ids: string[]) => setHover((prev) => (prev.join(' ') === ids.join(' ') ? prev : ids))
   const hoverMarks = side.items.filter((it) => hover.includes(it.id))
 
-  // The chat and the column share the scroll area's width (`lib/column.ts`).
+  // The chat and the column share the scroll area's width (`lib/column.ts`). Re-laid out before the
+  // browser paints (`flushSync`): otherwise a pane opening / closing or being dragged showed a frame of
+  // the chat at its old place.
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
     const el = scroll.containerRef.current
     if (!el) return
-    const update = () => setWidth(el.clientWidth)
-    update()
-    const ro = new ResizeObserver(update)
+    setWidth(el.clientWidth)
+    const ro = new ResizeObserver(() => flushSync(() => setWidth(el.clientWidth)))
     ro.observe(el)
     return () => ro.disconnect()
   }, [scroll.containerRef])
@@ -195,7 +197,7 @@ export function ChatView() {
     <main ref={mainRef} className="relative flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
         {!listOpen && (
-          <div className="-mr-1 flex items-center gap-1">
+          <div className="anim-fade -mr-1 flex items-center gap-1">
             <IconButton label={t('pane.listOpen')} onClick={() => setPane('list', { open: true })}>
               <PanelLeftOpen size={17} />
             </IconButton>

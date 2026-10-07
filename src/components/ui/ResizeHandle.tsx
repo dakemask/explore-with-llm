@@ -15,6 +15,7 @@ export function ResizeHandle({
   max,
   onResize,
   onReset,
+  onDragging,
   className,
   style,
 }: {
@@ -25,11 +26,17 @@ export function ResizeHandle({
   max: number
   onResize: (width: number) => void
   onReset: () => void
+  /** A drag starts / ends (e.g. to turn off the pane's open / close animation meanwhile). */
+  onDragging?: (on: boolean) => void
   className?: string
   style?: CSSProperties
 }) {
   const start = useRef<{ x: number; width: number } | null>(null)
-  const [dragging, setDragging] = useState(false)
+  const [dragging, setDraggingState] = useState(false)
+  const setDragging = (on: boolean) => {
+    setDraggingState(on)
+    onDragging?.(on)
+  }
   const dir = edge === 'left' ? 1 : -1
   const clamp = (px: number) => Math.round(Math.min(max, Math.max(min, px)))
 
@@ -45,6 +52,7 @@ export function ResizeHandle({
     onResize(clamp(start.current.width + (e.clientX - start.current.x) * dir))
   }
   const end = () => {
+    if (!start.current) return
     start.current = null
     setDragging(false)
   }

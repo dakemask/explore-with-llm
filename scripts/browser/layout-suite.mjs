@@ -166,14 +166,41 @@ for (const action of ['笔记', '追问']) {
   await page.mouse.move(x + 900, 400, { steps: 5 })
   await page.mouse.up()
   check('W4 the list stops at its widest', (await listWidth()) === 420, await listWidth())
-  await page.locator('[aria-label="收起对话列表"]').click()
-  await page.waitForTimeout(200)
+  // In every painted frame of the slide, the chat is centered in the area (it once showed a frame at its
+  // old place: re-laid out a frame late). Read in an observer made after the app's, see W3.
+  const offCenter = async (button) => {
+    await page.evaluate((SC) => {
+      const sc = document.querySelector(SC)
+      const read = () => {
+        const a = sc.getBoundingClientRect()
+        const c = sc.firstElementChild.firstElementChild.getBoundingClientRect()
+        return Math.round(Math.abs(c.left - a.left - (a.left + sc.clientWidth - c.right)))
+      }
+      window.__frames = []
+      let cur = null
+      const ro = new ResizeObserver(() => cur && (cur.v = read()))
+      ro.observe(sc)
+      ro.observe(sc.firstElementChild)
+      const tick = () => {
+        cur = { v: read() }
+        window.__frames.push(cur)
+        if (window.__frames.length < 30) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, SC)
+    await page.locator(`[aria-label="${button}"]`).click()
+    await page.waitForTimeout(700)
+    return Math.max(...(await page.evaluate(() => window.__frames.map((f) => f.v))))
+  }
+  const slideOff = await offCenter('收起对话列表')
+  check('W4 collapsing: the chat stays centered in every frame', slideOff <= 1, slideOff)
   const c = await measure(page)
   check('W4 collapsed: no list, the chat is centered', (await listWidth()) === 0 && Math.abs(c.contentLeft - (c.areaRight - c.contentRight)) <= 1, c)
   await page.reload()
   await page.waitForTimeout(800)
   check('W4 collapsed after a reload', (await listWidth()) === 0)
-  await page.locator('[aria-label="展开对话列表"]').click()
+  const slideOn = await offCenter('展开对话列表')
+  check('W4 expanding: the chat stays centered in every frame', slideOn <= 1, slideOn)
   check('W4 expanded at the width it had', (await listWidth()) === 420, await listWidth())
   await browser.close()
 }
