@@ -37,7 +37,6 @@ export function useNotes(path: ChatNode[], notes: Note[] | undefined) {
               <span className={title ? 'truncate text-muted' : 'truncate text-faint'}>{title || t('note.new')}</span>
             </span>
           ),
-          meta: t('note.label'),
           tip: noteSnippet(note.text) || t('note.new'),
         }
       })

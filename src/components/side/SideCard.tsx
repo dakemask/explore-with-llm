@@ -1,21 +1,17 @@
-import { Archive, MoreHorizontal, Pencil } from 'lucide-react'
-import { useMemo, useState, type RefObject } from 'react'
+import { type RefObject } from 'react'
 import type { ChatNode, Conversation } from '../../db'
 import { useT } from '../../i18n'
-import { archiveThread, lacksReply, renameThread, sendMessage, stopGeneration } from '../../lib/chat'
+import { archiveThread, lacksReply, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { ScrollHold, useAutoScroll } from '../../lib/hooks'
-import { busyIds, threadRoots } from '../../lib/tree'
 import { useUi, type SideDraft } from '../../store/ui'
 import { Composer } from '../chat/Composer'
 import { MessageNode, Turn } from '../chat/MessageNode'
 import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
 import { useSiblings } from '../chat/SiblingSwitcher'
 import { useNodeActions } from '../chat/useNodeActions'
-import { IconButton, Tip } from '../ui/Button'
-import { promptDialog } from '../ui/Dialog'
 import { Dots } from '../ui/Dots'
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
+import { CardMenu, SideMenuItems } from './CardMenu'
 import { collapseOnClick } from './SideColumn'
 
 /**
@@ -31,7 +27,7 @@ export function ThreadTitle({ thread, conversation, fallback }: { thread: string
 }
 
 /**
- * The expanded card of a side question in the column: its messages, a composer, archive and collapse.
+ * The expanded card of a side question in the column: its messages, a composer, its menu.
  * `path` is the thread as shown (empty for a draft); `nodeId` the main node it was asked from.
  */
 export function SideCard({
@@ -81,22 +77,6 @@ export function SideCard({
     })
   }
 
-  // Reversible (restored from the archive dialog), so no confirmation.
-  const busy = useMemo(() => {
-    const ids = busyIds(nodes)
-    return threadRoots(nodes, thread).some((r) => ids.has(r.id))
-  }, [nodes, thread])
-  const archive = async () => {
-    if (busy) return
-    onCollapse()
-    await archiveThread(conversation.id, thread)
-  }
-  const rename = async () => {
-    const title = await promptDialog(t('side.rename'), conversation.threadTitles?.[thread] ?? fallback)
-    if (title?.trim()) await renameThread(conversation.id, thread, title.trim())
-  }
-  const [menuOpen, setMenuOpen] = useState(false)
-
   return (
     <>
       <header
@@ -110,29 +90,18 @@ export function SideCard({
           <div className="text-[11px] leading-4 text-faint">{root ? t('side.title') : t('side.draft')}</div>
         </div>
         {root && (
-          <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
-            <MenuTrigger asChild>
-              <IconButton label={t('msg.more')} size="sm" active={menuOpen}>
-                <MoreHorizontal size={15} />
-              </IconButton>
-            </MenuTrigger>
-            <MenuContent align="end">
-              <MenuItem icon={<Pencil size={14} />} onSelect={() => void rename()}>
-                {t('side.rename')}
-              </MenuItem>
-              {busy ? (
-                <Tip content={t('archive.busy')}>
-                  <MenuItem icon={<Archive size={14} />} disabled onSelect={() => {}}>
-                    {t('msg.archive')}
-                  </MenuItem>
-                </Tip>
-              ) : (
-                <MenuItem icon={<Archive size={14} />} onSelect={() => void archive()}>
-                  {t('msg.archive')}
-                </MenuItem>
-              )}
-            </MenuContent>
-          </MenuRoot>
+          <CardMenu>
+            <SideMenuItems
+              conversation={conversation}
+              thread={thread}
+              fallback={fallback}
+              nodes={nodes}
+              onArchive={() => {
+                onCollapse()
+                void archiveThread(conversation.id, thread)
+              }}
+            />
+          </CardMenu>
         )}
       </header>
 

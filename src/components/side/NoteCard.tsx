@@ -1,11 +1,11 @@
-import { Archive, MoreHorizontal, NotebookPen, Pencil } from 'lucide-react'
+import { NotebookPen, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Note } from '../../db'
 import { useT } from '../../i18n'
 import { archiveNote, deleteNote, saveNoteText } from '../../lib/notes'
 import { Markdown } from '../chat/Markdown'
-import { Button, IconButton } from '../ui/Button'
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
+import { Button } from '../ui/Button'
+import { CardMenu, NoteMenuItems } from './CardMenu'
 import { collapseOnClick } from './SideColumn'
 
 /**
@@ -57,7 +57,6 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
     setEditing(false)
   }
 
-  const [menuOpen, setMenuOpen] = useState(false)
   const archive = async () => {
     flush()
     onCollapse()
@@ -75,18 +74,9 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
           {t('note.label')}
         </div>
         {text.trim() && (
-          <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
-            <MenuTrigger asChild>
-              <IconButton label={t('msg.more')} size="sm" active={menuOpen}>
-                <MoreHorizontal size={15} />
-              </IconButton>
-            </MenuTrigger>
-            <MenuContent align="end">
-              <MenuItem icon={<Archive size={14} />} onSelect={() => void archive()}>
-                {t('msg.archive')}
-              </MenuItem>
-            </MenuContent>
-          </MenuRoot>
+          <CardMenu>
+            <NoteMenuItems onArchive={() => void archive()} />
+          </CardMenu>
         )}
       </header>
 

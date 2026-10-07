@@ -46,13 +46,18 @@ export function useSideQuestions(
   const sideItems = useMemo(() => {
     if (!nodes || !conversation) return []
     const out: SideItem[] = []
-    const item = (it: Omit<SideItem, 'kind' | 'title' | 'tip' | 'meta'>, meta: string): SideItem => {
+    const item = (it: Omit<SideItem, 'kind' | 'title' | 'tip'>, meta: string): SideItem => {
       const title = conversation.threadTitles?.[it.id] ?? (it.fallback || t('image.only'))
       return {
         ...it,
         kind: 'side',
-        meta,
-        title: <ThreadTitle thread={it.id} conversation={conversation} fallback={it.fallback} />,
+        title: (
+          <>
+            <ThreadTitle thread={it.id} conversation={conversation} fallback={it.fallback} />
+            {/* (Only drafts say what they are: one looks like a sent question otherwise.) */}
+            {it.draft && <span className="ml-2 shrink-0 text-[11px] text-faint">{t('side.draft')}</span>}
+          </>
+        ),
         tip: `${title} · ${meta}`,
       }
     }

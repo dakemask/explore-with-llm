@@ -6,7 +6,7 @@ import { Layer } from '../ui/Layer'
 
 /**
  * One item of the column: something anchored to a stretch of the chat text, shown as a collapsed card
- * (title + meta) or expanded (`renderExpanded`). Side questions now; notes (step 6.5) plug in as another kind.
+ * (title + its ⋯ menu) or expanded (`renderExpanded`). Side questions now; notes (step 6.5) plug in as another kind.
  */
 export interface ColumnItem {
   id: string
@@ -14,8 +14,6 @@ export interface ColumnItem {
   /** The id its highlight carries in `data-threads` (where it is measured). */
   mark: string
   title: ReactNode
-  /** Small muted text at the card's right (e.g. the turn count). */
-  meta: string
   /** The marker bar's tip. */
   tip: string
 }
@@ -48,6 +46,7 @@ export function SideColumn({
   onToggle,
   onEscape,
   renderExpanded,
+  renderMenu,
 }: {
   items: ColumnItem[]
   width: number
@@ -68,6 +67,8 @@ export function SideColumn({
   /** Escape while the expanded card is the topmost layer (`preventDefault()` = handled). */
   onEscape: (e: KeyboardEvent) => void
   renderExpanded: (id: string, card: RefObject<HTMLDivElement | null>) => ReactNode
+  /** A collapsed card's ⋯ menu (`CardMenu`, given `className`), or nothing. */
+  renderMenu: (id: string, className: string) => ReactNode
 }) {
   const colRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -149,25 +150,30 @@ export function SideColumn({
             const covered = hidden.has(it.id)
             const lit = hover.includes(it.id)
             return (
-              <button
+              <div
                 key={it.id}
-                tabIndex={covered ? -1 : undefined}
+                data-card={it.id}
                 aria-hidden={covered || undefined}
-                onClick={() => onToggle(it.id)}
                 onMouseEnter={() => onHover([it.id])}
                 onMouseLeave={() => onHover([])}
                 className={clsx(
-                  'absolute right-3 flex items-center gap-2 rounded-lg border bg-surface px-3 text-left text-[13px] shadow-xs',
-                  'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
+                  'group/card absolute right-3 flex items-center rounded-lg border bg-surface text-[13px] shadow-xs',
                   'transition-[top,opacity,border-color,background-color] duration-200',
                   lit ? 'border-border-strong' : 'border-border hover:border-border-strong',
                   covered && 'pointer-events-none opacity-0',
                 )}
                 style={{ top: tops[i], left: STRIP, height: CARD_HEIGHT }}
               >
-                <span className="flex min-w-0 flex-1 items-center">{it.title}</span>
-                <span className="shrink-0 text-[11px] text-faint tabular-nums">{it.meta}</span>
-              </button>
+                <button
+                  tabIndex={covered ? -1 : undefined}
+                  onClick={() => onToggle(it.id)}
+                  className="flex h-full min-w-0 flex-1 items-center rounded-lg pr-2 pl-3 text-left focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
+                >
+                  {it.title}
+                </button>
+                {/* (Shown on hover, like the conversation list's.) */}
+                {!covered && renderMenu(it.id, 'opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 mr-1 shrink-0')}
+              </div>
             )
           })}
         </div>

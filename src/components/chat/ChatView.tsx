@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent,
 import { flushSync } from 'react-dom'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
-import { createConversation, lacksReply, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
+import { archiveThread, createConversation, lacksReply, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { branchColors, parentColor } from '../../lib/colors'
 import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
@@ -13,7 +13,7 @@ import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
-import { createNote, noteTitle } from '../../lib/notes'
+import { archiveNote, createNote, noteTitle } from '../../lib/notes'
 import { glideTo, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { useConversationData } from '../../lib/useConversationData'
 import { useSettings } from '../../store/settings'
@@ -21,6 +21,7 @@ import { NEW_CHAT, useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { NoteCard } from '../side/NoteCard'
 import { SideCard } from '../side/SideCard'
+import { CardMenu, NoteMenuItems, SideMenuItems } from '../side/CardMenu'
 import { SideColumn } from '../side/SideColumn'
 import { NOTE_PREFIX, useNotes } from '../side/useNotes'
 import { useSideQuestions } from '../side/useSideQuestions'
@@ -403,6 +404,27 @@ export function ChatView() {
                     dropTarget={card}
                     onCollapse={() => side.expand(null)}
                   />
+                )
+              }}
+              renderMenu={(id, className) => {
+                const it = side.items.find((it) => it.id === id)!
+                if (it.kind === 'note')
+                  return (
+                    <CardMenu className={className}>
+                      <NoteMenuItems onArchive={() => void archiveNote(id)} />
+                    </CardMenu>
+                  )
+                if (!it.path.length) return null
+                return (
+                  <CardMenu className={className}>
+                    <SideMenuItems
+                      conversation={conversation}
+                      thread={id}
+                      fallback={it.fallback}
+                      nodes={nodes}
+                      onArchive={() => void archiveThread(conversation.id, id)}
+                    />
+                  </CardMenu>
                 )
               }}
             />

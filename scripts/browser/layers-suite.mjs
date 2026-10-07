@@ -125,7 +125,7 @@ await park()
 await esc()
 check('N1 next Escape collapses it', !(await cardOpen()))
 // The card's own ⋯ menu is a layer above it; its header (not its buttons) collapses it on click.
-await page.locator('[data-side-column] > div.anim-fade > button').first().click()
+await page.locator('[data-side-column] [data-card] > button').first().click()
 await wait()
 await page.locator(`${CARD} header`).getByRole('button', { name: '更多' }).click()
 await wait()
