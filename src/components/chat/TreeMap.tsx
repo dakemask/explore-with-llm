@@ -16,6 +16,7 @@ import { useT } from '../../i18n'
 import { branchColors, colorVar } from '../../lib/colors'
 import { plainLine } from '../../lib/anchor'
 import { currentUnit, layoutTree, routeTo, type MapUnit, type TreeLayout } from '../../lib/treeMap'
+import { Layer } from '../ui/Layer'
 
 const GX = 34
 const GY = 22
@@ -23,7 +24,8 @@ const PAD = 30
 
 /**
  * The tree map, dropped down under the chat header over the chat (full column width, at most half the
- * screen high). Closes on Escape and on a click outside it (except on `ignore`, the button toggling it).
+ * screen high). Closes on Escape and on a click outside it (except on `ignore`, the button toggling it) —
+ * as a `Layer`, so an open menu / dialog / card above it takes Escape first.
  */
 export function TreeMapPanel({
   closing,
@@ -38,32 +40,20 @@ export function TreeMapPanel({
   onClose: () => void
   onJump: (unit: MapUnit) => void
 }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const close = useRef(onClose)
-  close.current = onClose
-  useEffect(() => {
-    const onDown = (e: PointerEvent) => {
-      const target = e.target as Node
-      if (!ref.current?.contains(target) && !ignore.current?.contains(target)) close.current()
-    }
-    const onKey = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && close.current()
-    document.addEventListener('pointerdown', onDown, true)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onDown, true)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [ignore])
   return (
-    <div
-      ref={ref}
+    <Layer
+      // The toggle button closes it itself (a press there isn't "outside").
+      onPointerDownOutside={(e) => ignore.current?.contains(e.target as Node) && e.preventDefault()}
+      // Focus moving elsewhere (e.g. the composer refocused) isn't a reason to close.
+      onFocusOutside={(e) => e.preventDefault()}
+      onDismiss={closing ? undefined : onClose}
       className={clsx(
         'absolute inset-x-0 top-14 z-20 border-b border-border bg-surface shadow-pop',
         closing ? 'anim-menu-out pointer-events-none' : 'anim-menu',
       )}
     >
       <TreeMap {...map} />
-    </div>
+    </Layer>
   )
 }
 

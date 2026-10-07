@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, type Span } from '../../lib/column'
 import { Tip } from '../ui/Button'
+import { Layer } from '../ui/Layer'
 
 /**
  * One item of the column: something anchored to a stretch of the chat text, shown as a collapsed card
@@ -45,6 +46,7 @@ export function SideColumn({
   hover,
   onHover,
   onExpand,
+  onEscape,
   renderExpanded,
 }: {
   items: ColumnItem[]
@@ -58,6 +60,8 @@ export function SideColumn({
   hover: string[]
   onHover: (ids: string[]) => void
   onExpand: (id: string) => void
+  /** Escape while the expanded card is the topmost layer (`preventDefault()` = handled). */
+  onEscape: (e: KeyboardEvent) => void
   renderExpanded: (id: string, card: RefObject<HTMLDivElement | null>) => ReactNode
 }) {
   const colRef = useRef<HTMLDivElement>(null)
@@ -150,16 +154,18 @@ export function SideColumn({
       })}
 
       {open !== null && (
-        <div
+        <Layer
           ref={cardRef}
           key={expanded}
           className="anim-fade absolute right-3 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top] duration-200"
           style={{ top: open, left: STRIP, ...(fixed ? { height: cardLimit } : { maxHeight: cardLimit }) }}
           onMouseEnter={() => onHover([expanded!])}
           onMouseLeave={() => onHover([])}
+          // Collapses only by Escape (or its buttons), never by clicks or focus elsewhere.
+          onEscapeKeyDown={onEscape}
         >
           {renderExpanded(expanded!, cardRef)}
-        </div>
+        </Layer>
       )}
     </div>
   )

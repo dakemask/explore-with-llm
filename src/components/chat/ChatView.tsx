@@ -273,6 +273,7 @@ export function ChatView() {
               hover={hover}
               onHover={hoverTo}
               onExpand={side.expand}
+              onEscape={side.onEscape}
               renderExpanded={(id, card) => {
                 const it = side.items.find((it) => it.id === id)!
                 if (it.kind === 'note') return <NoteCard key={id} note={it.note} onCollapse={() => side.expand(null)} />

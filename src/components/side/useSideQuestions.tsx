@@ -27,8 +27,9 @@ export type AnyItem = SideItem | NoteItem
 /**
  * The column's items for the active path — its side questions, plus `notes` (`useNotes`) — the
  * highlights for each message, and the rules around them: a sent draft becomes its thread, a card whose
- * item leaves the path (archived, another branch shown) collapses, Escape collapses (unless focus is in
- * an input — other than the card's own box with nothing typed — a menu or a dialog).
+ * item leaves the path (archived, another branch shown) collapses, Escape collapses (`onEscape`, unless
+ * focus is in an input other than the card's own box with nothing typed; menus / dialogs above it take
+ * Escape first by layering).
  */
 export function useSideQuestions(
   path: ChatNode[],
@@ -93,27 +94,21 @@ export function useSideQuestions(
     if (d && isEmptyDraft(d)) dropDraft(expanded)
   }, [loaded, expanded, items, expand, dropDraft])
 
-  useEffect(() => {
-    if (!expanded) return
-    const onKey = (e: KeyboardEvent) => {
-      // (Not while the detail dialog is open: Escape closes that.)
-      if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented || useUi.getState().panel) return
-      const focus = document.activeElement
-      const busy = 'input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"], [role="listbox"]'
-      // A card's own input box with nothing typed in it doesn't hold Escape back.
-      const idleBox = focus?.matches('[data-side-column] textarea[data-pristine]')
-      if ((focus?.closest(busy) && !idleBox) || document.querySelector('[role="menu"], [role="dialog"]')) return
-      expand(null)
-      // A card button keeps focus after a click; collapsing by key would light up its focus ring.
-      if (focus instanceof HTMLElement && focus.closest('[data-side-column]')) focus.blur()
-    }
-    // Capture: runs before an open menu's own Escape handling moves focus away from it.
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [expanded, expand])
+  /** The expanded card's Escape (its `Layer` gets it only while nothing above it is open). */
+  const onEscape = (e: KeyboardEvent) => {
+    if (e.isComposing) return
+    const focus = document.activeElement
+    const busy = 'input, textarea, select, [contenteditable="true"]'
+    // A card's own input box with nothing typed in it doesn't hold Escape back.
+    if (focus?.closest(busy) && !focus.matches('[data-side-column] textarea[data-pristine]')) return
+    e.preventDefault()
+    expand(null)
+    // A card button keeps focus after a click; collapsing by key would light up its focus ring.
+    if (focus instanceof HTMLElement && focus.closest('[data-side-column]')) focus.blur()
+  }
 
   const anchors = useAnchors(path, items, expanded)
-  return { items, anchors, expanded, expand }
+  return { items, anchors, expanded, expand, onEscape }
 }
 
 /**

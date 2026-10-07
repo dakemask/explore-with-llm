@@ -63,7 +63,7 @@ multi-line paragraph — that can land between lines and select nothing (no pill
 - `src/providers/` — one adapter per protocol (`ProtocolAdapter`: request building, `echo`, stream parsing, `aggregate`, model listing): `openaiChat`, `openaiResponses`, `anthropic`.
 - `src/store/` — Zustand: `settings` (persisted to localStorage: lang, theme, last model) and `ui` (in-memory: current conversation, live streaming text, detail dialog, expanded side-question card, unsent side-question drafts).
 - `src/i18n/` — zh/en dictionaries; every UI string goes through `useT()`.
-- `src/components/ui/` — shared primitives (Button, IconButton, Tip, HelpTip, Input, Label, Dialog, Menu, Segmented, `notifyError` toasts). Build new UI from these.
+- `src/components/ui/` — shared primitives (Button, IconButton, Tip, HelpTip, Input, Label, Dialog, Menu, Segmented, `Layer`, `notifyError` toasts). Build new UI from these. `Layer` (Radix's `DismissableLayer`, same version as the one inside Radix's primitives — pnpm must resolve it to the same copy, or the stacks don't see each other) owns Escape / outside-click closing for anything that isn't a Dialog / Menu / Popover: only the topmost open layer (tree map, expanded card, menu, dialog, tooltip) gets Escape. Tooltips open on focus only when it came by Tab (a menu / dialog closed by Escape hands focus back to its button). Check with `scripts/browser/layers-suite.mjs` (how: its header).
 - `src/index.css` — design tokens as CSS variables (light + `.dark`). Components use semantic Tailwind colors (`bg-surface`, `text-muted`, `border-border`, `bg-accent`…), never raw palette colors.
 
 ## Data model
@@ -159,7 +159,7 @@ multi-line paragraph — that can land between lines and select nothing (no pill
 
 8. **Next (agreed with the owner 2026-10-07, in this order; no new features queued):**
    1. **Foundation pass.** Check each concern several features share and give each one owner, first looking for a mature library (prefer what's installed):
-      - Escape / outside-click layering: the tree map panel (`TreeMap.tsx`) and the expanded side card (`useSideQuestions.tsx`) hand-roll Escape and outside clicks; rebuild them on Radix's dismissable layers (Popover etc., already installed) so the topmost layer handles them, like Dialog / Menu already do.
+      - ✅ Escape / outside-click layering: tree map panel, expanded side / note card and the pinned `HelpTip` are `Layer`s now (were hand-rolled document listeners); `layers-suite.mjs` guards it.
       - Floating positions: the selection pill / overlap picker (`SelectionAsk.tsx`) compute their own positions; use Radix Popover (Floating UI inside) with a virtual anchor.
       - Scrolling: try `use-stick-to-bottom` against `scripts/browser/scroll-suite.mjs`; adopt only if it cleanly covers our rules (holds, blank instead of pulling up, sticky reasoning toggle) — two mechanisms side by side is what broke scrolling before; otherwise keep `useAutoScroll`.
       - Focus after closing a dialog / card, clearing transient UI state on conversation switch (expanded card, drafts, tree map, dialogs — now cleared in several places), layout widths: check each, unify where it pays.
@@ -171,7 +171,7 @@ multi-line paragraph — that can land between lines and select nothing (no pill
 ## Engineering principles
 
 - Before writing anything general-purpose, look for a mature library (installed ones first, e.g. Radix for overlays). Write our own only where nothing fits, and say why here. (Owner: "borrow predecessors' wisdom, don't reinvent wheels".)
-- One owner per shared concern (data reads: `useConversationData`; scrolling: `useAutoScroll`; next: dismiss layering). No second mechanism beside it.
+- One owner per shared concern (data reads: `useConversationData`; scrolling: `useAutoScroll`; Escape / outside clicks: `Layer` + Radix primitives). No second mechanism beside it.
 - Derive, don't store a second copy (colors are computed from the tree; the streamed-text race came from two copies of the same text).
 - Tests guard the rules of these foundations (e.g. the scroll suite), not one test per reported bug.
 
