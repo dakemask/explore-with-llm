@@ -1,4 +1,4 @@
-import { Archive, ChevronsDownUp, MoreHorizontal, Pencil } from 'lucide-react'
+import { Archive, MoreHorizontal, Pencil } from 'lucide-react'
 import { useMemo, useState, type RefObject } from 'react'
 import type { ChatNode, Conversation } from '../../db'
 import { useT } from '../../i18n'
@@ -134,9 +134,6 @@ export function SideCard({
             </MenuContent>
           </MenuRoot>
         )}
-        <IconButton label={t('side.collapse')} size="sm" onClick={onCollapse}>
-          <ChevronsDownUp size={15} />
-        </IconButton>
       </header>
 
       <div ref={scroll.containerRef} className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable] [--sticky-bg:var(--c-surface)]">

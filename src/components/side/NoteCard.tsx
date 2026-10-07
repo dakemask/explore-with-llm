@@ -1,4 +1,4 @@
-import { Archive, ChevronsDownUp, MoreHorizontal, NotebookPen, Pencil } from 'lucide-react'
+import { Archive, MoreHorizontal, NotebookPen, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Note } from '../../db'
 import { useT } from '../../i18n'
@@ -88,9 +88,6 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
             </MenuContent>
           </MenuRoot>
         )}
-        <IconButton label={t('side.collapse')} size="sm" onClick={onCollapse}>
-          <ChevronsDownUp size={15} />
-        </IconButton>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">

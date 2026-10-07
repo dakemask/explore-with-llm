@@ -81,3 +81,9 @@ export async function hoverAt(page, loc) {
   const b = await loc.boundingBox()
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
 }
+
+/** Collapses an expanded side / note card (locator) by clicking its header's title area. */
+export async function collapseCard(page, card) {
+  const b = await card.locator('header').boundingBox()
+  await page.mouse.click(b.x + 60, b.y + b.height / 2)
+}

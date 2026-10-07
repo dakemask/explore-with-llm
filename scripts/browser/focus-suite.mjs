@@ -1,7 +1,7 @@
 // Where focus goes when what held it goes away (rules: src/lib/focus.ts). Copy this folder into the session
 // scratchpad (where playwright-core is installed) and run `node focus-suite.mjs` there, with `pnpm dev` on
 // 5173 and `PORT=8788 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
-import { open, send, SC } from './lib.mjs'
+import { collapseCard, open, send, SC } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -122,7 +122,7 @@ await page.getByRole('button', { name: '发送', exact: true }).last().click()
 await stopGone()
 await wait()
 await expect('S2 edit in a side card → Send: its box', 'side box')
-await page.getByRole('button', { name: '收起', exact: true }).click()
+await collapseCard(page, page.locator(CARD))
 await wait()
 await expect('S3 collapsing a card leaves focus on nothing', 'body')
 

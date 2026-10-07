@@ -1,7 +1,7 @@
 // Streaming scroll scenarios (Product decisions › Scrolling). Copy this folder into the session scratchpad (where
 // playwright-core is installed) and run `node scroll-suite.mjs` there, with `pnpm dev` on 5173 and
 // `PORT=8788 DELAY=20 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
-import { open, waitDone, SC, SP, state, setScroll, clickAt, hoverAt, topIn } from './lib.mjs'
+import { open, waitDone, SC, SP, state, setScroll, clickAt, hoverAt, topIn, collapseCard } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -245,7 +245,7 @@ check('C3 card follows its reply to the end', atEnd(await state(page, CS)), awai
 await page.screenshot({ path: `${SP}/C3.png` })
 
 // ---- N: new conversation / switching back, also leaving with blank at the bottom ----
-await page.locator(`${CARD} button[aria-label="收起"]`).click()
+await collapseCard(page, page.locator(CARD))
 await page.waitForTimeout(1300)
 await setScroll(page, SC, 1e6)
 await page.waitForTimeout(300)
@@ -294,7 +294,7 @@ for (let i = 0; i < 25; i++) {
 await page.getByRole('button', { name: '完成' }).click()
 await page.waitForTimeout(500)
 const nh1 = (await page.locator(CARD).boundingBox()).height
-await page.locator(`${CARD} button[aria-label="收起"]`).click()
+await collapseCard(page, page.locator(CARD))
 await page.waitForTimeout(800)
 const nc = await unwatch(page)
 check('NC note card height fixed (empty → 25 lines → rendered)', Math.abs(nh1 - nh0) <= 1, { nh0, nh1 })
