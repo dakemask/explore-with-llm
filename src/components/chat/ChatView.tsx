@@ -13,7 +13,7 @@ import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { createNote, noteTitle } from '../../lib/notes'
 import { glideTo, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { useConversationData } from '../../lib/useConversationData'
-import { useUi } from '../../store/ui'
+import { NEW_CHAT, useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { NoteCard } from '../side/NoteCard'
 import { SideCard } from '../side/SideCard'
@@ -74,6 +74,9 @@ export function ChatView() {
   }
 
   const mainRef = useRef<HTMLElement>(null)
+  const draftKey = conversationId ?? NEW_CHAT
+  // Read once per box (it reads its starting text on mount); not a subscription.
+  const composerDraft = useMemo(() => useUi.getState().composerDrafts[draftKey], [draftKey])
   const scroll = useAutoScroll(conversationId)
   // Opening a conversation (new, from the list, imported): ready to type.
   useEffect(() => focusComposer(), [conversationId])
@@ -143,7 +146,17 @@ export function ChatView() {
     const timer = setTimeout(() => setTree(null), 120)
     return () => clearTimeout(timer)
   }, [tree])
-  useEffect(() => setTree(null), [conversationId])
+  // Switching conversation (`setConversation`, which clears the store's part) resets the chat's transient
+  // state here, during the render that shows the new conversation — so no frame still shows the old one's
+  // tree map, overlap picker, hover links or pending jump.
+  const [shownFor, setShownFor] = useState(conversationId)
+  if (shownFor !== conversationId) {
+    setShownFor(conversationId)
+    setTree(null)
+    setScrollTarget(null)
+    setPicker(null)
+    setHover([])
+  }
   const toggleTree = () => {
     if (tree && !tree.closing) return closeTree()
     // The topmost turn still showing more than its footer.
@@ -318,6 +331,11 @@ export function ChatView() {
       <div className="shrink-0 pb-5" style={{ paddingLeft: frame.chatLeft }}>
         <div className="px-6" style={{ width: frame.chatWidth }}>
           <Composer
+            // Each conversation keeps its own unsent text: a new box per conversation, starting from its draft.
+            key={draftKey}
+            initialText={composerDraft?.text}
+            initialImages={composerDraft?.images}
+            onLeave={(text, images) => useUi.getState().saveComposerDraft(draftKey, text, images)}
             onSend={(text, images) => send(last?.id ?? null, text, images)}
             dropTarget={mainRef}
             onStop={() => last && stopGeneration(last.id)}

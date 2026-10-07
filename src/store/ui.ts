@@ -28,6 +28,13 @@ export interface SideDraft {
 export const isEmptyDraft = (d: SideDraft) =>
   d.images.length === 0 && (!d.text.trim() || d.text.trim() === d.prefill.trim())
 
+/** What the main input box held when its conversation was left (`NEW_CHAT` = the not yet created one). */
+export interface ComposerDraft {
+  text: string
+  images: ImageFile[]
+}
+export const NEW_CHAT = 'new'
+
 interface UiState {
   conversationId: string | null
   panel: Panel | null
@@ -35,6 +42,8 @@ interface UiState {
   expanded: string | null
   /** Unsent side questions by thread id (kept per conversation while the app runs). */
   drafts: Record<string, SideDraft>
+  /** Unsent text in the main input box by conversation id (kept while the app runs). */
+  composerDrafts: Record<string, ComposerDraft>
   settingsOpen: boolean
   settingsTab: 'providers' | 'general'
   /** Provider (and model) the providers tab should show when it opens. */
@@ -42,6 +51,11 @@ interface UiState {
   live: Record<string, LiveStream>
   /** Conversations / side threads (by id) waiting for their automatic title: the reply or the naming request is running. */
   naming: Record<string, true>
+  /**
+   * Switches conversation — the only way to. Clears what belongs to the conversation on screen: the detail
+   * dialog and the expanded card here, the tree map and the chat's other transient state in `ChatView`
+   * (reset as `conversationId` changes). Kept per conversation: side-question drafts, the input box's text.
+   */
   setConversation: (id: string | null) => void
   openSettings: (tab?: UiState['settingsTab'], focus?: UiState['settingsFocus']) => void
   closeSettings: () => void
@@ -54,6 +68,8 @@ interface UiState {
   /** Keeps what a draft's composer holds as its card closes (an empty draft that isn't expanded is dropped). */
   saveDraft: (thread: string, text: string, images: ImageFile[]) => void
   dropDraft: (thread: string) => void
+  /** Keeps what the main input box holds as its conversation is left (nothing typed: forgets it). */
+  saveComposerDraft: (key: string, text: string, images: ImageFile[]) => void
   setNaming: (key: string, on: boolean) => void
 }
 
@@ -62,6 +78,7 @@ export const useUi = create<UiState>()((set) => ({
   panel: null,
   expanded: null,
   drafts: {},
+  composerDrafts: {},
   settingsOpen: false,
   settingsTab: 'providers',
   settingsFocus: null,
@@ -97,6 +114,13 @@ export const useUi = create<UiState>()((set) => ({
       const drafts = { ...s.drafts }
       delete drafts[thread]
       return { drafts }
+    }),
+  saveComposerDraft: (key, text, images) =>
+    set((s) => {
+      const composerDrafts = { ...s.composerDrafts }
+      if (text.trim() || images.length) composerDrafts[key] = { text, images }
+      else delete composerDrafts[key]
+      return { composerDrafts }
     }),
   setNaming: (key, on) =>
     set((s) => {
