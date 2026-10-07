@@ -96,7 +96,7 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
           />
         ) : (
           <div className="px-4 pt-3 pb-1">
-            <Markdown text={text} className="prose-compact" />
+            <Markdown text={text} className="prose-compact" breaks />
           </div>
         )}
       </div>
