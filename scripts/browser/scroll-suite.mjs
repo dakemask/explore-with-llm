@@ -267,5 +267,38 @@ await page.waitForTimeout(800)
 const back = await state(page)
 check('N back to the conversation: at its end, no blank', back.max - back.scrollTop < 2 && back.pad === '0' && (await composerTop()) === cTop, back)
 
+// ---- NC: note card near the bottom of the screen: fits on screen, fixed height; typing, 完成 and collapsing move nothing ----
+await page.waitForTimeout(1300)
+const lastPara = page.locator(`${SC} [data-anchor-root]:not([data-anchor-target]) > div > p`).last()
+const lp = await lastPara.boundingBox()
+await page.mouse.move(lp.x + 2, lp.y + 12)
+await page.mouse.down()
+await page.mouse.move(lp.x + 120, lp.y + 12, { steps: 5 })
+await page.mouse.up()
+await page.waitForTimeout(300)
+await page.getByRole('button', { name: '笔记', exact: true }).click()
+await page.waitForTimeout(600)
+const noteFit = await page.evaluate((CARD) => {
+  const c = document.querySelector(CARD).getBoundingClientRect()
+  const v = document.querySelector('main > div.overflow-y-auto').getBoundingClientRect()
+  return { cardTop: Math.round(c.top), cardBottom: Math.round(c.bottom), viewTop: Math.round(v.top), viewBottom: Math.round(v.bottom) }
+}, CARD)
+check('NC note card opened near the bottom fits on screen', noteFit.cardBottom <= noteFit.viewBottom && noteFit.cardTop >= noteFit.viewTop, noteFit)
+const nh0 = (await page.locator(CARD).boundingBox()).height
+const nlp = await lastPara.boundingBox()
+await watch(page, nlp.x + 20, nlp.y + 12)
+for (let i = 0; i < 25; i++) {
+  await page.keyboard.type('笔记第 ' + i + ' 行')
+  await page.keyboard.press('Enter')
+}
+await page.getByRole('button', { name: '完成' }).click()
+await page.waitForTimeout(500)
+const nh1 = (await page.locator(CARD).boundingBox()).height
+await page.locator(`${CARD} button[aria-label="收起"]`).click()
+await page.waitForTimeout(800)
+const nc = await unwatch(page)
+check('NC note card height fixed (empty → 25 lines → rendered)', Math.abs(nh1 - nh0) <= 1, { nh0, nh1 })
+check('NC typing, 完成 and collapsing a note move nothing on the page', nc.maxStep === 0 && nc.total === 0, nc)
+
 console.log(failures ? `${failures} FAILED` : 'ALL PASS')
 await browser.close()

@@ -2,7 +2,6 @@ import { Archive, ChevronsDownUp, NotebookPen, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Note } from '../../db'
 import { useT } from '../../i18n'
-import { useAutosize } from '../../lib/hooks'
 import { archiveNote, deleteNote, saveNoteText } from '../../lib/notes'
 import { Markdown } from '../chat/Markdown'
 import { Button, IconButton } from '../ui/Button'
@@ -62,9 +61,6 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
     await archiveNote(note.id)
   }
 
-  const ref = useRef<HTMLTextAreaElement>(null)
-  useAutosize(ref, editing ? text : '', 520)
-
   return (
     <>
       <header className="flex shrink-0 items-center gap-1 border-b border-border py-2 pr-2 pl-4">
@@ -84,8 +80,8 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {editing ? (
+          // Fills the card (fixed height, like a side question's); its text scrolls inside.
           <textarea
-            ref={ref}
             value={text}
             autoFocus
             placeholder={t('note.placeholder')}
@@ -96,7 +92,7 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
               e.preventDefault()
               done()
             }}
-            className="block min-h-24 w-full resize-none bg-transparent px-4 pt-3 pb-2 text-[13.5px] leading-relaxed placeholder:text-faint focus:outline-none"
+            className="block h-full w-full resize-none bg-transparent px-4 pt-3 pb-2 text-[13.5px] leading-relaxed placeholder:text-faint focus:outline-none"
           />
         ) : (
           <div className="px-4 pt-3 pb-1">

@@ -73,13 +73,12 @@ export function SideColumn({
     .sort((a, b) => spans[a.id].top - spans[b.id].top || spans[a.id].bottom - spans[b.id].bottom)
   const tops = stackCards(placed.map((it) => Math.max(0, spans[it.id].top - LIFT)))
   // At most 75% of the window, and never taller than the scroll area, so its composer can always be seen.
-  // A side question's card always has this height (its messages scroll inside), so a growing reply never
-  // changes the page; a note's card is as tall as its text, up to this.
+  // Every expanded card always has this height (its messages / note text scroll inside), so a growing reply
+  // or a note being typed never changes the page.
   const viewHeight = useHeight(scroller, null)
   const cardLimit = Math.round(Math.min(window.innerHeight * 0.75, Math.max(240, viewHeight - 32)))
-  const fixed = placed.find((it) => it.id === expanded)?.kind === 'side'
-  // Expanding never scrolls the page (owner). A side question's card that wouldn't fit on screen below its
-  // anchor opens shifted up by just enough (fixed once open; it then follows its anchor as content resizes).
+  // Expanding never scrolls the page (owner). A card that wouldn't fit on screen below its anchor opens
+  // shifted up by just enough (fixed once open; it then follows its anchor as content resizes).
   const [lift, setLift] = useState<{ id: string; px: number } | null>(null)
   const anchorTop = expanded && spans[expanded] ? Math.max(0, spans[expanded].top - LIFT) : null
   useLayoutEffect(() => {
@@ -89,9 +88,9 @@ export function SideColumn({
     const view = scroller.current?.getBoundingClientRect()
     if (!col || !view) return
     const room = view.bottom - col.top - 16 - anchorTop // from the card's top to the screen's bottom edge
-    const px = fixed ? Math.max(0, Math.min(cardLimit - room, anchorTop - (view.top - col.top) - 16)) : 0
+    const px = Math.max(0, Math.min(cardLimit - room, anchorTop - (view.top - col.top) - 16))
     setLift({ id: expanded, px })
-  }, [expanded, anchorTop, lift, fixed, cardLimit, scroller])
+  }, [expanded, anchorTop, lift, cardLimit, scroller])
   // (Its item can be gone for a render before its span is: `items` decides. The card first renders once
   // its lift is known, both before the first paint, so it never slides into place.)
   const open =
@@ -158,7 +157,7 @@ export function SideColumn({
           ref={cardRef}
           key={expanded}
           className="anim-fade absolute right-3 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top] duration-200"
-          style={{ top: open, left: STRIP, ...(fixed ? { height: cardLimit } : { maxHeight: cardLimit }) }}
+          style={{ top: open, left: STRIP, height: cardLimit }}
           onMouseEnter={() => onHover([expanded!])}
           onMouseLeave={() => onHover([])}
           // Collapses only by Escape (or its buttons), never by clicks or focus elsewhere.
