@@ -3,6 +3,7 @@
  * column go in the scroll area, where collapsed cards sit, which cards an expanded one covers, and the
  * lanes of the marker strip. Pure functions on measured numbers (px, relative to the scroll content).
  */
+import { PANE_MAX, PANE_MIN } from './panes'
 
 /** Widest the chat column gets (Tailwind `max-w-3xl`). */
 export const CHAT_MAX = 768
@@ -18,13 +19,23 @@ export interface Frame {
   sideWidth: number
 }
 
+/** The marker strip's width: the column's left part (cards start right of it), all of it when collapsed. */
+export const STRIP = 22
+/** The column (dragged wider) never leaves the chat narrower than this, unless the column is at its minimum. */
+export const CHAT_MIN = 420
+
 /**
- * The chat stays centered while the column fits beside it; otherwise it moves left, then narrows.
- * The column's width depends only on the scroll area's width (never on what it shows), so opening or
- * collapsing a card never re-flows the chat.
+ * The column's width in a scroll area `width` wide: collapsed = the marker strip; open = the width the
+ * user dragged it to (`wanted`), within its limits and leaving the chat at least `CHAT_MIN`. It depends only
+ * on these (never on what the column shows), so opening or collapsing a card never re-flows the chat.
  */
-export function columnFrame(width: number, side: boolean): Frame {
-  const sideWidth = side ? Math.round(Math.min(440, Math.max(280, width * 0.4))) : 0
+export function sideWidth(width: number, open: boolean, wanted: number) {
+  return open ? Math.round(Math.max(PANE_MIN.column, Math.min(wanted, PANE_MAX.column, width - CHAT_MIN))) : STRIP
+}
+
+/** The chat stays centered while the column (`side` px, 0 = none) fits beside it; otherwise it moves left, then narrows. */
+export function columnFrame(width: number, sideWidth: number): Frame {
+  const side = sideWidth > 0
   const chatWidth = Math.max(0, Math.min(CHAT_MAX, width - sideWidth))
   const centered = (width - chatWidth) / 2
   const chatLeft = Math.round(side ? Math.max(0, Math.min(centered, width - sideWidth - chatWidth)) : centered)

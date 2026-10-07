@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, type Span } from '../../lib/column'
+import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, STRIP, type Span } from '../../lib/column'
 import { Tip } from '../ui/Button'
 import { Layer } from '../ui/Layer'
 
@@ -20,8 +20,6 @@ export interface ColumnItem {
   tip: string
 }
 
-/** The marker strip's width (cards start right of it). */
-const STRIP = 22
 /** Cards sit this much above their anchor's first line, so their title lines up with it. */
 const LIFT = 9
 
@@ -42,10 +40,12 @@ export function SideColumn({
   width,
   content,
   scroller,
+  collapsed,
+  slide,
   expanded,
   hover,
   onHover,
-  onExpand,
+  onToggle,
   onEscape,
   renderExpanded,
 }: {
@@ -55,11 +55,16 @@ export function SideColumn({
   content: RefObject<HTMLElement | null>
   /** The scroll area (an expanded card is never taller than it). */
   scroller: RefObject<HTMLElement | null>
+  /** Only the marker strip shows (the user collapsed the column). */
+  collapsed: boolean
+  /** Its width is animating (the column opens / closes). */
+  slide: boolean
   expanded: string | null
   /** Items hovered here or in the text (their cards and bars light up). */
   hover: string[]
   onHover: (ids: string[]) => void
-  onExpand: (id: string) => void
+  /** A bar or collapsed card was clicked: expand its card, or collapse it if it's the expanded one. */
+  onToggle: (id: string) => void
   /** Escape while the expanded card is the topmost layer (`preventDefault()` = handled). */
   onEscape: (e: KeyboardEvent) => void
   renderExpanded: (id: string, card: RefObject<HTMLDivElement | null>) => ReactNode
@@ -94,6 +99,7 @@ export function SideColumn({
   // (Its item can be gone for a render before its span is: `items` decides. The card first renders once
   // its lift is known, both before the first paint, so it never slides into place.)
   const open =
+    !collapsed &&
     anchorTop !== null && lift?.id === expanded && placed.some((it) => it.id === expanded)
       ? Math.max(0, anchorTop - lift.px)
       : null
@@ -103,10 +109,20 @@ export function SideColumn({
   )
   const { lanes, count } = markerLanes(placed.map((it) => spans[it.id]))
   const laneWidth = Math.min(6, (STRIP - 6) / Math.max(1, count))
-  const extent = Math.max(0, ...tops.map((t) => t + CARD_HEIGHT), open === null ? 0 : open + cardHeight) + 32
+  const extent =
+    Math.max(
+      0,
+      ...(collapsed ? placed.map((it) => spans[it.id].bottom) : tops.map((t) => t + CARD_HEIGHT)),
+      open === null ? 0 : open + cardHeight,
+    ) + 32
 
   return (
-    <div ref={colRef} data-side-column className="relative shrink-0" style={{ width, height: extent }}>
+    <div
+      ref={colRef}
+      data-side-column
+      className={clsx('relative shrink-0', slide && 'transition-[width] duration-200 ease-out motion-reduce:transition-none')}
+      style={{ width, height: extent }}
+    >
       {placed.map((it, i) => {
         const span = spans[it.id]
         const lit = hover.includes(it.id) || it.id === expanded
@@ -114,7 +130,7 @@ export function SideColumn({
           <Tip key={it.id} content={it.tip}>
             <button
               aria-label={it.tip}
-              onClick={() => onExpand(it.id)}
+              onClick={() => onToggle(it.id)}
               onMouseEnter={() => onHover([it.id])}
               onMouseLeave={() => onHover([])}
               className="group/bar absolute flex justify-center rounded-sm transition-[top,height] duration-200 focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
@@ -126,31 +142,36 @@ export function SideColumn({
         )
       })}
 
-      {placed.map((it, i) => {
-        const covered = hidden.has(it.id)
-        const lit = hover.includes(it.id)
-        return (
-          <button
-            key={it.id}
-            tabIndex={covered ? -1 : undefined}
-            aria-hidden={covered || undefined}
-            onClick={() => onExpand(it.id)}
-            onMouseEnter={() => onHover([it.id])}
-            onMouseLeave={() => onHover([])}
-            className={clsx(
-              'absolute right-3 flex items-center gap-2 rounded-lg border bg-surface px-3 text-left text-[13px] shadow-xs',
-              'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
-              'transition-[top,opacity,border-color,background-color] duration-200',
-              lit ? 'border-border-strong' : 'border-border hover:border-border-strong',
-              covered && 'pointer-events-none opacity-0',
-            )}
-            style={{ top: tops[i], left: STRIP, height: CARD_HEIGHT }}
-          >
-            <span className="flex min-w-0 flex-1 items-center">{it.title}</span>
-            <span className="shrink-0 text-[11px] text-faint tabular-nums">{it.meta}</span>
-          </button>
-        )
-      })}
+      {/* (Fades in as the column opens; positioned against the column.) */}
+      {!collapsed && (
+        <div className="anim-fade">
+          {placed.map((it, i) => {
+            const covered = hidden.has(it.id)
+            const lit = hover.includes(it.id)
+            return (
+              <button
+                key={it.id}
+                tabIndex={covered ? -1 : undefined}
+                aria-hidden={covered || undefined}
+                onClick={() => onToggle(it.id)}
+                onMouseEnter={() => onHover([it.id])}
+                onMouseLeave={() => onHover([])}
+                className={clsx(
+                  'absolute right-3 flex items-center gap-2 rounded-lg border bg-surface px-3 text-left text-[13px] shadow-xs',
+                  'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
+                  'transition-[top,opacity,border-color,background-color] duration-200',
+                  lit ? 'border-border-strong' : 'border-border hover:border-border-strong',
+                  covered && 'pointer-events-none opacity-0',
+                )}
+                style={{ top: tops[i], left: STRIP, height: CARD_HEIGHT }}
+              >
+                <span className="flex min-w-0 flex-1 items-center">{it.title}</span>
+                <span className="shrink-0 text-[11px] text-faint tabular-nums">{it.meta}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {open !== null && (
         <Layer

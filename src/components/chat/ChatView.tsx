@@ -1,4 +1,5 @@
-import { GitBranch, KeyRound, PanelLeftOpen, Sparkles, SquarePen } from 'lucide-react'
+import clsx from 'clsx'
+import { GitBranch, KeyRound, PanelLeftOpen, PanelRightClose, PanelRightOpen, Sparkles, SquarePen } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
@@ -7,7 +8,8 @@ import { quoteForInput } from '../../lib/anchor'
 import { createConversation, lacksReply, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { branchColors, parentColor } from '../../lib/colors'
-import { columnFrame } from '../../lib/column'
+import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
+import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
@@ -23,6 +25,7 @@ import { SideColumn } from '../side/SideColumn'
 import { NOTE_PREFIX, useNotes } from '../side/useNotes'
 import { useSideQuestions } from '../side/useSideQuestions'
 import { Button, IconButton } from '../ui/Button'
+import { ResizeHandle } from '../ui/ResizeHandle'
 import { Dots } from '../ui/Dots'
 import { Composer } from './Composer'
 import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
@@ -42,6 +45,7 @@ export function ChatView() {
   const { providers, provider, model, ready } = useCurrentModel()
   const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
   const listOpen = useSettings((s) => s.panes.list.open)
+  const column = useSettings((s) => s.panes.column)
   const setPane = useSettings((s) => s.setPane)
 
   const data = useConversationData(conversationId)
@@ -101,12 +105,12 @@ export function ChatView() {
     return ids.map((id) => id.replace(DRAFT_PREFIX, '').replace(NOTE_PREFIX, ''))
   }
 
-  /** Clicking highlighted text expands its card, or offers a choice where several overlap. */
+  /** Clicking highlighted text expands (or collapses) its card, or offers a choice where several overlap. */
   const onContentClick = (e: MouseEvent) => {
     const sel = getSelection()
     if (sel && !sel.isCollapsed) return
     const ids = threadsAt(e.target)
-    if (ids.length === 1) side.expand(ids[0])
+    if (ids.length === 1) toggleCard(ids[0])
     else if (ids.length > 1) {
       const entry = (id: string) => {
         const it = side.items.find((it) => it.id === id)
@@ -129,17 +133,44 @@ export function ChatView() {
   // The chat and the column share the scroll area's width (`lib/column.ts`). Re-laid out before the
   // browser paints (`flushSync`): otherwise a pane opening / closing or being dragged showed a frame of
   // the chat at its old place.
-  const [width, setWidth] = useState(0)
+  const [area, setArea] = useState({ width: 0, height: 0 })
   useLayoutEffect(() => {
     const el = scroll.containerRef.current
     if (!el) return
-    setWidth(el.clientWidth)
-    const ro = new ResizeObserver(() => flushSync(() => setWidth(el.clientWidth)))
+    const read = () => ({ width: el.clientWidth, height: el.clientHeight })
+    setArea(read())
+    const ro = new ResizeObserver(() => flushSync(() => setArea(read())))
     ro.observe(el)
     return () => ro.disconnect()
   }, [scroll.containerRef])
-  const showColumn = path.length > 0 && side.items.length > 0
-  const frame = columnFrame(width, showColumn)
+  const width = area.width
+  // The column (collapsed: its marker strip) is always there, also with nothing in it (owner).
+  const frame = columnFrame(width, sideWidth(width, column.open, column.width))
+  const columnMax = Math.max(PANE_MIN.column, Math.min(PANE_MAX.column, width - CHAT_MIN))
+  /** Opening / closing the column slides the chat and the column (CSS transitions, only meanwhile: not while
+   * dragging or resizing the window). */
+  const [slide, setSlide] = useState(false)
+  const [openShown, setOpenShown] = useState(column.open)
+  if (openShown !== column.open) {
+    setOpenShown(column.open)
+    setSlide(true)
+  }
+  useEffect(() => {
+    if (!slide) return
+    const timer = setTimeout(() => setSlide(false), 250)
+    return () => clearTimeout(timer)
+  }, [slide, column.open])
+  const slideClass = slide && 'transition-[width,padding-left] duration-200 ease-out motion-reduce:transition-none'
+  const setColumnOpen = (open: boolean) => {
+    if (!open) side.expand(null)
+    setPane('column', { open })
+  }
+  /** A highlight or bar was clicked: its card expands (opening the column if needed), or collapses if it's the expanded one. */
+  const toggleCard = (id: string) => {
+    if (side.expanded === id) return side.expand(null)
+    setPane('column', { open: true })
+    side.expand(id)
+  }
 
   // ---- tree map: drops down under the header; `current` = the turn in view when it opened ----
   const treeButton = useRef<HTMLButtonElement>(null)
@@ -209,18 +240,41 @@ export function ChatView() {
         <div className="flex min-w-0 flex-1 items-center px-2 text-sm font-medium">
           {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{conversation?.title}</span>}
         </div>
-        {path.length > 0 && (
+        <div className="flex items-center gap-1">
+          {path.length > 0 && (
+            <IconButton
+              ref={treeButton}
+              label={t('tree.title')}
+              active={!!tree && !tree.closing}
+              aria-expanded={!!tree && !tree.closing}
+              onClick={toggleTree}
+            >
+              <GitBranch size={17} />
+            </IconButton>
+          )}
           <IconButton
-            ref={treeButton}
-            label={t('tree.title')}
-            active={!!tree && !tree.closing}
-            aria-expanded={!!tree && !tree.closing}
-            onClick={toggleTree}
+            label={t(column.open ? 'pane.columnClose' : 'pane.columnOpen')}
+            onClick={() => setColumnOpen(!column.open)}
           >
-            <GitBranch size={17} />
+            {column.open ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
           </IconButton>
-        )}
+        </div>
       </header>
+
+      {column.open && !slide && !tree && (
+        <ResizeHandle
+          label={t('pane.columnResize')}
+          edge="right"
+          width={frame.sideWidth}
+          min={PANE_MIN.column}
+          max={columnMax}
+          onResize={(width) => setPane('column', { width })}
+          onReset={() => setPane('column', { width: PANE_DEFAULT.column })}
+          // Over the column's edge, the height of the scroll area (right below the header).
+          className="top-14!"
+          style={{ left: frame.sideLeft - 4, height: area.height }}
+        />
+      )}
 
       {tree && nodes && (
         <TreeMapPanel
@@ -252,12 +306,12 @@ export function ChatView() {
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
       >
         {/* The blank space at the bottom goes on this wrapper (see useAutoScroll). */}
-        <div ref={scroll.blankRef} className="flex items-start" style={{ paddingLeft: frame.chatLeft }}>
+        <div ref={scroll.blankRef} className={clsx('flex items-start', slideClass)} style={{ paddingLeft: frame.chatLeft }}>
           <div
             ref={scroll.contentRef}
             onMouseOver={(e) => hoverTo(threadsAt(e.target))}
             onMouseLeave={() => hoverTo([])}
-            className="shrink-0 px-6 py-8"
+            className={clsx('shrink-0 px-6 py-8', slideClass)}
             style={{ width: frame.chatWidth }}
           >
             <ScrollHold.Provider value={scroll.hold}>
@@ -294,16 +348,18 @@ export function ChatView() {
               )}
             </ScrollHold.Provider>
           </div>
-          {showColumn && conversation && nodes && (
+          {conversation && nodes && (
             <SideColumn
-              items={side.items}
+              items={path.length ? side.items : []}
               width={frame.sideWidth}
               content={scroll.contentRef}
               scroller={scroll.containerRef}
+              collapsed={!column.open}
+              slide={slide}
               expanded={side.expanded}
               hover={hover}
               onHover={hoverTo}
-              onExpand={side.expand}
+              onToggle={toggleCard}
               onEscape={side.onEscape}
               renderExpanded={(id, card) => {
                 const it = side.items.find((it) => it.id === id)!
@@ -331,24 +387,27 @@ export function ChatView() {
       <SelectionAsk
         containerRef={scroll.containerRef}
         contentOf={contentOf}
-        // The user is reading the passage they asked about: keep it in place (the column may appear and
-        // narrow the chat, rewrapping the text) and stop following the end.
+        // The user is reading the passage they asked about: keep it in place (a collapsed column opens and
+        // may narrow the chat, rewrapping the text) and stop following the end.
         onAsk={(nodeId, anchor, at) => {
           if (at) scroll.hold(at)
-          if (conversationId)
-            startDraft(nanoid(), { conversationId, nodeId, anchor, prefill: quoteForInput(anchor.text) })
+          if (!conversationId) return
+          setPane('column', { open: true })
+          startDraft(nanoid(), { conversationId, nodeId, anchor, prefill: quoteForInput(anchor.text) })
         }}
         onNote={async (nodeId, target, anchor, at) => {
           if (at) scroll.hold(at)
-          if (conversationId) side.expand(await createNote(conversationId, nodeId, target, anchor))
+          if (!conversationId) return
+          setPane('column', { open: true })
+          side.expand(await createNote(conversationId, nodeId, target, anchor))
         }}
       />
       {picker && (
-        <ThreadPicker at={picker} items={picker.items} onPick={side.expand} onClose={() => setPicker(null)} />
+        <ThreadPicker at={picker} items={picker.items} onPick={toggleCard} onClose={() => setPicker(null)} />
       )}
 
-      <div className="shrink-0 pb-5" style={{ paddingLeft: frame.chatLeft }}>
-        <div className="px-6" style={{ width: frame.chatWidth }}>
+      <div className={clsx('shrink-0 pb-5', slideClass)} style={{ paddingLeft: frame.chatLeft }}>
+        <div className={clsx('px-6', slideClass)} style={{ width: frame.chatWidth }}>
           <Composer
             // Each conversation keeps its own unsent text: a new box per conversation, starting from its draft.
             key={draftKey}

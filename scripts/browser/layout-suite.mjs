@@ -80,11 +80,13 @@ for (const width of [1000, 1280, 1920]) {
   await browser.close()
 }
 
-// ---- W3: narrow window, the first card of a conversation: the column appears and narrows the chat (text
-// rewraps); the selected passage stays where it is on screen, and the card opens fully on screen ----
+// ---- W3: narrow window, a card created with the column collapsed: the column opens (sliding) and narrows the
+// chat (text rewraps); the selected passage stays where it is on screen, and the card opens fully on screen ----
 for (const action of ['笔记', '追问']) {
   const { browser, page } = await open({ model: 'mock-chat', width: 1000 })
   await send(page, '窄窗口 ' + action)
+  await page.locator('[aria-label="收起侧栏"]').click()
+  await page.waitForTimeout(1300) // the slide, then past the scroll hold
   const para = page.locator(`${SC} [data-anchor-root]:not([data-anchor-target]) > div > p`).first()
   const b = await para.boundingBox()
   await page.mouse.move(b.x + 2, b.y + 12)
@@ -133,6 +135,7 @@ for (const action of ['笔记', '追问']) {
 {
   const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
   for (const q of ['列表一', '列表二', '列表三']) await send(page, q)
+  await page.locator('[aria-label="收起侧栏"]').click() // (the chat is then centered)
   await page.waitForTimeout(1300) // past the scroll hold
   const listWidth = async () => ((await page.locator('aside').count()) ? Math.round((await page.locator('aside').boundingBox()).width) : 0)
   const topText = () =>
@@ -185,6 +188,7 @@ for (const action of ['笔记', '追问']) {
         cur = { v: read() }
         window.__frames.push(cur)
         if (window.__frames.length < 30) requestAnimationFrame(tick)
+        else ro.disconnect()
       }
       requestAnimationFrame(tick)
     }, SC)
@@ -202,6 +206,137 @@ for (const action of ['笔记', '追问']) {
   const slideOn = await offCenter('展开对话列表')
   check('W4 expanding: the chat stays centered in every frame', slideOn <= 1, slideOn)
   check('W4 expanded at the width it had', (await listWidth()) === 420, await listWidth())
+  await browser.close()
+}
+
+// ---- W5: the side column: open (even empty) by default; a highlight or bar toggles its card; the header
+// button collapses it to the marker strip (sliding: chat, input box and column stay joined in every frame);
+// collapsed, a bar / highlight click or a new side question opens it; dragging its edge resizes it (the chat
+// keeps at least CHAT_MIN); open / closed survives switching conversation and a reload ----
+{
+  const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
+  const CARD = '[data-side-column] .shadow-pop'
+  const cards = () => page.locator(CARD).count()
+  const colWidth = () => page.evaluate(() => Math.round(document.querySelector('[data-side-column]').getBoundingClientRect().width))
+  await send(page, '侧栏')
+  check('W5 the column is open with nothing in it', (await colWidth()) === 380, await colWidth())
+  const select = async (i) => {
+    const b = await page.locator(`${SC} [data-anchor-root]:not([data-anchor-target]) > div > p`).nth(i).boundingBox()
+    await page.mouse.move(b.x + 2, b.y + 12)
+    await page.mouse.down()
+    await page.mouse.move(b.x + 120, b.y + 12, { steps: 5 })
+    await page.mouse.up()
+    await page.waitForTimeout(300)
+  }
+  await select(0)
+  await page.getByRole('button', { name: '笔记', exact: true }).click()
+  await page.waitForTimeout(400)
+  await page.keyboard.type('笔记')
+  await page.keyboard.press('Escape') // 完成
+  await page.keyboard.press('Escape') // collapses the card
+  await page.waitForTimeout(400)
+  const mark = page.locator(`${SC} mark[data-threads]`).first()
+  const bar = page.locator('[data-side-column] > button').first()
+  await mark.click()
+  await page.waitForTimeout(300)
+  const byMark = await cards()
+  await mark.click()
+  await page.waitForTimeout(300)
+  check('W5 a highlight click expands its card, a second one collapses it', byMark === 1 && (await cards()) === 0, byMark)
+  await bar.click()
+  await page.waitForTimeout(300)
+  const byBar = await cards()
+  await bar.click()
+  await page.waitForTimeout(300)
+  check('W5 a bar click expands its card, a second one collapses it', byBar === 1 && (await cards()) === 0, byBar)
+
+  // The slide: per painted frame (observer made after the app's, see W3), how far apart the chat's right edge
+  // and the column's left edge are, and the input box and the chat; and that nothing passes the area's edge.
+  const slideGaps = async (button) => {
+    await page.evaluate((SC) => {
+      const sc = document.querySelector(SC)
+      const read = () => {
+        const a = sc.getBoundingClientRect()
+        const c = sc.firstElementChild.firstElementChild.getBoundingClientRect()
+        const col = document.querySelector('[data-side-column]').getBoundingClientRect()
+        const box = document.querySelector('main > div.shrink-0 textarea').closest('.rounded-2xl').getBoundingClientRect()
+        const gap = Math.max(Math.abs(c.right - col.left), col.right - (a.left + sc.clientWidth), Math.abs(box.left - 24 - c.left), Math.abs(box.right + 24 - c.right))
+        return { gap: Math.round(gap), width: Math.round(col.width) }
+      }
+      window.__frames = []
+      let cur = null
+      const ro = new ResizeObserver(() => cur && (cur.v = read()))
+      ro.observe(sc)
+      ro.observe(sc.firstElementChild)
+      const tick = () => {
+        cur = { v: read() }
+        window.__frames.push(cur)
+        if (window.__frames.length < 30) requestAnimationFrame(tick)
+        else ro.disconnect()
+      }
+      requestAnimationFrame(tick)
+    }, SC)
+    await page.locator(`[aria-label="${button}"]`).click()
+    await page.waitForTimeout(700)
+    const frames = await page.evaluate(() => window.__frames.map((f) => f.v))
+    // (`widths` = how many different column widths were painted: it did slide.)
+    return { max: Math.max(...frames.map((f) => f.gap)), widths: new Set(frames.map((f) => f.width)).size }
+  }
+  const off = await slideGaps('收起侧栏')
+  check('W5 collapsing slides with chat, input box and column joined in every frame', off.max <= 1 && off.widths > 3, off)
+  check('W5 collapsed: only the marker strip', (await colWidth()) === 22 && (await page.locator('[data-side-column] > div button').count()) === 0, await colWidth())
+  await bar.click()
+  await page.waitForTimeout(400)
+  check('W5 collapsed, a bar click opens the column and the card', (await colWidth()) === 380 && (await cards()) === 1, await colWidth())
+  await page.keyboard.press('Escape')
+  await page.locator('[aria-label="收起侧栏"]').click()
+  await page.waitForTimeout(400)
+  await mark.click()
+  await page.waitForTimeout(400)
+  check('W5 collapsed, a highlight click opens the column and the card', (await colWidth()) === 380 && (await cards()) === 1, await colWidth())
+  await page.keyboard.press('Escape')
+  await page.locator('[aria-label="收起侧栏"]').click()
+  await page.waitForTimeout(400)
+  await select(1)
+  await page.getByRole('button', { name: '追问', exact: true }).click()
+  await page.waitForTimeout(400)
+  check('W5 collapsed, 追问 opens the column with the draft card', (await colWidth()) === 380 && (await cards()) === 1, await colWidth())
+  await page.keyboard.press('Escape')
+  await page.locator('[aria-label="收起侧栏"]').click()
+  await page.waitForTimeout(400)
+  const on = await slideGaps('展开侧栏')
+  check('W5 opening slides with chat, input box and column joined in every frame', on.max <= 1 && on.widths > 3, on)
+
+  const handle = page.locator('[role="separator"][aria-label="调整侧栏宽度"]')
+  const hb = await handle.boundingBox()
+  const x = hb.x + hb.width / 2
+  await page.mouse.move(x, 400)
+  await page.mouse.down()
+  await page.mouse.move(x - 100, 400, { steps: 10 })
+  await page.mouse.up()
+  await page.waitForTimeout(300)
+  const m = await measure(page)
+  check('W5 dragging its edge widens the column', (await colWidth()) === 480, await colWidth())
+  check('W5 no overflow, the input box lines up, the column ends at the area', m.overflow === 0 && m.boxLeft === m.contentLeft && m.colRight === m.areaRight, m)
+  await page.mouse.move(x - 100, 400)
+  await page.mouse.down()
+  await page.mouse.move(0, 400, { steps: 10 })
+  await page.mouse.up()
+  await page.waitForTimeout(300)
+  const w = await measure(page)
+  check('W5 dragged far: the column stops at its widest, the chat keeps at least 420', w.colRight - w.colLeft === 640 && w.contentRight - w.contentLeft >= 420, w)
+
+  await page.locator('aside button', { hasText: '新对话' }).click()
+  await page.waitForTimeout(300)
+  // (A chat not created yet has no column element, only its space.)
+  const n = await measure(page)
+  check('W5 a new chat keeps the column open (its space)', n.areaRight - n.contentRight === 640, n)
+  await page.locator('[aria-label="收起侧栏"]').click()
+  await page.reload()
+  await page.waitForTimeout(800)
+  await page.locator('aside nav li button').first().click()
+  await page.waitForTimeout(600)
+  check('W5 collapsed after a reload, in another conversation', (await colWidth()) === 22, await colWidth())
   await browser.close()
 }
 
