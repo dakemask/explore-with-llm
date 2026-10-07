@@ -144,6 +144,19 @@ export function ChatView() {
     return () => ro.disconnect()
   }, [scroll.containerRef])
   const width = area.width
+  // The input box floats over the bottom of the chat (the chat and the column reach the window's bottom); the
+  // messages end above it: the room below them follows its height (same frame, like the widths above).
+  const composerRef = useRef<HTMLDivElement>(null)
+  const [composerHeight, setComposerHeight] = useState(0)
+  useLayoutEffect(() => {
+    const el = composerRef.current
+    if (!el) return
+    const read = () => Math.round(el.getBoundingClientRect().height)
+    setComposerHeight(read())
+    const ro = new ResizeObserver(() => flushSync(() => setComposerHeight(read())))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   // The column (collapsed: its marker strip) is always there, also with nothing in it (owner).
   const frame = columnFrame(width, sideWidth(width, column.open, column.width))
   const columnMax = Math.max(PANE_MIN.column, Math.min(PANE_MAX.column, width - CHAT_MIN))
@@ -357,6 +370,9 @@ export function ChatView() {
                 </div>
               )}
             </ScrollHold.Provider>
+            {/* Room for the input box over the chat's bottom: an element, not padding, so the scroll rules
+                (which observe this box's content size) see it grow as the box does. */}
+            <div aria-hidden style={{ height: composerHeight }} />
           </div>
           {conversation && nodes && (
             <SideColumn
@@ -416,8 +432,14 @@ export function ChatView() {
         <ThreadPicker at={picker} items={picker.items} onPick={toggleCard} onClose={() => setPicker(null)} />
       )}
 
-      <div className={clsx('shrink-0 pb-5', slideClass)} style={{ paddingLeft: frame.chatLeft }}>
-        <div className={clsx('px-6', slideClass)} style={{ width: frame.chatWidth }}>
+      {/* Over the chat's bottom, a little wider than the messages; the rest of this strip lets clicks through. */}
+      <div
+        ref={composerRef}
+        data-main-composer
+        className={clsx('pointer-events-none absolute inset-x-0 bottom-0 pb-4', slideClass)}
+        style={{ paddingLeft: frame.chatLeft }}
+      >
+        <div className={clsx('pointer-events-auto px-3', slideClass)} style={{ width: frame.chatWidth }}>
           <Composer
             // Each conversation keeps its own unsent text: a new box per conversation, starting from its draft.
             key={draftKey}

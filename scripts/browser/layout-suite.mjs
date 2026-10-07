@@ -15,15 +15,15 @@ const measure = (page) =>
   page.evaluate((SC) => {
     const sc = document.querySelector(SC)
     const content = sc.firstElementChild.firstElementChild.getBoundingClientRect()
-    const box = document.querySelector('main > div.shrink-0 textarea').closest('.rounded-2xl').getBoundingClientRect()
+    const box = document.querySelector('main > [data-main-composer] textarea').closest('.rounded-2xl').getBoundingClientRect()
     const col = document.querySelector('[data-side-column]')?.getBoundingClientRect()
     return {
       scrollbar: sc.offsetWidth - sc.clientWidth,
       contentLeft: Math.round(content.left),
       contentRight: Math.round(content.right),
-      // The input box sits inside the chat's 24 px side padding, as the messages do.
-      boxLeft: Math.round(box.left) - 24,
-      boxRight: Math.round(box.right) + 24,
+      // The input box is the chat column less 12 px a side (the messages: less 24 px).
+      boxLeft: Math.round(box.left) - 12,
+      boxRight: Math.round(box.right) + 12,
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       colLeft: col && Math.round(col.left),
       colRight: col && Math.round(col.right),
@@ -34,7 +34,7 @@ const measure = (page) =>
 // ---- W1: the scrollbar appearing (content growing past the screen) moves nothing sideways ----
 {
   const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
-  const box = page.locator('main > div.shrink-0 textarea')
+  const box = page.locator('main > [data-main-composer] textarea')
   await box.fill('短')
   await box.press('Enter')
   await page.waitForTimeout(500)
@@ -259,8 +259,8 @@ for (const action of ['笔记', '追问']) {
         const a = sc.getBoundingClientRect()
         const c = sc.firstElementChild.firstElementChild.getBoundingClientRect()
         const col = document.querySelector('[data-side-column]').getBoundingClientRect()
-        const box = document.querySelector('main > div.shrink-0 textarea').closest('.rounded-2xl').getBoundingClientRect()
-        const gap = Math.max(Math.abs(c.right - col.left), col.right - (a.left + sc.clientWidth), Math.abs(box.left - 24 - c.left), Math.abs(box.right + 24 - c.right))
+        const box = document.querySelector('main > [data-main-composer] textarea').closest('.rounded-2xl').getBoundingClientRect()
+        const gap = Math.max(Math.abs(c.right - col.left), col.right - (a.left + sc.clientWidth), Math.abs(box.left - 12 - c.left), Math.abs(box.right + 12 - c.right))
         return { gap: Math.round(gap), width: Math.round(col.width) }
       }
       window.__frames = []

@@ -12,11 +12,11 @@ const check = (name, ok, info) => {
 
 const { browser, page } = await open({ model: 'mock-chat' })
 const wait = (ms = 400) => page.waitForTimeout(ms)
-const MAIN = 'main > div.shrink-0 textarea'
+const MAIN = 'main > [data-main-composer] textarea'
 const CARD = '[data-side-column] .shadow-pop'
 const TREE = '[data-tree-map]'
 const box = () => page.locator(MAIN).inputValue()
-const thumbs = () => page.locator('main > div.shrink-0 img').count()
+const thumbs = () => page.locator('main > [data-main-composer] img').count()
 const go = async (title) => {
   await page.getByRole('button', { name: title }).first().click()
   await wait()
@@ -64,7 +64,7 @@ await page.evaluate(() => {
   window.__png = c.toDataURL('image/png')
 })
 const png = Buffer.from((await page.evaluate(() => window.__png)).split(',')[1], 'base64')
-await page.locator('main > div.shrink-0 input[accept="image/*"]').setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: png })
+await page.locator('main > [data-main-composer] input[accept="image/*"]').setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: png })
 await wait(600)
 const before = await thumbs()
 await go('A 对话')

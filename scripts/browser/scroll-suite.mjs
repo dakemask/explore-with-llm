@@ -35,13 +35,13 @@ const unwatch = (page) =>
     return { frames: t.length, maxStep: Math.round(maxStep), total: Math.round(t.at(-1) - t[0]) }
   })
 
-const composer = (page) => page.locator('main > div.shrink-0 textarea')
+const composer = (page) => page.locator('main > [data-main-composer] textarea')
 async function start(page, text) {
   await composer(page).fill(text)
   await composer(page).press('Enter')
 }
 async function pickModel(page, from, to) {
-  await page.locator('main > div.shrink-0 button', { hasText: from }).click()
+  await page.locator('main > [data-main-composer] button', { hasText: from }).click()
   await page.locator(`[role=menu] >> text=${to}`).first().click()
 }
 const atEnd = (s) => s.max - s.scrollTop < 2
@@ -249,7 +249,7 @@ await page.locator(`${CARD} button[aria-label="收起"]`).click()
 await page.waitForTimeout(1300)
 await setScroll(page, SC, 1e6)
 await page.waitForTimeout(300)
-const composerTop = () => page.evaluate(() => Math.round(document.querySelector('main > div.shrink-0').getBoundingClientRect().top))
+const composerTop = () => page.evaluate(() => Math.round(document.querySelector('main > [data-main-composer]').getBoundingClientRect().top))
 const cTop = await composerTop()
 // make blank: fold a long reply's neighbour… simplest: switch the last turn to a shorter version at the end
 const swN = page.locator(`${SC} [data-switcher] button`)
@@ -299,6 +299,33 @@ await page.waitForTimeout(800)
 const nc = await unwatch(page)
 check('NC note card height fixed (empty → 25 lines → rendered)', Math.abs(nh1 - nh0) <= 1, { nh0, nh1 })
 check('NC typing, 完成 and collapsing a note move nothing on the page', nc.maxStep === 0 && nc.total === 0, nc)
+
+// ---- IB: the input box floats over the chat's bottom; at the end, typing lines into it (it grows) keeps the
+// last reply above it (the room under the messages is an element the rules observe: as padding it went unseen
+// and the box covered the reply); deleting them again pulls nothing up ----
+await page.keyboard.press('Escape')
+await page.waitForTimeout(1300)
+// (Following went off with the text selection above: scroll away and back to the end to turn it on.)
+await setScroll(page, SC, 0)
+await setScroll(page, SC, 1e7)
+await page.waitForTimeout(300)
+const lastFooter = () =>
+  page.evaluate((SC) => {
+    const f = [...document.querySelectorAll(`${SC} [aria-label="复制"]`)].at(-1).getBoundingClientRect()
+    const b = document.querySelector('main > [data-main-composer] .rounded-2xl').getBoundingClientRect()
+    return { footerBottom: Math.round(f.bottom), boxTop: Math.round(b.top) }
+  }, SC)
+await composer(page).focus()
+for (let i = 0; i < 6; i++) await page.keyboard.press('Shift+Enter')
+await page.waitForTimeout(300)
+const grown = await lastFooter()
+check('IB typing lines at the end keeps the last reply above the input box', grown.footerBottom <= grown.boxTop, grown)
+const lfb = await page.locator(`${SC} [aria-label="复制"]`).last().boundingBox()
+await watch(page, lfb.x + 4, lfb.y + 4)
+for (let i = 0; i < 6; i++) await page.keyboard.press('Backspace')
+await page.waitForTimeout(400)
+const shrink = await unwatch(page)
+check('IB deleting them again pulls nothing up', shrink.total >= 0 && shrink.maxStep <= 1, shrink)
 
 console.log(failures ? `${failures} FAILED` : 'ALL PASS')
 await browser.close()

@@ -38,7 +38,7 @@ export async function waitDone(page) {
 }
 
 export async function send(page, text) {
-  const box = page.locator('main > div.shrink-0 textarea')
+  const box = page.locator('main > [data-main-composer] textarea')
   await box.fill(text)
   await box.press('Enter')
   await waitDone(page)
