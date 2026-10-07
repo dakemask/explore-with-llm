@@ -128,4 +128,54 @@ for (const action of ['笔记', '追问']) {
   await browser.close()
 }
 
+// ---- W4: the conversation list: dragging its edge resizes it (within its limits) and leaves the text on screen
+// where it is; collapsing it (header button) recenters the chat; both are remembered over a reload ----
+{
+  const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
+  for (const q of ['列表一', '列表二', '列表三']) await send(page, q)
+  await page.waitForTimeout(1300) // past the scroll hold
+  const listWidth = async () => ((await page.locator('aside').count()) ? Math.round((await page.locator('aside').boundingBox()).width) : 0)
+  const topText = () =>
+    page.evaluate((SC) => {
+      const sc = document.querySelector(SC)
+      const r = sc.getBoundingClientRect()
+      const el = [...sc.querySelectorAll('.prose p, .prose li, .prose pre')].find((e) => e.getBoundingClientRect().bottom > r.top + 20)
+      return { text: el.textContent.slice(0, 20), off: Math.round(el.getBoundingClientRect().top - r.top) }
+    }, SC)
+  await page.evaluate((SC) => {
+    const sc = document.querySelector(SC)
+    sc.scrollTop = sc.scrollHeight / 2
+  }, SC)
+  await page.waitForTimeout(200)
+  const before = await topText()
+  const handle = page.locator('[role="separator"][aria-label="调整对话列表宽度"]')
+  const hb = await handle.boundingBox()
+  const x = hb.x + hb.width / 2
+  await page.mouse.move(x, 400)
+  await page.mouse.down()
+  await page.mouse.move(x + 100, 400, { steps: 10 })
+  await page.mouse.up()
+  await page.waitForTimeout(300)
+  const after = await topText()
+  const m = await measure(page)
+  check('W4 dragging the list edge widens it', (await listWidth()) === 356, await listWidth())
+  check('W4 the text on screen stays where it was', before.text === after.text && Math.abs(before.off - after.off) <= 1, { before, after })
+  check('W4 no overflow, the input box lines up', m.overflow === 0 && m.boxLeft === m.contentLeft && m.boxRight === m.contentRight, m)
+  await page.mouse.move(x + 100, 400)
+  await page.mouse.down()
+  await page.mouse.move(x + 900, 400, { steps: 5 })
+  await page.mouse.up()
+  check('W4 the list stops at its widest', (await listWidth()) === 420, await listWidth())
+  await page.locator('[aria-label="收起对话列表"]').click()
+  await page.waitForTimeout(200)
+  const c = await measure(page)
+  check('W4 collapsed: no list, the chat is centered', (await listWidth()) === 0 && Math.abs(c.contentLeft - (c.areaRight - c.contentRight)) <= 1, c)
+  await page.reload()
+  await page.waitForTimeout(800)
+  check('W4 collapsed after a reload', (await listWidth()) === 0)
+  await page.locator('[aria-label="展开对话列表"]').click()
+  check('W4 expanded at the width it had', (await listWidth()) === 420, await listWidth())
+  await browser.close()
+}
+
 console.log(failures ? `${failures} FAILED` : 'ALL PASS')

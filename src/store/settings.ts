@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Lang } from '../i18n'
+import { PANE_DEFAULT } from '../lib/panes'
 import type { ParamChoice } from '../lib/params'
 
 export type Theme = 'system' | 'light' | 'dark'
+export type Pane = 'list' | 'column'
 
 interface SettingsState {
   lang: Lang
@@ -18,6 +20,9 @@ interface SettingsState {
   paramChoices: Record<string, Record<string, ParamChoice>>
   /** Model that names conversations and side questions (`lib/naming.ts`); null = no automatic naming. */
   namingModel: { providerId: string; model: string } | null
+  /** The conversation list (left) and the side-question column (right): open, and width in px (`lib/panes.ts`). */
+  panes: Record<Pane, { open: boolean; width: number }>
+  setPane: (pane: Pane, patch: Partial<{ open: boolean; width: number }>) => void
   setLang: (lang: Lang) => void
   setTheme: (theme: Theme) => void
   setModel: (providerId: string, model: string) => void
@@ -42,6 +47,8 @@ export const useSettings = create<SettingsState>()(
       model: null,
       paramChoices: {},
       namingModel: null,
+      panes: { list: { open: true, width: PANE_DEFAULT.list }, column: { open: true, width: PANE_DEFAULT.column } },
+      setPane: (pane, patch) => set((s) => ({ panes: { ...s.panes, [pane]: { ...s.panes[pane], ...patch } } })),
       setLang: (lang) => set({ lang }),
       setTheme: (theme) => set({ theme }),
       setModel: (providerId, model) => set({ providerId, model }),

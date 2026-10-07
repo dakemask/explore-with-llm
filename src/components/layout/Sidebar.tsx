@@ -1,15 +1,18 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Archive, Download, FileUp, MoreHorizontal, Pencil, Settings, SquarePen, Trash2 } from 'lucide-react'
+import { Archive, Download, FileUp, MoreHorizontal, PanelLeftClose, Pencil, Settings, SquarePen, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { db, type Conversation } from '../../db'
 import { useT } from '../../i18n'
 import { deleteConversation, renameConversation } from '../../lib/chat'
+import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { download, exportConversation, importConversation } from '../../lib/transfer'
+import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { IconButton } from '../ui/Button'
 import { Dots } from '../ui/Dots'
 import { confirmDialog, promptDialog } from '../ui/Dialog'
+import { ResizeHandle } from '../ui/ResizeHandle'
 import { notifyError } from '../ui/Toast'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
 import { ArchiveDialog } from './ArchiveDialog'
@@ -20,6 +23,8 @@ export function Sidebar() {
   const currentId = useUi((s) => s.conversationId)
   const setConversation = useUi((s) => s.setConversation)
   const openSettings = useUi((s) => s.openSettings)
+  const pane = useSettings((s) => s.panes.list)
+  const setPane = useSettings((s) => s.setPane)
 
   const startOfToday = new Date().setHours(0, 0, 0, 0)
   const today = conversations?.filter((c) => c.updatedAt >= startOfToday) ?? []
@@ -37,11 +42,15 @@ export function Sidebar() {
     }
   }
 
+  if (!pane.open) return null
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-sidebar">
-      <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
+    <aside className="relative flex h-full shrink-0 flex-col border-r border-border bg-sidebar" style={{ width: pane.width }}>
+      <div className="flex h-14 shrink-0 items-center gap-2.5 pr-3 pl-4">
         <img src="./favicon.svg" alt="" className="size-6" />
-        <span className="text-[15px] font-semibold tracking-tight">{t('app.name')}</span>
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">{t('app.name')}</span>
+        <IconButton label={t('pane.listClose')} onClick={() => setPane('list', { open: false })}>
+          <PanelLeftClose size={17} />
+        </IconButton>
       </div>
 
       <div className="flex gap-2 px-3 pb-2">
@@ -89,6 +98,17 @@ export function Sidebar() {
           {t('sidebar.settings')}
         </button>
       </div>
+
+      <ResizeHandle
+        label={t('pane.listResize')}
+        edge="left"
+        width={pane.width}
+        min={PANE_MIN.list}
+        max={PANE_MAX.list}
+        onResize={(width) => setPane('list', { width })}
+        onReset={() => setPane('list', { width: PANE_DEFAULT.list })}
+        className="-right-1"
+      />
     </aside>
   )
 }

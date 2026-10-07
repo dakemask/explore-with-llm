@@ -122,7 +122,7 @@ await page.getByRole('button', { name: '发送', exact: true }).last().click()
 await stopGone()
 await wait()
 await expect('S2 edit in a side card → Send: its box', 'side box')
-await page.getByRole('button', { name: '收起' }).click()
+await page.getByRole('button', { name: '收起', exact: true }).click()
 await wait()
 await expect('S3 collapsing a card leaves focus on nothing', 'body')
 

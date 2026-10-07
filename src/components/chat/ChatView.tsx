@@ -1,4 +1,4 @@
-import { GitBranch, KeyRound, Sparkles } from 'lucide-react'
+import { GitBranch, KeyRound, PanelLeftOpen, Sparkles, SquarePen } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { useT } from '../../i18n'
@@ -13,6 +13,7 @@ import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { createNote, noteTitle } from '../../lib/notes'
 import { glideTo, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { useConversationData } from '../../lib/useConversationData'
+import { useSettings } from '../../store/settings'
 import { NEW_CHAT, useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { NoteCard } from '../side/NoteCard'
@@ -39,6 +40,8 @@ export function ChatView() {
   const startDraft = useUi((s) => s.startDraft)
   const { providers, provider, model, ready } = useCurrentModel()
   const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
+  const listOpen = useSettings((s) => s.panes.list.open)
+  const setPane = useSettings((s) => s.setPane)
 
   const data = useConversationData(conversationId)
   const conversation = data?.conversation
@@ -191,6 +194,16 @@ export function ChatView() {
   return (
     <main ref={mainRef} className="relative flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+        {!listOpen && (
+          <div className="-mr-1 flex items-center gap-1">
+            <IconButton label={t('pane.listOpen')} onClick={() => setPane('list', { open: true })}>
+              <PanelLeftOpen size={17} />
+            </IconButton>
+            <IconButton label={t('sidebar.newChat')} onClick={() => setConversation(null)}>
+              <SquarePen size={16} />
+            </IconButton>
+          </div>
+        )}
         <div className="flex min-w-0 flex-1 items-center px-2 text-sm font-medium">
           {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{conversation?.title}</span>}
         </div>
