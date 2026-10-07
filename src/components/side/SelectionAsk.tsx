@@ -1,8 +1,11 @@
+import { autoUpdate, flip, hide, inline, offset, shift, useFloating } from '@floating-ui/react-dom'
+import clsx from 'clsx'
 import { MessageSquareText, MessageSquareQuote, NotebookPen } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { Note, SideAnchor } from '../../db'
 import { useT } from '../../i18n'
 import { rangeToSource } from '../../lib/anchor'
+import { Layer } from '../ui/Layer'
 import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger } from '../ui/Menu'
 
 type Target = Note['target']
@@ -25,7 +28,6 @@ export function SelectionAsk({
 }) {
   const t = useT()
   const [hit, setHit] = useState<{ nodeId: string; target: Target; anchor: SideAnchor; range: Range } | null>(null)
-  const [pos, setPos] = useState<{ x: number; y: number; below: boolean } | null>(null)
   const latest = useRef({ contentOf })
   latest.current = { contentOf }
 
@@ -63,29 +65,37 @@ export function SelectionAsk({
     }
   }, [containerRef])
 
-  // Follow the selection while the chat scrolls.
-  useEffect(() => {
-    const container = containerRef.current
-    if (!hit || !container) return setPos(null)
-    const place = () => {
-      const rects = hit.range.getClientRects()
-      const first = rects[0] ?? hit.range.getBoundingClientRect()
-      const box = container.getBoundingClientRect()
-      const below = first.top - 44 < box.top
-      const r = below ? (rects[rects.length - 1] ?? first) : first
-      const visible = r.bottom > box.top && r.top < box.bottom
-      setPos(visible ? { x: Math.min(Math.max(r.left + r.width / 2, box.left + 48), box.right - 48), y: below ? r.bottom + 8 : r.top - 8, below } : null)
-    }
-    place()
-    container.addEventListener('scroll', place, { passive: true })
-    window.addEventListener('resize', place)
-    return () => {
-      container.removeEventListener('scroll', place)
-      window.removeEventListener('resize', place)
-    }
-  }, [hit, containerRef])
+  // Placed by Floating UI around the selection (a virtual reference): above its first line, below its last
+  // line when there's no room above in the chat (`inline` picks the line), kept inside the chat, following
+  // it as the chat scrolls or resizes, hidden while it's scrolled out of view.
+  const reference = useMemo(
+    () =>
+      hit && {
+        getBoundingClientRect: () => hit.range.getBoundingClientRect(),
+        getClientRects: () => hit.range.getClientRects(),
+        contextElement: hit.range.startContainer.parentElement ?? undefined,
+      },
+    [hit],
+  )
+  const boundary = containerRef.current ?? undefined
+  const { refs, floatingStyles, middlewareData, isPositioned } = useFloating({
+    open: !!hit,
+    strategy: 'fixed',
+    placement: 'top',
+    // top / left instead of a transform: the pop-in animation uses transform.
+    transform: false,
+    elements: { reference },
+    middleware: [
+      inline(),
+      offset(8),
+      flip({ boundary, padding: { top: 4 } }),
+      shift({ boundary, padding: 8 }),
+      hide({ boundary }),
+    ],
+    whileElementsMounted: autoUpdate,
+  })
 
-  if (!hit || !pos) return null
+  if (!hit) return null
   const action = (icon: ReactNode, label: string, run: () => void) => (
     <button
       // Keep the selection: a normal mousedown would clear it before the click lands.
@@ -102,17 +112,21 @@ export function SelectionAsk({
     </button>
   )
   return (
-    <div
-      style={{ left: pos.x, top: pos.y }}
-      className={
-        'anim-pop fixed z-40 flex -translate-x-1/2 items-center divide-x divide-border-strong/60 dark:divide-border overflow-hidden rounded-lg bg-text text-[13px] font-medium text-bg shadow-pop ' +
-        (pos.below ? '' : '-translate-y-full')
-      }
+    <Layer
+      ref={refs.setFloating}
+      style={{ ...floatingStyles, visibility: middlewareData.hide?.referenceHidden ? 'hidden' : undefined }}
+      // Escape / a press elsewhere puts it away (the selection stays until the press clears it).
+      onDismiss={() => setHit(null)}
+      onFocusOutside={(e) => e.preventDefault()}
+      className={clsx(
+        'z-40 flex items-center divide-x divide-border-strong/60 overflow-hidden rounded-lg bg-text text-[13px] font-medium text-bg shadow-pop dark:divide-border',
+        isPositioned ? 'anim-pop' : 'invisible',
+      )}
     >
       {hit.target === 'assistant' &&
         action(<MessageSquareQuote size={14} />, t('side.ask'), () => onAsk(hit.nodeId, hit.anchor))}
       {action(<NotebookPen size={14} />, t('note.add'), () => onNote(hit.nodeId, hit.target, hit.anchor))}
-    </div>
+    </Layer>
   )
 }
 
