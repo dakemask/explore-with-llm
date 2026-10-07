@@ -1,10 +1,12 @@
-import { Archive, ChevronsDownUp, NotebookPen, Pencil } from 'lucide-react'
+import { Archive, ChevronsDownUp, MoreHorizontal, NotebookPen, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Note } from '../../db'
 import { useT } from '../../i18n'
 import { archiveNote, deleteNote, saveNoteText } from '../../lib/notes'
 import { Markdown } from '../chat/Markdown'
 import { Button, IconButton } from '../ui/Button'
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
+import { collapseOnClick } from './SideColumn'
 
 /**
  * The expanded card of a note in the column: the rendered Markdown with an Edit button, or a plain editor
@@ -55,6 +57,7 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
     setEditing(false)
   }
 
+  const [menuOpen, setMenuOpen] = useState(false)
   const archive = async () => {
     flush()
     onCollapse()
@@ -63,15 +66,27 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
 
   return (
     <>
-      <header className="flex shrink-0 items-center gap-1 border-b border-border py-2 pr-2 pl-4">
+      <header
+        onClick={collapseOnClick(onCollapse)}
+        className="flex shrink-0 cursor-pointer items-center gap-1 border-b border-border py-2 pr-2 pl-4"
+      >
         <div className="flex h-7 min-w-0 flex-1 items-center gap-2 text-[13px] font-medium text-muted">
           <NotebookPen size={14} className="shrink-0 text-mark-note-strong" />
           {t('note.label')}
         </div>
         {text.trim() && (
-          <IconButton label={t('note.archive')} size="sm" onClick={archive}>
-            <Archive size={15} />
-          </IconButton>
+          <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
+            <MenuTrigger asChild>
+              <IconButton label={t('msg.more')} size="sm" active={menuOpen}>
+                <MoreHorizontal size={15} />
+              </IconButton>
+            </MenuTrigger>
+            <MenuContent align="end">
+              <MenuItem icon={<Archive size={14} />} onSelect={() => void archive()}>
+                {t('msg.archive')}
+              </MenuItem>
+            </MenuContent>
+          </MenuRoot>
         )}
         <IconButton label={t('side.collapse')} size="sm" onClick={onCollapse}>
           <ChevronsDownUp size={15} />

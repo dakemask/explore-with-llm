@@ -74,7 +74,7 @@ export async function afterReply(nodeId: string) {
     if (!conv) return
     if (key === conv.id) {
       if (!conv.named) await db.conversations.update(conv.id, { title, named: true })
-    } else if (await db.nodes.get(node.id)) {
+    } else if (!conv.threadTitles?.[key] && (await db.nodes.get(node.id))) {
       await db.conversations.update(conv.id, { threadTitles: { ...conv.threadTitles, [key]: title } })
     }
   } finally {

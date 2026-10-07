@@ -33,6 +33,11 @@ export async function renameConversation(id: string, title: string) {
   await db.conversations.update(id, { title, named: true })
 }
 
+/** A side question's title, set by the user (a thread with a title is never named automatically). */
+export async function renameThread(conversationId: string, thread: string, title: string) {
+  await db.conversations.update(conversationId, { [`threadTitles.${thread}`]: title })
+}
+
 export async function deleteConversation(id: string) {
   await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes], async () => {
     const nodes = await db.nodes.where('conversationId').equals(id).toArray()

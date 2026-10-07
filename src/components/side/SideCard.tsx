@@ -1,8 +1,8 @@
-import { Archive, ChevronsDownUp } from 'lucide-react'
-import { useMemo, type RefObject } from 'react'
+import { Archive, ChevronsDownUp, MoreHorizontal, Pencil } from 'lucide-react'
+import { useMemo, useState, type RefObject } from 'react'
 import type { ChatNode, Conversation } from '../../db'
 import { useT } from '../../i18n'
-import { archiveThread, lacksReply, sendMessage, stopGeneration } from '../../lib/chat'
+import { archiveThread, lacksReply, renameThread, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { busyIds, threadRoots } from '../../lib/tree'
@@ -12,15 +12,22 @@ import { MessageNode, Turn } from '../chat/MessageNode'
 import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
 import { useSiblings } from '../chat/SiblingSwitcher'
 import { useNodeActions } from '../chat/useNodeActions'
-import { IconButton } from '../ui/Button'
+import { IconButton, Tip } from '../ui/Button'
+import { promptDialog } from '../ui/Dialog'
 import { Dots } from '../ui/Dots'
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
+import { collapseOnClick } from './SideColumn'
 
-/** A side question's title: the naming model's, else the fallback; bouncing dots while it's being named. */
+/**
+ * A side question's title: the user's or the naming model's, else the fallback; bouncing dots while it's
+ * being named (unless the user gave it a title meanwhile).
+ */
 export function ThreadTitle({ thread, conversation, fallback }: { thread: string; conversation: Conversation; fallback: string }) {
   const t = useT()
   const naming = useUi((s) => !!s.naming[thread])
-  if (naming) return <Dots label={t('naming.pending')} />
-  return <span className="truncate">{conversation.threadTitles?.[thread] ?? (fallback || t('image.only'))}</span>
+  const title = conversation.threadTitles?.[thread]
+  if (naming && title === undefined) return <Dots label={t('naming.pending')} />
+  return <span className="truncate">{title ?? (fallback || t('image.only'))}</span>
 }
 
 /**
@@ -84,10 +91,18 @@ export function SideCard({
     onCollapse()
     await archiveThread(conversation.id, thread)
   }
+  const rename = async () => {
+    const title = await promptDialog(t('side.rename'), conversation.threadTitles?.[thread] ?? fallback)
+    if (title?.trim()) await renameThread(conversation.id, thread, title.trim())
+  }
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <>
-      <header className="flex shrink-0 items-center gap-1 border-b border-border py-2 pr-2 pl-4">
+      <header
+        onClick={collapseOnClick(onCollapse)}
+        className="flex shrink-0 cursor-pointer items-center gap-1 border-b border-border py-2 pr-2 pl-4"
+      >
         <div className="min-w-0 flex-1">
           <h2 className="flex h-5 items-center text-[13.5px] font-semibold">
             <ThreadTitle thread={thread} conversation={conversation} fallback={fallback} />
@@ -95,15 +110,29 @@ export function SideCard({
           <div className="text-[11px] leading-4 text-faint">{root ? t('side.title') : t('side.draft')}</div>
         </div>
         {root && (
-          <IconButton
-            label={busy ? t('archive.busy') : t('side.archive')}
-            size="sm"
-            aria-disabled={busy}
-            className={busy ? 'cursor-default opacity-40 hover:bg-transparent hover:text-muted' : undefined}
-            onClick={archive}
-          >
-            <Archive size={15} />
-          </IconButton>
+          <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
+            <MenuTrigger asChild>
+              <IconButton label={t('msg.more')} size="sm" active={menuOpen}>
+                <MoreHorizontal size={15} />
+              </IconButton>
+            </MenuTrigger>
+            <MenuContent align="end">
+              <MenuItem icon={<Pencil size={14} />} onSelect={() => void rename()}>
+                {t('side.rename')}
+              </MenuItem>
+              {busy ? (
+                <Tip content={t('archive.busy')}>
+                  <MenuItem icon={<Archive size={14} />} disabled onSelect={() => {}}>
+                    {t('msg.archive')}
+                  </MenuItem>
+                </Tip>
+              ) : (
+                <MenuItem icon={<Archive size={14} />} onSelect={() => void archive()}>
+                  {t('msg.archive')}
+                </MenuItem>
+              )}
+            </MenuContent>
+          </MenuRoot>
         )}
         <IconButton label={t('side.collapse')} size="sm" onClick={onCollapse}>
           <ChevronsDownUp size={15} />

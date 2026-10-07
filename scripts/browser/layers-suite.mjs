@@ -124,6 +124,18 @@ check('N1 Escape in the note editor = done (card stays, editor closed)', (await 
 await park()
 await esc()
 check('N1 next Escape collapses it', !(await cardOpen()))
+// The card's own ⋯ menu is a layer above it; its header (not its buttons) collapses it on click.
+await page.locator('[data-side-column] > div.anim-fade > button').first().click()
+await wait()
+await page.locator(`${CARD} header`).getByRole('button', { name: '更多' }).click()
+await wait()
+check('N2 card + its own menu open', (await cardOpen()) && (await menuOpen()))
+await esc()
+check('N2 Escape closes only its menu', (await cardOpen()) && !(await menuOpen()))
+const head = await page.locator(`${CARD} header`).boundingBox()
+await page.mouse.click(head.x + 60, head.y + head.height / 2)
+await wait()
+check('N3 a click on the card header collapses it', !(await cardOpen()))
 
 // ---- H: pinned help tip in a dialog ----
 await page.getByRole('button', { name: '设置' }).click()

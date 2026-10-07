@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, STRIP, type Span } from '../../lib/column'
 import { Tip } from '../ui/Button'
 import { Layer } from '../ui/Layer'
@@ -189,6 +189,17 @@ export function SideColumn({
       )}
     </div>
   )
+}
+
+/**
+ * An expanded card's header collapses it when clicked, except on its buttons. (React events bubble out of
+ * portals too: a click in the header's menu must not count, hence the DOM `contains`.)
+ */
+export function collapseOnClick(onCollapse: () => void) {
+  return (e: MouseEvent<HTMLElement>) => {
+    const target = e.target as Element
+    if (e.currentTarget.contains(target) && !target.closest('button')) onCollapse()
+  }
 }
 
 /**
