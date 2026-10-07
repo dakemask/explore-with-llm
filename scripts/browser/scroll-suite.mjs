@@ -59,6 +59,40 @@ check('M1 reasoning folded while thinking', (await page.locator(`${SC} [data-for
 await waitDone(page)
 check('M1 at the end after the reply', atEnd(await state(page)), await state(page))
 
+// ---- S: dragging out a selection while following: nothing moves (also after letting go) ----
+const forksS = await page.locator(`${SC} [data-fork]`).count()
+await start(page, 'S')
+// (the reply's text has started and still streams: the view follows it)
+await page.waitForFunction(
+  ({ sc, n }) => document.querySelectorAll(`${sc} [data-fork]`)[n]?.querySelector('.group\\/assistant p') && document.querySelector('[aria-label="停止"]'),
+  { sc: SC, n: forksS },
+  { timeout: 20000 },
+)
+const sp = await page.evaluate((sc) => {
+  const box = document.querySelector(sc).getBoundingClientRect()
+  const ps = [...document.querySelectorAll(`${sc} .group\\/assistant p`)]
+  const p = ps.map((p) => p.getBoundingClientRect()).find((r) => r.top > box.top + 20 && r.bottom < box.bottom - 200 && r.width > 200)
+  return p && { x: p.x, y: p.y, w: p.width }
+}, SC)
+if (!sp) check('S found a paragraph to select', false)
+else {
+  await page.mouse.move(sp.x + 2, sp.y + 12)
+  await page.mouse.down()
+  await page.mouse.move(sp.x + 150, sp.y + 12, { steps: 5 })
+  await watch(page, sp.x + 4, sp.y + 12)
+  await page.waitForTimeout(1500)
+  const held = await unwatch(page)
+  check('S selecting stops following', held.maxStep === 0 && held.total === 0, held)
+  await page.mouse.up()
+  await watch(page, sp.x + 4, sp.y + 12)
+  await waitDone(page)
+  const after = await unwatch(page)
+  check('S still after letting go (through the reply)', after.maxStep === 0 && after.total === 0, after)
+  await page.keyboard.press('Escape') // (drops the selection pill)
+}
+await setScroll(page, SC, 1e6)
+await page.waitForTimeout(1300)
+
 // ---- M2: scrolled up while thinking: nothing on screen moves, through the reply starting ----
 await start(page, 'M2')
 await page.waitForTimeout(1200)

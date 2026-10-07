@@ -64,8 +64,9 @@ const NEAR_END = 40
  *    grows. Anything else that changes size leaves what's on screen where it is.
  * 2. Following turns on when the user sends (`pin`) or retries / edits (`hold` with `follow`), when
  *    `resetKey` changes (another conversation: it jumps to the end) and when the user scrolls to the end;
- *    it turns off when the user scrolls away from the end or clicks something that holds (a reasoning
- *    toggle, the switcher). Nothing else changes it — content getting shorter doesn't.
+ *    it turns off when the user scrolls away from the end, clicks something that holds (a reasoning
+ *    toggle, the switcher) or drags out a text selection in the area. Nothing else changes it — content
+ *    getting shorter doesn't.
  * 3. Never pulled up: where content got shorter at the end and the browser would pull the view up, blank
  *    space is added at the bottom instead; it is trimmed away unnoticed (whatever of it is below the screen,
  *    on every scroll and size change).
@@ -90,6 +91,8 @@ export function useAutoScroll(resetKey: string | null) {
     held: null as { target: HoldTarget; offset: number; until: number } | null,
     /** After a retry / edit: following doesn't scroll this above the top. Cleared by the user scrolling. */
     cap: null as HoldTarget | null,
+    /** The mouse button is down after a press in the area. */
+    pressed: false,
   })
 
   const api = useMemo(() => {
@@ -147,7 +150,14 @@ export function useAutoScroll(resetKey: string | null) {
       scrollTo(el, s.last)
       return true
     }
+    /** The user is dragging out a text selection in the area (following would pull the text from under the mouse). */
+    const selecting = (el: HTMLElement) => {
+      if (!s.pressed) return false
+      const sel = getSelection()
+      return !!sel && !sel.isCollapsed && !!sel.anchorNode && el.contains(sel.anchorNode)
+    }
     const follow = (el: HTMLElement) => {
+      if (selecting(el)) return void (s.following = false)
       let top = Math.max(el.scrollTop, end(el) - el.clientHeight)
       const cap = s.cap && find(el, s.cap)
       if (cap) top = Math.min(top, Math.max(el.scrollTop, topOf(el, cap)))
@@ -219,8 +229,14 @@ export function useAutoScroll(resetKey: string | null) {
     // Pressing on the scrollbar (its events target the area itself); a click on the content isn't scrolling.
     const onPointer = (e: PointerEvent) => {
       if (e.target === el) api.release()
+      else if (e.button === 0) state.current.pressed = true
+    }
+    const onUp = () => {
+      state.current.pressed = false
     }
     el.addEventListener('pointerdown', onPointer)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
     el.addEventListener('keydown', onKey)
     // Size changes of the area, the content, and whatever else sits in the wrapper (the side column).
     const ro = new ResizeObserver(api.settle)
@@ -239,6 +255,8 @@ export function useAutoScroll(resetKey: string | null) {
       el.removeEventListener('wheel', api.release)
       el.removeEventListener('touchstart', api.release)
       el.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
       el.removeEventListener('keydown', onKey)
       ro.disconnect()
       mo.disconnect()
