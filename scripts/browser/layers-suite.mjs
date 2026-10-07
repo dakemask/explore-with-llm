@@ -16,7 +16,7 @@ const esc = async () => {
   await page.keyboard.press('Escape')
   await wait()
 }
-const TREE = 'main > .top-14'
+const TREE = '[data-tree-map]'
 const CARD = '[data-side-column] .shadow-pop'
 const treeOpen = async () => (await page.locator(TREE).count()) > 0
 const cardOpen = async () => (await page.locator(CARD).count()) > 0

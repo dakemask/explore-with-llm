@@ -261,6 +261,16 @@ export function ChatView() {
         </div>
       </header>
 
+      {/* The open column's edge: a line from the header down (it slides with the column; fades when collapsed). */}
+      <div
+        aria-hidden
+        className={clsx(
+          'pointer-events-none absolute top-14 bottom-0 w-px bg-border transition-opacity duration-200',
+          slide && 'transition-[left,opacity] ease-out motion-reduce:transition-none',
+          !column.open && 'opacity-0',
+        )}
+        style={{ left: frame.sideLeft }}
+      />
       {column.open && !slide && !tree && (
         <ResizeHandle
           label={t('pane.columnResize')}

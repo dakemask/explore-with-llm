@@ -47,6 +47,7 @@ export function TreeMapPanel({
       // Focus moving elsewhere (e.g. the composer refocused) isn't a reason to close.
       onFocusOutside={(e) => e.preventDefault()}
       onDismiss={closing ? undefined : onClose}
+      data-tree-map
       className={clsx(
         'absolute inset-x-0 top-14 z-20 border-b border-border bg-surface shadow-pop',
         closing ? 'anim-menu-out pointer-events-none' : 'anim-menu',

@@ -14,7 +14,7 @@ const { browser, page } = await open({ model: 'mock-chat' })
 const wait = (ms = 400) => page.waitForTimeout(ms)
 const MAIN = 'main > div.shrink-0 textarea'
 const CARD = '[data-side-column] .shadow-pop'
-const TREE = 'main > .top-14'
+const TREE = '[data-tree-map]'
 const box = () => page.locator(MAIN).inputValue()
 const thumbs = () => page.locator('main > div.shrink-0 img').count()
 const go = async (title) => {
