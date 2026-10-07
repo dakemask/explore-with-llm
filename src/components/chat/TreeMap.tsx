@@ -16,6 +16,7 @@ import { useT } from '../../i18n'
 import { branchColors, colorVar } from '../../lib/colors'
 import { plainLine } from '../../lib/anchor'
 import { currentUnit, layoutTree, routeTo, type MapUnit, type TreeLayout } from '../../lib/treeMap'
+import { HelpTip } from '../ui/Button'
 import { Layer } from '../ui/Layer'
 import { editLabel } from './labels'
 
@@ -41,6 +42,7 @@ export function TreeMapPanel({
   onClose: () => void
   onJump: (unit: MapUnit) => void
 }) {
+  const t = useT()
   return (
     <Layer
       // The toggle button closes it itself (a press there isn't "outside").
@@ -55,6 +57,17 @@ export function TreeMapPanel({
       )}
     >
       <TreeMap {...map} />
+      {/* (Over the map's top-right corner, outside its scrolling area.) */}
+      <HelpTip
+        className="absolute top-3 right-4"
+        content={
+          <>
+            <div>{t('tree.help.click')}</div>
+            <div>{t('tree.help.hover')}</div>
+            <div>{t('tree.help.right')}</div>
+          </>
+        }
+      />
     </Layer>
   )
 }
