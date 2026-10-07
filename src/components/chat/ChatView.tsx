@@ -432,14 +432,17 @@ export function ChatView() {
         <ThreadPicker at={picker} items={picker.items} onPick={toggleCard} onClose={() => setPicker(null)} />
       )}
 
-      {/* Over the chat's bottom, a little wider than the messages; the rest of this strip lets clicks through. */}
+      {/* Over the chat's bottom (above the sticky reasoning toggle too), a little wider than the messages; the
+          rest of this strip lets clicks through. Under its lower half and below it the background covers the
+          messages, so they don't show under the box. */}
       <div
         ref={composerRef}
         data-main-composer
-        className={clsx('pointer-events-none absolute inset-x-0 bottom-0 pb-4', slideClass)}
+        className={clsx('pointer-events-none absolute inset-x-0 bottom-0 z-10 pb-4', slideClass)}
         style={{ paddingLeft: frame.chatLeft }}
       >
-        <div className={clsx('pointer-events-auto px-3', slideClass)} style={{ width: frame.chatWidth }}>
+        <div className={clsx('pointer-events-auto relative px-3', slideClass)} style={{ width: frame.chatWidth }}>
+          <div aria-hidden className="absolute inset-x-0 -bottom-4 h-14 bg-bg" />
           <Composer
             // Each conversation keeps its own unsent text: a new box per conversation, starting from its draft.
             key={draftKey}

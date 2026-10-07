@@ -209,6 +209,29 @@ for (const action of ['笔记', '追问']) {
   await browser.close()
 }
 
+// ---- W6: the floating input box covers what passes behind it — the sticky reasoning toggle too (it has a
+// z-index of its own and once showed over the box) — and the background covers the strip below it ----
+{
+  const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
+  for (const q of ['遮挡一', '遮挡二']) await send(page, q)
+  await page.waitForTimeout(1300)
+  await page.evaluate((SC) => {
+    const sc = document.querySelector(SC)
+    const t = [...sc.querySelectorAll('button')].filter((b) => b.textContent.includes('思考过程')).at(-1)
+    const box = document.querySelector('main > [data-main-composer] .rounded-2xl').getBoundingClientRect()
+    sc.scrollTop += t.getBoundingClientRect().top - (box.top + 30)
+  }, SC)
+  await page.waitForTimeout(300)
+  const top = await page.evaluate(() => {
+    const box = document.querySelector('main > [data-main-composer] .rounded-2xl').getBoundingClientRect()
+    const at = (x, y) => !!document.elementFromPoint(x, y).closest('[data-main-composer]')
+    return { overToggle: at(box.left + 60, box.top + 30), below: at(box.left + 200, box.bottom + 8), besideLowerHalf: at(box.left - 6, box.bottom - 10) }
+  })
+  check('W6 a reasoning toggle passing behind the input box stays behind it', top.overToggle, top)
+  check('W6 nothing shows below the box or beside its lower half', top.below && top.besideLowerHalf, top)
+  await browser.close()
+}
+
 // ---- W5: the side column: open (even empty) by default; a highlight or bar toggles its card; the header
 // button collapses it to the marker strip (sliding: chat, input box and column stay joined in every frame);
 // collapsed, a bar / highlight click or a new side question opens it; dragging its edge resizes it (the chat

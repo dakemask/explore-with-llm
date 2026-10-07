@@ -1,7 +1,7 @@
 // Streaming scroll scenarios (Product decisions › Scrolling). Copy this folder into the session scratchpad (where
 // playwright-core is installed) and run `node scroll-suite.mjs` there, with `pnpm dev` on 5173 and
 // `PORT=8788 DELAY=20 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
-import { open, waitDone, SC, SP, state, setScroll, clickAt, topIn } from './lib.mjs'
+import { open, waitDone, SC, SP, state, setScroll, clickAt, hoverAt, topIn } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -151,7 +151,7 @@ await pickModel(page, 'mock-long', 'mock-chat')
 await setScroll(page, SC, 1e6)
 await page.waitForTimeout(1300)
 const last = page.locator(`${SC} [data-fork]`).last()
-await last.locator('.group\\/assistant').hover()
+await hoverAt(page, last.locator('button[aria-label="重新生成"]').last())
 const r0 = await topIn(page, SC, '[data-fork]')
 await page.screenshot({ path: `${SP}/M5-before.png` })
 await clickAt(page, last.locator('button[aria-label="重新生成"]').last())
@@ -176,7 +176,7 @@ await page.waitForTimeout(1300)
 await setScroll(page, SC, 1e6)
 await page.waitForTimeout(300)
 const lastR = page.locator(`${SC} [data-fork]`).last()
-await lastR.locator('.group\\/assistant').hover()
+await hoverAt(page, lastR.locator('button[aria-label="重新生成"]').last())
 await clickAt(page, lastR.locator('button[aria-label="重新生成"]').last())
 await page.waitForTimeout(2000)
 check('R blank below after the retry', (await state(page)).pad !== '0', await state(page))

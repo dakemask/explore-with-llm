@@ -75,3 +75,9 @@ export async function clickAt(page, loc) {
   const b = await loc.boundingBox()
   await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2)
 }
+
+/** Moves the real mouse onto a locator's center, without scrolling it into view (`hover()` does). */
+export async function hoverAt(page, loc) {
+  const b = await loc.boundingBox()
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
+}
