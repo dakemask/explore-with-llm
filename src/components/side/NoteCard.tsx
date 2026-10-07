@@ -78,7 +78,7 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
         </IconButton>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
         {editing ? (
           // Fills the card (fixed height, like a side question's); its text scrolls inside.
           <textarea
@@ -92,7 +92,7 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
               e.preventDefault()
               done()
             }}
-            className="block h-full w-full resize-none bg-transparent px-4 pt-3 pb-2 text-[13.5px] leading-relaxed placeholder:text-faint focus:outline-none"
+            className="block h-full w-full resize-none bg-transparent [scrollbar-gutter:stable] px-4 pt-3 pb-2 text-[13.5px] leading-relaxed placeholder:text-faint focus:outline-none"
           />
         ) : (
           <div className="px-4 pt-3 pb-1">

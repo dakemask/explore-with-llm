@@ -110,7 +110,7 @@ export function SideCard({
         </IconButton>
       </header>
 
-      <div ref={scroll.containerRef} className="min-h-0 flex-1 overflow-y-auto [--sticky-bg:var(--c-surface)]">
+      <div ref={scroll.containerRef} className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable] [--sticky-bg:var(--c-surface)]">
         <ScrollHold.Provider value={scroll.hold}>
           {/* The blank space at the bottom goes on this wrapper (see useAutoScroll). */}
           <div ref={scroll.blankRef}>

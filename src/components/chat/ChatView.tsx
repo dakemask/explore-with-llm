@@ -234,7 +234,7 @@ export function ChatView() {
       <div
         ref={scroll.containerRef}
         onClick={onContentClick}
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
       >
         {/* The blank space at the bottom goes on this wrapper (see useAutoScroll). */}
         <div ref={scroll.blankRef} className="flex items-start" style={{ paddingLeft: frame.chatLeft }}>
@@ -316,11 +316,15 @@ export function ChatView() {
       <SelectionAsk
         containerRef={scroll.containerRef}
         contentOf={contentOf}
-        onAsk={(nodeId, anchor) => {
+        // The user is reading the passage they asked about: keep it in place (the column may appear and
+        // narrow the chat, rewrapping the text) and stop following the end.
+        onAsk={(nodeId, anchor, at) => {
+          if (at) scroll.hold(at)
           if (conversationId)
             startDraft(nanoid(), { conversationId, nodeId, anchor, prefill: quoteForInput(anchor.text) })
         }}
-        onNote={async (nodeId, target, anchor) => {
+        onNote={async (nodeId, target, anchor, at) => {
+          if (at) scroll.hold(at)
           if (conversationId) side.expand(await createNote(conversationId, nodeId, target, anchor))
         }}
       />

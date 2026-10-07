@@ -23,8 +23,9 @@ export function SelectionAsk({
 }: {
   containerRef: RefObject<HTMLElement | null>
   contentOf: (nodeId: string, target: Target) => string | undefined
-  onAsk: (nodeId: string, anchor: SideAnchor) => void
-  onNote: (nodeId: string, target: Target, anchor: SideAnchor) => void
+  /** `at` = the block the selection starts in (the passage the user is reading). */
+  onAsk: (nodeId: string, anchor: SideAnchor, at: Element | null) => void
+  onNote: (nodeId: string, target: Target, anchor: SideAnchor, at: Element | null) => void
 }) {
   const t = useT()
   const [hit, setHit] = useState<{ nodeId: string; target: Target; anchor: SideAnchor; range: Range } | null>(null)
@@ -124,8 +125,8 @@ export function SelectionAsk({
       )}
     >
       {hit.target === 'assistant' &&
-        action(<MessageSquareQuote size={14} />, t('side.ask'), () => onAsk(hit.nodeId, hit.anchor))}
-      {action(<NotebookPen size={14} />, t('note.add'), () => onNote(hit.nodeId, hit.target, hit.anchor))}
+        action(<MessageSquareQuote size={14} />, t('side.ask'), () => onAsk(hit.nodeId, hit.anchor, blockOf(hit.range)))}
+      {action(<NotebookPen size={14} />, t('note.add'), () => onNote(hit.nodeId, hit.target, hit.anchor, blockOf(hit.range)))}
     </Layer>
   )
 }
@@ -170,3 +171,8 @@ export function ThreadPicker({
     </MenuRoot>
   )
 }
+
+/** The block (paragraph, list item, heading, cell…) where `range` starts. */
+const blockOf = (range: Range) =>
+  range.startContainer.parentElement?.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote, pre') ??
+  range.startContainer.parentElement

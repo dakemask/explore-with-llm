@@ -3,8 +3,12 @@ import { chromium } from 'playwright-core'
 export const SP = process.cwd()
 export const SC = 'main > div.overflow-y-auto'
 
-export async function open({ models = ['mock-long', 'mock-chat'], model = 'mock-long', theme = 'light', width = 1400 } = {}) {
-  const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' })
+/** `scrollbars`: show classic scrollbars, as on Windows (headless Chrome hides them by default). */
+export async function open({ models = ['mock-long', 'mock-chat'], model = 'mock-long', theme = 'light', width = 1400, scrollbars = false } = {}) {
+  const browser = await chromium.launch({
+    executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    ignoreDefaultArgs: scrollbars ? ['--hide-scrollbars'] : [],
+  })
   const page = await browser.newPage({ viewport: { width, height: 900 } })
   page.on('pageerror', (e) => console.log('PAGEERROR', e.message))
   await page.goto('http://localhost:5173/')
