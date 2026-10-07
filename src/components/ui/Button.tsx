@@ -45,8 +45,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
 // Whether the last key pressed was Tab (cleared by any other key and by a pointer press).
 let tabbed = false
-document.addEventListener('keydown', (e) => (tabbed = e.key === 'Tab'), true)
-document.addEventListener('pointerdown', () => (tabbed = false), true)
+// (No document when unit tests import this.)
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', (e) => (tabbed = e.key === 'Tab'), true)
+  document.addEventListener('pointerdown', () => (tabbed = false), true)
+}
 /**
  * Tooltips open on hover, and on focus only when Tab brought it there: a menu / dialog closed by Escape
  * hands focus back to its button, whose tip would pop up out of nowhere and take the next Escape.
