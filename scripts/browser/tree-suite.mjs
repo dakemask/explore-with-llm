@@ -111,12 +111,43 @@ const seen = await page.evaluate((T) => {
   return g.left >= area.left && g.right <= area.right && g.top >= area.top && g.bottom <= area.bottom
 }, TREE)
 check('C3 the map keeps "current" in its view', seen)
+// A short last turn: scrolled to the end, it's "current" even while the turn above still fills the top.
+await page.evaluate((sc) => document.querySelector(sc).scrollTo(0, 1e6), SC)
+await wait(500)
+check('C4 scrolled to the end: "current" = the last turn', (await current())?.includes('第 12 轮'), await current())
+// The reading line: a third down the view. A turn starting just below it isn't current yet; just above, it is.
+const placeTurn = (i, y) =>
+  page.evaluate(
+    ({ sc, i, y }) => {
+      const box = document.querySelector(sc)
+      const turn = box.querySelectorAll('[data-turn]')[i]
+      const composer = document.querySelector('main > [data-main-composer]').getBoundingClientRect().top
+      const r = box.getBoundingClientRect()
+      const line = r.top + (Math.min(r.bottom, composer) - r.top) * y
+      box.scrollTop += turn.getBoundingClientRect().top - line
+    },
+    { sc: SC, i, y },
+  )
+await placeTurn(5, 0.36)
+await wait(400)
+check('C5 turn 6 starting just below the reading line: still turn 5', (await current())?.includes('第 5 轮'), await current())
+await placeTurn(5, 0.3)
+await wait(400)
+check('C5 … just above it: turn 6', (await current())?.includes('第 6 轮'), await current())
 
 // ---- J: jumping keeps it open ----
 await page.locator(`${TREE} g[role=button]`).nth(2).click()
 await wait(900)
 check('J1 a click on a node jumps and the map stays open', await treeOpen())
 check('J1 "current" = the turn jumped to', (await current())?.includes('第 3 轮'), await current())
+// It stays so (turn 3 is short at the top; the reading line may be in turn 4) until the user scrolls by hand.
+await wait(800)
+check('J2 … and stays so after the glide', (await current())?.includes('第 3 轮'), await current())
+const chat = await page.locator(SC).boundingBox()
+await page.mouse.move(chat.x + 200, chat.y + 300)
+await page.mouse.wheel(0, 1200)
+await wait(800)
+check('J3 scrolling by hand: back to the reading line', !(await current())?.includes('第 3 轮'), await current())
 
 // ---- R: the tree changes while open, animated (each drawn unit keeps its element: data-key) ----
 const lastKey = () => page.locator(`${TREE} g[data-key]`).last().getAttribute('data-key')

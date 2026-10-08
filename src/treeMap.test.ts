@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ROOT_KEY, type ChatNode } from './db'
-import { carryKeys, currentUnit, jumpSelection, layoutTree, routeTo, type TreeLayout } from './lib/treeMap'
+import { carryKeys, currentUnit, jumpSelection, layoutTree, readingTurn, routeTo, type TreeLayout } from './lib/treeMap'
 
 let clock = 0
 function node(id: string, parentId: string | null, extra: Partial<ChatNode> = {}): ChatNode {
@@ -177,5 +177,40 @@ describe('tree map keys across changes', () => {
     const a = br('a', null)
     const keys = keysAfter([a, node('r1', 'a')], [a, br('r1', 'a'), br('r2', 'a'), node('x', 'r1'), node('y', 'r2')])
     expect(new Set(keys.values()).size).toBe(keys.size)
+  })
+})
+
+describe('"current" while the chat scrolls', () => {
+  // A 900 px tall view (0–900), turns starting every 300 px of content.
+  const tops = (scrollTop: number) => [0, 300, 600, 900, 1200, 1500].map((t) => t - scrollTop)
+  const view = (scrollTop: number, maxScroll = 1000) => ({ top: 0, bottom: 900, scrollTop, maxScroll })
+
+  it('at the top: the first turn', () => {
+    expect(readingTurn(tops(0), view(0))).toBe(0)
+  })
+
+  it('mid-way: the turn crossing a third of the way down', () => {
+    const long = [0, 300, 600, 900, 1200, 1500, 1800, 2100, 2400, 2700].map((t) => t - 1000)
+    // scrollTop 1000 of 2000: line at 300 → content 1300 → the turn starting at 1200.
+    expect(readingTurn(long, view(1000, 2000))).toBe(4)
+  })
+
+  it('scrolled to the end: the last turn, however short', () => {
+    expect(readingTurn([-300, 100, 850], view(1000))).toBe(2)
+  })
+
+  it('nothing to scroll: the last turn', () => {
+    expect(readingTurn([0, 200, 400], view(0, 0))).toBe(2)
+  })
+
+  it('the line moves continuously (each scroll step changes the turn by at most one)', () => {
+    let prev = 0
+    for (let st = 0; st <= 1000; st += 10) {
+      const at = readingTurn(tops(st), view(st))
+      expect(at - prev).toBeGreaterThanOrEqual(0)
+      expect(at - prev).toBeLessThanOrEqual(1)
+      prev = at
+    }
+    expect(prev).toBe(5)
   })
 })

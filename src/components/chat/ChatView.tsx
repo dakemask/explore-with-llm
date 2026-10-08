@@ -12,7 +12,7 @@ import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
 import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
-import { jumpSelection, type MapUnit } from '../../lib/treeMap'
+import { jumpSelection, readingTurn, type MapUnit } from '../../lib/treeMap'
 import { archiveNote, createNote, noteTitle } from '../../lib/notes'
 import { glideTo, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { useConversationData } from '../../lib/useConversationData'
@@ -233,17 +233,26 @@ export function ChatView() {
     setHover([])
   }
   const toggleTree = () => (tree && !tree.closing ? closeTree() : setTree({}))
-  // "Current" in the map = the topmost turn still showing more than its footer, followed live while the
-  // map is open (read on scroll and whenever the path changes; reading only — scrolling is useAutoScroll's).
+  // "Current" in the map, followed live while the map is open (read on scroll and whenever the path changes;
+  // reading only — scrolling is useAutoScroll's): the turn at the reading line (`readingTurn`), except that
+  // a turn jumped to from the map stays current until the user scrolls by hand.
   const [treeCurrent, setTreeCurrent] = useState<string | undefined>()
+  const jumpedTo = useRef<string | null>(null)
   const treeOpen = !!tree
+  useEffect(() => scroll.onUserScroll(() => (jumpedTo.current = null)), [scroll.onUserScroll])
   useEffect(() => {
     const box = scroll.containerRef.current
     if (!treeOpen || !box) return
     const read = () => {
-      const top = box.getBoundingClientRect().top + 48
-      const turn = [...box.querySelectorAll<HTMLElement>('[data-turn]')].find((el) => el.getBoundingClientRect().bottom > top)
-      setTreeCurrent(turn?.dataset.turn ?? last?.id)
+      const turns = [...box.querySelectorAll<HTMLElement>('[data-turn]')]
+      const pinned = jumpedTo.current && turns.find((el) => el.dataset.turn === jumpedTo.current)
+      if (pinned) return setTreeCurrent(jumpedTo.current!)
+      const area = box.getBoundingClientRect()
+      // The input box floats over the chat's bottom: what's under it isn't being read.
+      const bottom = Math.min(area.bottom, composerRef.current?.getBoundingClientRect().top ?? area.bottom)
+      const view = { top: area.top, bottom, scrollTop: box.scrollTop, maxScroll: box.scrollHeight - box.clientHeight }
+      const at = readingTurn(turns.map((el) => el.getBoundingClientRect().top), view)
+      setTreeCurrent(turns[at]?.dataset.turn ?? last?.id)
     }
     read()
     let frame = 0
@@ -261,6 +270,8 @@ export function ChatView() {
   const jump = (unit: MapUnit) => {
     if (!conversation || !nodes) return
     const { target, selection } = jumpSelection(nodes, unit, conversation.selectedChild)
+    jumpedTo.current = target.id
+    setTreeCurrent(target.id)
     scroll.unpin()
     setScrollTarget(target.id)
     void selectPath(conversation.id, selection)

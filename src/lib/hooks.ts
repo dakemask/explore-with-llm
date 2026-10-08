@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { copyText } from './clipboard'
 
 /** Grows a textarea with its content up to `max` pixels. */
@@ -94,6 +94,8 @@ export function useAutoScroll(resetKey: string | null) {
     /** The mouse button is down after a press in the area. */
     pressed: false,
   })
+  /** Told whenever the user scrolls by hand (`onUserScroll`). */
+  const userScrollListeners = useRef(new Set<() => void>())
 
   const api = useMemo(() => {
     const s = state.current
@@ -192,6 +194,7 @@ export function useAutoScroll(resetKey: string | null) {
       s.held = null
       s.cap = null
       s.resetUntil = 0
+      for (const fn of userScrollListeners.current) fn()
     }
     const hold: Hold = (target, opts) => {
       const el = containerRef.current
@@ -274,7 +277,13 @@ export function useAutoScroll(resetKey: string | null) {
     Object.assign(state.current, { following: false, held: null, cap: null })
   }
 
-  return { containerRef, contentRef, blankRef, pin, unpin, hold: api.hold }
+  /** Calls `fn` whenever the user scrolls by hand (wheel, touch, scroll keys, the scrollbar); returns the unsubscribe. */
+  const onUserScroll = useCallback((fn: () => void) => {
+    userScrollListeners.current.add(fn)
+    return () => void userScrollListeners.current.delete(fn)
+  }, [])
+
+  return { containerRef, contentRef, blankRef, pin, unpin, hold: api.hold, onUserScroll }
 }
 
 const gliding = new WeakMap<HTMLElement, object>()

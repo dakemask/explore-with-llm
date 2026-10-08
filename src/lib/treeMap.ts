@@ -133,6 +133,30 @@ export function carryKeys(prev: Map<string, string>, layout: TreeLayout) {
   return { byUnit, byNode }
 }
 
+/**
+ * The tree map's "current" turn while the chat scrolls (owner, 2026-10-08): the turn crossing a *reading
+ * line* a third of the way down the visible chat (`top`–`bottom`, screen px; the input box's cover left
+ * out). Within a screen of either end the line slides toward that edge (top: scrolled to the top, bottom:
+ * scrolled to the end — also when nothing scrolls), so the first and the last turn, however short, get
+ * their turn. `turnTops` = each turn's top on screen, in order; returns the index of the turn (the last one
+ * starting at or above the line; the first if none does).
+ */
+export function readingTurn(turnTops: number[], view: { top: number; bottom: number; scrollTop: number; maxScroll: number }) {
+  const { top, bottom, scrollTop, maxScroll } = view
+  const screen = Math.max(1, bottom - top)
+  const base = top + screen / 3
+  const fromTop = Math.min(1, scrollTop / screen)
+  const fromEnd = Math.min(1, Math.max(0, maxScroll - scrollTop) / screen)
+  const nearTop = top + (base - top) * fromTop
+  // (`- 1`: the line stays on screen, inside the last turn when scrolled to the end.)
+  const line = bottom - 1 + (nearTop - (bottom - 1)) * fromEnd
+  let at = 0
+  turnTops.forEach((t, i) => {
+    if (t <= line) at = i
+  })
+  return at
+}
+
 /** Unit ids from the top down to `unitId`. */
 export function routeTo(layout: TreeLayout, unitId: string): string[] {
   const ids: string[] = []
