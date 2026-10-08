@@ -2,16 +2,16 @@ import { ScrollText } from 'lucide-react'
 import { useT } from '../../i18n'
 
 /**
- * The system message of a first turn (or of the one about to be sent): a quiet line right above the first
- * message's bubble, as part of it. Clicking opens its editor: for a sent turn the message editor (a change
+ * The system message of a first turn (or of the one about to be sent): a quiet centered line above the first
+ * message, set apart from it. Clicking opens its editor: for a sent turn the message editor (a change
  * makes a new attempt), else `SystemEditDialog`.
  */
 export function SystemRow({ text, onClick }: { text: string | undefined; onClick?: () => void }) {
   const t = useT()
   const first = text?.split('\n').find((l) => l.trim())
   return (
-    // -mb-2: closer to the bubble than the turn's usual spacing.
-    <div className="-mb-2 flex justify-end">
+    // mb-3: set apart from the first message (with the turn's own spacing, 24 px).
+    <div className="mb-3 flex justify-center">
       <button
         type="button"
         data-system-row
