@@ -247,16 +247,33 @@ await page.evaluate((sc) => {
 await wait(1500)
 await clickAt(page, turn3.locator('[aria-label="重新生成"]'))
 await waitDone(page)
-// (An attempt beside a branch isn't drawn in the map: "current" shows on the nearest drawn turn above it.)
-check('V1 a retry of turn 3: "current" = the new attempt (not drawn: shown on turn 2)', (await turnNo()) === 2 && (await page.locator(`${SC} [data-turn]`).count()) === 3, await current())
+/** Units drawn for turn `n` (a branch and an attempt beside it are two). */
+const unitsAt = (n) => page.locator(`${TREE} g[role=button]`).evaluateAll((gs, n) => gs.filter((g) => g.getAttribute('aria-label')?.includes(`第 ${n} 轮`)).length, n)
+// Attempts are drawn only while the chat ends at one of them (owner, 2026-10-09).
+check('V1 a retry of turn 3: "current" = the new attempt, drawn beside the branch', (await turnNo()) === 3 && (await unitsAt(3)) === 2 && (await page.locator(`${SC} [data-turn]`).count()) === 3, { current: await current(), units: await unitsAt(3) })
 await wait(1000)
-// Back to the branch: its dot, the first in turn 3's switcher.
+// Back to the branch: its dot, the first in turn 3's switcher. The attempt goes from the map, fading out.
 await clickAt(page, page.locator(`${SC} [data-fork]`).nth(2).locator('[data-switcher] button').first())
+await wait(80)
+const fading = await page.locator(`${TREE} .tree-ghost`).count()
 await wait(1500)
-check('V2 switching back by the switcher: "current" = the turn switched to', (await turnNo()) === 3 && (await page.locator(`${SC} [data-turn]`).count()) > 3, await current())
+check('V2 switching back to the branch: "current" = the turn switched to', (await turnNo()) === 3 && (await page.locator(`${SC} [data-turn]`).count()) > 3, await current())
+check('V2 … the attempt leaves the map, fading out', fading === 1 && (await unitsAt(3)) === 1 && (await page.locator(`${TREE} .tree-ghost`).count()) === 0, { fading, units: await unitsAt(3) })
 await wheel(80)
 const v3 = await turnNo()
 check('V3 … then a small scroll: still turn 3 or the next one', v3 === 3 || v3 === 4, v3)
+// And to the attempt again: it grows back in. (Turn 3's header back on screen first.)
+await page.evaluate((sc) => {
+  const box = document.querySelector(sc)
+  const t = box.querySelectorAll('[data-turn]')[2]
+  box.scrollTop += t.getBoundingClientRect().top - box.getBoundingClientRect().top - 200
+}, SC)
+await wait(1300)
+await clickAt(page, page.locator(`${SC} [data-fork]`).nth(2).locator('[data-switcher] button').nth(1))
+await wait(80)
+const growing = await moving()
+await wait(1500)
+check('V4 switching to the attempt: it grows back into the map, "current"', growing > 0 && (await unitsAt(3)) === 2 && (await turnNo()) === 3, { growing, units: await unitsAt(3), current: await current() })
 
 // ---- E: short turns (mock-name): a jump makes room with blank below; scrolling on at the end ----
 await page.evaluate(() => {

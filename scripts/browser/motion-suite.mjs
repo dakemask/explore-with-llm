@@ -216,10 +216,12 @@ await wait(500)
 await page.mouse.click(5, 300)
 
 // ---- M: tree map jumps: to a sibling slides, to a cousin fades ----
-// Second branch with a follow-up: T2 attempt → T3x below it.
+// Second branch with a follow-up: T2 attempt → T3x below it, followed up too (attempts off the shown path
+// aren't drawn in the map, so T3x must be a branch to be jumped to).
 await switcher().getByRole('button', { name: /个尝试$/ }).click()
 await wait(1000)
 await send(page, 'T3x')
+await send(page, 'T4x')
 await page.getByRole('button', { name: '树图' }).click()
 await wait(800)
 // Over to another branch at T2's fork (not the one T3x is under).

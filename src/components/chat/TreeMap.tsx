@@ -64,6 +64,8 @@ export function TreeMapPanel({
   /** The conversation: the map restarts (centered on "current") when it changes. */
   mapKey: string
   currentNodeId: string | undefined
+  /** The node the chat's path ends at (its attempts are drawn if it is one). */
+  endNodeId: string | undefined
   closing: boolean
   opener: RefObject<HTMLElement | null>
   onClose: () => void
@@ -180,24 +182,26 @@ export function TreeMapPanel({
 
 /**
  * The tree map window's content: a tidy horizontal tree of the main line in branch colors, laid out from
- * the live data (the layout depends only on the tree's shape, so switching branches moves nothing but
- * "current"); hovering a unit grows a bold path to it from the root. `currentNodeId` = the turn the user
- * is looking at (marked "current"; the map scrolls only to bring it back into view when it changes);
- * `onJump` gets the clicked unit. Right-clicking a node edits its label. A mouse wheel scrolls sideways
+ * the live data (the layout depends on the tree's shape and, for attempts, on where the chat's path ends:
+ * `endNodeId` — they're drawn only while it is one of them); hovering a unit grows a bold path to it from
+ * the root. `currentNodeId` = the turn the user is looking at (marked "current"; the map scrolls only to
+ * bring it back into view when it changes); `onJump` gets the clicked unit. Right-clicking a node edits its label. A mouse wheel scrolls sideways
  * (Shift: up / down); touchpads scroll natively. Remount it per conversation (it opens centered on "current").
  */
 export function TreeMap({
   nodes,
   currentNodeId,
+  endNodeId,
   onJump,
 }: {
   nodes: ChatNode[]
   currentNodeId: string | undefined
+  endNodeId: string | undefined
   onJump: (unit: MapUnit) => void
 }) {
   const t = useT()
   const uid = 'tm' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
-  const layout = useMemo(() => layoutTree(nodes), [nodes])
+  const layout = useMemo(() => layoutTree(nodes, endNodeId), [nodes, endNodeId])
   const colors = useMemo(() => branchColors(nodes), [nodes])
   const current = useMemo(() => currentUnit(layout, nodes, currentNodeId), [layout, nodes, currentNodeId])
   const W = PAD * 2 + layout.maxCol * GX + 30

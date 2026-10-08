@@ -2,9 +2,9 @@ import { ROOT_KEY, type ChatNode, type Conversation } from '../db/types'
 import { childrenOf, forkKey, pathTo } from './tree'
 
 /**
- * The tree map of a conversation's main line. What it draws are *units*:
- * every branch is one; a fork's attempts are drawn only where its children are all attempts, then stacked
- * into one unit (a single child, attempt or branch, is a plain unit); attempts beside branches aren't drawn.
+ * The tree map of a conversation's main line. What it draws are *units*: every branch is one; a fork's
+ * attempts only while the chat shows one of them (owner, 2026-10-09: the path ends there — attempts never
+ * have children), after the fork's branches: a lone attempt as a plain unit, several stacked into one.
  * Archived nodes and side questions never appear (`childrenOf` skips them).
  */
 export interface MapUnit {
@@ -38,16 +38,20 @@ interface Draft {
   rel: number
 }
 
-function unitsOf(nodes: ChatNode[], parentId: string | null): MapUnit[] {
+/** `shown` = the node the chat's path ends at (its attempts are drawn if it is one). */
+function unitsOf(nodes: ChatNode[], parentId: string | null, shown: string | undefined): MapUnit[] {
   const kids = childrenOf(nodes, parentId)
-  const branches = kids.filter((n) => n.branch)
+  const attempts = kids.filter((n) => !n.branch)
   const unit = (n: ChatNode): MapUnit => ({ id: n.id, type: 'node', nodes: [n], parent: parentId, col: 0, row: 0 })
-  if (branches.length) return branches.map(unit)
-  if (kids.length === 1) return [unit(kids[0])]
-  if (kids.length > 1) {
-    return [{ id: 'stack:' + (parentId ?? ROOT_KEY), type: 'stack', nodes: kids, parent: parentId, col: 0, row: 0 }]
+  const units = kids.filter((n) => n.branch).map(unit)
+  if (attempts.some((n) => n.id === shown)) {
+    units.push(
+      attempts.length === 1
+        ? unit(attempts[0])
+        : { id: 'stack:' + (parentId ?? ROOT_KEY), type: 'stack', nodes: attempts, parent: parentId, col: 0, row: 0 },
+    )
   }
-  return []
+  return units
 }
 
 /**
@@ -55,14 +59,14 @@ function unitsOf(nodes: ChatNode[], parentId: string | null): MapUnit[] {
  * highest and lowest row it uses). Siblings stack top to bottom, each pushed down just enough to clear the
  * ones above by a row, and the parent sits halfway between its first and last child.
  */
-function tidy(nodes: ChatNode[], d: Draft): { top: number[]; bot: number[] } {
-  d.children = d.unit.type === 'node' ? unitsOf(nodes, d.unit.id).map((unit) => ({ unit, children: [], rel: 0 })) : []
+function tidy(nodes: ChatNode[], d: Draft, shown: string | undefined): { top: number[]; bot: number[] } {
+  d.children = d.unit.type === 'node' ? unitsOf(nodes, d.unit.id, shown).map((unit) => ({ unit, children: [], rel: 0 })) : []
   const ch = d.children
   if (!ch.length) return { top: [0], bot: [0] }
   const accTop: number[] = []
   const accBot: number[] = []
   ch.forEach((c, i) => {
-    const s = tidy(nodes, c)
+    const s = tidy(nodes, c, shown)
     let shift = 0
     if (i > 0) {
       shift = -Infinity
@@ -79,8 +83,11 @@ function tidy(nodes: ChatNode[], d: Draft): { top: number[]; bot: number[] } {
   return { top: [0, ...accTop.map((v) => v - mid)], bot: [0, ...accBot.map((v) => v - mid)] }
 }
 
-/** Lays out the whole main line; several top-level units stack below each other. */
-export function layoutTree(nodes: ChatNode[]): TreeLayout {
+/**
+ * Lays out the whole main line; several top-level units stack below each other. `shown` = the node the
+ * chat's path ends at: attempts are drawn only at its fork, if it is one.
+ */
+export function layoutTree(nodes: ChatNode[], shown?: string): TreeLayout {
   const units: MapUnit[] = []
   const place = (d: Draft, col: number, row: number) => {
     d.unit.col = col
@@ -89,9 +96,9 @@ export function layoutTree(nodes: ChatNode[]): TreeLayout {
     for (const c of d.children) place(c, col + 1, row + c.rel)
   }
   let base = 0
-  for (const unit of unitsOf(nodes, null)) {
+  for (const unit of unitsOf(nodes, null, shown)) {
     const d: Draft = { unit, children: [], rel: 0 }
-    const s = tidy(nodes, d)
+    const s = tidy(nodes, d, shown)
     const top = Math.min(...s.top)
     place(d, 0, base - top)
     base += Math.max(...s.bot) - top + 1

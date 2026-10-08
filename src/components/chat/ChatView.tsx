@@ -354,6 +354,7 @@ export function ChatView() {
           mapKey={conversationId ?? ''}
           nodes={conversationId ? nodes : []}
           currentNodeId={treeCurrent}
+          endNodeId={conversationId ? last?.id : undefined}
           closing={!!tree.closing}
           opener={treeButton}
           onClose={closeTree}

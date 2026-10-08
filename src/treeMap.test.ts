@@ -35,7 +35,7 @@ const pos = (l: TreeLayout, id: string) => {
 
 describe('tree map layout', () => {
   it('lays a chain out in one row', () => {
-    const l = layoutTree([br('a', null), br('b', 'a'), node('c', 'b')])
+    const l = layoutTree([br('a', null), br('b', 'a'), node('c', 'b')], 'c')
     expect(l.units.map((u) => [u.id, u.col, u.row])).toEqual([
       ['a', 0, 0],
       ['b', 1, 0],
@@ -80,23 +80,30 @@ describe('tree map layout', () => {
     expect(pos(l, 'y')[1] - pos(l, 'x')[1]).toBe(1)
   })
 
-  it('stacks attempts only where a fork has nothing else', () => {
-    const l = layoutTree([br('a', null), node('t1', 'a'), node('t2', 'a'), node('t3', 'a')])
+  it('stacks several attempts at the fork the chat ends at', () => {
+    const l = layoutTree([br('a', null), node('t1', 'a'), node('t2', 'a'), node('t3', 'a')], 't2')
     const stack = l.byId.get('stack:a')!
     expect(stack.type).toBe('stack')
     expect(stack.nodes.map((n) => n.id)).toEqual(['t1', 't2', 't3'])
     expect(l.unitOf.get('t2')).toBe('stack:a')
     expect(l.units).toHaveLength(2)
     // A single attempt is a plain unit.
-    expect(layoutTree([br('a', null), node('t', 'a')]).byId.get('t')?.type).toBe('node')
+    expect(layoutTree([br('a', null), node('t', 'a')], 't').byId.get('t')?.type).toBe('node')
     // Attempts at the top stack under the root key.
-    expect(layoutTree([node('p', null), node('q', null)]).byId.has('stack:' + ROOT_KEY)).toBe(true)
+    expect(layoutTree([node('p', null), node('q', null)], 'q').byId.has('stack:' + ROOT_KEY)).toBe(true)
   })
 
-  it('does not draw attempts beside branches', () => {
-    const l = layoutTree([br('a', null), br('b', 'a'), node('t', 'a'), node('u', 'a')])
-    expect([...l.byId.keys()]).toEqual(['a', 'b'])
+  it('draws attempts only while the chat ends at one of them (also at the end of a line)', () => {
+    const nodes = [br('a', null), br('b', 'a'), node('t', 'a'), node('u', 'a'), br('c', 'b'), node('e', 'c')]
+    expect([...layoutTree(nodes, 'e').byId.keys()]).toEqual(['a', 'b', 'c', 'e'])
+    expect([...layoutTree(nodes, 'c').byId.keys()]).toEqual(['a', 'b', 'c'])
+    expect([...layoutTree(nodes).byId.keys()]).toEqual(['a', 'b', 'c'])
+    // Beside a branch: after it (the switcher's order), stacked when several.
+    const l = layoutTree(nodes, 'u')
+    expect([...l.byId.keys()]).toEqual(['a', 'b', 'c', 'stack:a'])
+    expect(l.byId.get('stack:a')!.nodes.map((n) => n.id)).toEqual(['t', 'u'])
     expect(pos(l, 'b')).toEqual([1, 0])
+    expect(pos(l, 'stack:a')).toEqual([1, 1])
   })
 
   it('leaves out archived subtrees and side questions', () => {
@@ -122,7 +129,7 @@ describe('tree map layout', () => {
 
 describe('tree map current marker and jumps', () => {
   const nodes = [br('a', null), br('b', 'a'), node('t', 'a'), br('c', 'b'), node('r1', 'c'), node('r2', 'c')]
-  const l = layoutTree(nodes)
+  const l = layoutTree(nodes, 'r1')
 
   it('marks the node itself, its stack, or the nearest drawn ancestor', () => {
     expect(currentUnit(l, nodes, 'b')).toBe('b')
@@ -152,8 +159,10 @@ describe('tree map current marker and jumps', () => {
 describe('tree map keys across changes', () => {
   /** Keys of `nodes`' layout after a first layout of `before`, by unit id. */
   const keysAfter = (before: ChatNode[], nodes: ChatNode[]) => {
-    const first = carryKeys(new Map(), layoutTree(before))
-    return carryKeys(first.byNode, layoutTree(nodes)).byUnit
+    // (The chat ends at the newest node.)
+    const end = (ns: ChatNode[]) => ns.reduce((p, n) => (n.createdAt > p.createdAt ? n : p)).id
+    const first = carryKeys(new Map(), layoutTree(before, end(before)))
+    return carryKeys(first.byNode, layoutTree(nodes, end(nodes))).byUnit
   }
 
   it('keeps a lone attempt as the stack it becomes', () => {
