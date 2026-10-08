@@ -18,7 +18,7 @@ import { loadPayloads, maskImages, pruneImages, saveImages, type ImageFile } fro
 import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
 import { afterReply, fallbackTitle, namingModel, needsName, titleKey } from './naming'
-import { childrenOf, forkKey, pathTo, subtreeIds } from './tree'
+import { busyIds, childrenOf, forkKey, pathTo, subtreeIds, threadRoots } from './tree'
 
 const controllers = new Map<string, AbortController>()
 
@@ -161,16 +161,25 @@ export async function sendMessage(opts: {
   const titleFor = titleKey(node)
   const naming = !!titleFor && !!namingModel(await db.providers.toArray()) && (await needsName(node))
   if (naming) useUi.getState().setNaming(titleFor, true)
+  let promoted: string | undefined
   await db.transaction('rw', db.nodes, db.conversations, async () => {
     await db.nodes.add(node)
     // A follow-up or a side question makes the main node it was sent from a branch.
-    if (parentId && (!side || side.anchor)) await db.nodes.update(parentId, { branch: true })
+    if (parentId && (!side || side.anchor)) {
+      const parent = await db.nodes.get(parentId)
+      if (parent?.kind === 'main' && !parent.branch) {
+        await db.nodes.update(parentId, { branch: true })
+        promoted = parentId
+      }
+    }
     await db.conversations.update(conversationId, {
       updatedAt: now,
       title: conv.title || (naming ? '' : fallbackTitle(text, images.length, useSettings.getState().lang)),
       selectedChild: { ...conv.selectedChild, [forkKey(node)]: nodeId },
     })
   })
+
+  if (promoted) useUi.getState().markBranches([promoted])
 
   await runAttempt(node, provider, model, messages, payloads.values())
   await afterReply(nodeId)
@@ -298,6 +307,57 @@ export async function selectPath(conversationId: string, selection: Record<strin
 /** Turns an attempt into a branch (by hand). Never undone. */
 export async function makeBranch(nodeId: string) {
   await db.nodes.update(nodeId, { branch: true })
+  useUi.getState().markBranches([nodeId])
+}
+
+/**
+ * Turns a side question into main nodes under the node it was asked from (never undone). Every root version
+ * and follow-up becomes a main node; a single root version is a branch, several: only those with follow-ups,
+ * the rest attempts; follow-ups are branches once followed up. The thread's title becomes the shown root's
+ * label; its anchor, title and remembered version go. What's shown at the fork is pinned first, so the view
+ * doesn't switch (asked from the last turn, there is nothing to pin: the thread continues the path).
+ * Context is unchanged: a side thread's context already was the main path + the thread. False: nothing
+ * done (gone, or something in it is streaming).
+ */
+export async function threadToBranch(conversationId: string, thread: string): Promise<boolean> {
+  const promoted: string[] = []
+  let done = false
+  await db.transaction('rw', db.conversations, db.nodes, async () => {
+    const conv = await db.conversations.get(conversationId)
+    const nodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
+    const roots = threadRoots(nodes, thread)
+    if (!conv || !roots.length || roots.some((r) => busyIds(nodes).has(r.id))) return
+    const parentId = roots[0].parentId
+    const key = parentId ?? ROOT_KEY
+    const shownRoot = roots.find((r) => r.id === conv.selectedChild[thread]) ?? roots[roots.length - 1]
+    const kids = childrenOf(nodes, parentId)
+    const shown = kids.find((k) => k.id === conv.selectedChild[key]) ?? kids[kids.length - 1] ?? shownRoot
+    const members = nodes.filter((n) => n.thread === thread)
+    const hasKids = new Set(members.map((n) => n.parentId))
+    const title = conv.threadTitles?.[thread]
+    for (const n of members) {
+      const branch = n.anchor ? roots.length === 1 || hasKids.has(n.id) : hasKids.has(n.id)
+      if (branch && !n.archived) promoted.push(n.id)
+      await db.nodes
+        .where(':id')
+        .equals(n.id)
+        .modify((m) => {
+          m.kind = 'main'
+          delete m.thread
+          delete m.anchor
+          if (branch) m.branch = true
+          if (m.id === shownRoot.id && title) m.label = title
+        })
+    }
+    const selectedChild = { ...conv.selectedChild, [key]: shown.id }
+    delete selectedChild[thread]
+    const threadTitles = { ...conv.threadTitles }
+    delete threadTitles[thread]
+    await db.conversations.update(conversationId, { selectedChild, threadTitles })
+    done = true
+  })
+  useUi.getState().markBranches(promoted)
+  return done
 }
 
 /** Sets a main node's label (`ChatNode.label`); an empty one removes it. */

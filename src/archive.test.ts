@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db, ROOT_KEY, type ChatNode, type Note } from './db'
-import { archiveNode, archiveThread, deleteArchived, deleteConversation, restoreArchived, sendMessage } from './lib/chat'
+import { archiveNode, archiveThread, deleteArchived, deleteConversation, restoreArchived, sendMessage, threadToBranch } from './lib/chat'
 import { archiveNote, restoreNote } from './lib/notes'
 import {
   activePath,
@@ -196,6 +196,42 @@ describe('archive actions (db)', () => {
     expect(byId.c.branch).toBe(true)
     expect(byId.d.branch).toBe(true)
     expect(nodes.filter((n) => n.user.text === 'next' || n.user.text === '> q').every((n) => !n.branch)).toBe(true)
+  })
+
+  it('turns a side question into main nodes under its node, keeping the view', async () => {
+    await threadToBranch('c', 'T')
+    const nodes = await db.nodes.toArray()
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]))
+    for (const id of ['s1', 's2', 's3']) {
+      expect(byId[id].kind).toBe('main')
+      expect('thread' in byId[id] || 'anchor' in byId[id]).toBe(false)
+    }
+    // Several root versions: only the one with a follow-up is a branch; the follow-up isn't followed up yet.
+    expect([byId.s1.branch, byId.s2.branch, byId.s3.branch]).toEqual([true, undefined, undefined])
+    // The thread's title labels the shown root version.
+    expect([byId.s1.label, byId.s2.label]).toEqual([undefined, 'side title'])
+    const conv = (await db.conversations.get('c'))!
+    expect(conv.threadTitles).toEqual({})
+    expect(conv.selectedChild).toEqual({ [ROOT_KEY]: 'a', a: 'b', b: 'd', s1: 's3' })
+    expect(ids(activePath(nodes, conv.selectedChild))).toEqual(['a', 'b', 'd'])
+    expect(ids(siblingsOf(nodes, byId.d))).toEqual(['d', 's1', 's2'])
+  })
+
+  it('a single root version becomes a branch; asked from the last turn it continues the path', async () => {
+    await db.nodes.bulkAdd([side('x1', 'd', 8, 'X', true), side('x2', 'x1', 9, 'X')])
+    await threadToBranch('c', 'X')
+    const nodes = await db.nodes.toArray()
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]))
+    expect([byId.x1.branch, byId.x2.branch, byId.x1.label]).toEqual([true, undefined, undefined])
+    const conv = (await db.conversations.get('c'))!
+    expect(ids(activePath(nodes, conv.selectedChild))).toEqual(['a', 'b', 'd', 'x1', 'x2'])
+  })
+
+  it('does nothing while a reply in the thread streams', async () => {
+    await db.nodes.update('s3', { attempt: { ...base[6].attempt, status: 'streaming' } })
+    await threadToBranch('c', 'T')
+    expect((await db.nodes.get('s1'))!.kind).toBe('side')
+    expect((await db.conversations.get('c'))!.threadTitles).toEqual({ T: 'side title' })
   })
 
   it('exports kinds; importing a version 1 file derives branches', async () => {

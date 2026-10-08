@@ -84,6 +84,14 @@ export function useSideQuestions(
     for (const thread of Object.keys(drafts)) if (threadRoots(nodes, thread).length) dropDraft(thread)
   }, [nodes, drafts, dropDraft])
 
+  // A thread turned into a branch has left the data: done fading.
+  const leaving = useUi((s) => s.leaving)
+  const setLeaving = useUi((s) => s.setLeaving)
+  useEffect(() => {
+    if (!nodes) return
+    for (const thread of Object.keys(leaving)) if (!threadRoots(nodes, thread).length) setLeaving(thread, false)
+  }, [nodes, leaving, setLeaving])
+
   // The expanded card's item left the path: collapse it (an empty draft goes, its card already closed).
   // Only once it was there: a new note's card expands before the note shows up in the list.
   const loaded = !!nodes && !!conversation
@@ -112,7 +120,7 @@ export function useSideQuestions(
     if (focus instanceof HTMLElement && focus.closest('[data-side-column]')) focus.blur()
   }
 
-  const anchors = useAnchors(path, items, expanded)
+  const anchors = useAnchors(path, items, expanded, leaving)
   return { items, anchors, expanded, expand, onEscape }
 }
 
@@ -121,7 +129,7 @@ export function useSideQuestions(
  * empty list still enables selecting text). Reused while unchanged so memoized messages don't re-render
  * their Markdown.
  */
-function useAnchors(path: ChatNode[], items: AnyItem[], expanded: string | null) {
+function useAnchors(path: ChatNode[], items: AnyItem[], expanded: string | null, leaving: Record<string, true>) {
   const cache = useRef(new Map<string, NodeMarks>())
   return useMemo(() => {
     const next = new Map<string, NodeMarks>()
@@ -135,7 +143,7 @@ function useAnchors(path: ChatNode[], items: AnyItem[], expanded: string | null)
           marks[it.note.target === 'user' ? 'user' : 'reply'].push({ id: it.mark, start, end, active, note: true })
         } else {
           const anchor = it.draft?.anchor ?? it.path[0].anchor!
-          marks.reply.push({ id: it.mark, start: anchor.start, end: anchor.end, active })
+          marks.reply.push({ id: it.mark, start: anchor.start, end: anchor.end, active, leaving: leaving[it.id] })
         }
       }
       const prev = cache.current.get(n.id)
@@ -143,5 +151,5 @@ function useAnchors(path: ChatNode[], items: AnyItem[], expanded: string | null)
     }
     cache.current = next
     return next
-  }, [path, items, expanded])
+  }, [path, items, expanded, leaving])
 }

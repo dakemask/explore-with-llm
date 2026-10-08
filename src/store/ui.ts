@@ -51,6 +51,10 @@ interface UiState {
   live: Record<string, LiveStream>
   /** Conversations / side threads (by id) waiting for their automatic title: the reply or the naming request is running. */
   naming: Record<string, true>
+  /** Side threads fading out before they turn into branches (their card, bar and highlight). */
+  leaving: Record<string, true>
+  /** Main nodes that just became branches: their switcher dot plays its arrival animation. */
+  newBranches: Record<string, true>
   /**
    * Switches conversation — the only way to. Clears what belongs to the conversation on screen: the detail
    * dialog and the expanded card here, the tree map and the chat's other transient state in `ChatView`
@@ -71,6 +75,9 @@ interface UiState {
   /** Keeps what the main input box holds as its conversation is left (nothing typed: forgets it). */
   saveComposerDraft: (key: string, text: string, images: ImageFile[]) => void
   setNaming: (key: string, on: boolean) => void
+  setLeaving: (thread: string, on: boolean) => void
+  /** Marks nodes as just made branches for a moment (`newBranches`). */
+  markBranches: (ids: string[]) => void
 }
 
 export const useUi = create<UiState>()((set) => ({
@@ -84,6 +91,8 @@ export const useUi = create<UiState>()((set) => ({
   settingsFocus: null,
   live: {},
   naming: {},
+  leaving: {},
+  newBranches: {},
   setConversation: (conversationId) => set({ conversationId, panel: null, expanded: null }),
   openSettings: (tab = 'providers', focus = null) => set({ settingsOpen: true, settingsTab: tab, settingsFocus: focus }),
   closeSettings: () => set({ settingsOpen: false }),
@@ -129,5 +138,28 @@ export const useUi = create<UiState>()((set) => ({
       else delete naming[key]
       return { naming }
     }),
+  setLeaving: (thread, on) =>
+    set((s) => {
+      const leaving = { ...s.leaving }
+      if (on) leaving[thread] = true
+      else delete leaving[thread]
+      return { leaving }
+    }),
+  markBranches: (ids) => {
+    if (!ids.length) return
+    set((s) => ({ newBranches: { ...s.newBranches, ...Object.fromEntries(ids.map((id) => [id, true as const])) } }))
+    setTimeout(
+      () =>
+        set((s) => {
+          const newBranches = { ...s.newBranches }
+          for (const id of ids) delete newBranches[id]
+          return { newBranches }
+        }),
+      BRANCH_ANIM_MS,
+    )
+  },
 }))
+
+/** How long a new branch's switcher dot animates (`.anim-branch-in`). */
+export const BRANCH_ANIM_MS = 1200
 

@@ -11,6 +11,7 @@ import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
 import { useSiblings } from '../chat/SiblingSwitcher'
 import { useNodeActions } from '../chat/useNodeActions'
 import { Dots } from '../ui/Dots'
+import { confirmDialog } from '../ui/Dialog'
 import { CardMenu, SideMenuItems } from './CardMenu'
 import { collapseOnClick } from './SideColumn'
 
@@ -40,6 +41,7 @@ export function SideCard({
   fallback,
   dropTarget,
   onCollapse,
+  onConvert,
 }: {
   thread: string
   nodeId: string
@@ -52,6 +54,8 @@ export function SideCard({
   /** The card element (dropped images go to this composer). */
   dropTarget: RefObject<HTMLElement | null>
   onCollapse: () => void
+  /** 转为分支 (`ChatView`). */
+  onConvert: () => void
 }) {
   const t = useT()
   const { provider, model, ready } = useCurrentModel()
@@ -62,6 +66,13 @@ export function SideCard({
   const scroll = useAutoScroll(thread)
   const actions = useNodeActions(nodes, scroll.hold)
   const siblings = useSiblings(path, nodes)
+
+  // Text typed in this card's box would be lost (owner: ask first, only then).
+  const convert = async () => {
+    const box = dropTarget.current?.querySelector('textarea[data-composer]')
+    if (box && !box.hasAttribute('data-pristine') && !(await confirmDialog(t('side.toBranchUnsent')))) return
+    onConvert()
+  }
 
   const send = (text: string, images: ImageFile[]) => {
     if (!provider || !model) return
@@ -96,6 +107,7 @@ export function SideCard({
               thread={thread}
               fallback={fallback}
               nodes={nodes}
+              onConvert={() => void convert()}
               onArchive={() => {
                 onCollapse()
                 void archiveThread(conversation.id, thread)

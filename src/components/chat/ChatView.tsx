@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent,
 import { flushSync } from 'react-dom'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
-import { archiveThread, createConversation, lacksReply, selectPath, sendMessage, stopGeneration } from '../../lib/chat'
+import { archiveThread, createConversation, lacksReply, selectPath, sendMessage, stopGeneration, threadToBranch } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { branchColors, parentColor } from '../../lib/colors'
 import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
@@ -22,7 +22,7 @@ import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { NoteCard } from '../side/NoteCard'
 import { SideCard } from '../side/SideCard'
 import { CardMenu, NoteMenuItems, SideMenuItems } from '../side/CardMenu'
-import { SideColumn } from '../side/SideColumn'
+import { LEAVE_MS, SideColumn } from '../side/SideColumn'
 import { NOTE_PREFIX, useNotes } from '../side/useNotes'
 import { useSideQuestions } from '../side/useSideQuestions'
 import { Button, IconButton } from '../ui/Button'
@@ -43,6 +43,8 @@ export function ChatView() {
   const panel = useUi((s) => s.panel)
   const setPanel = useUi((s) => s.setPanel)
   const startDraft = useUi((s) => s.startDraft)
+  const setLeaving = useUi((s) => s.setLeaving)
+  const leaving = useUi((s) => s.leaving)
   const { providers, provider, model, ready } = useCurrentModel()
   const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
   const listOpen = useSettings((s) => s.panes.list.open)
@@ -94,6 +96,18 @@ export function ChatView() {
   // ---- side questions and notes: highlights in the messages, cards in the column right of the chat ----
   const notes = useNotes(path, data?.notes)
   const side = useSideQuestions(path, nodes, conversation, notes)
+  /**
+   * 转为分支: the card, its bar and highlight fade out, then the thread turns into main nodes. The view stays
+   * where it is: nothing above changes, and turns it adds below (asked from the last turn) aren't followed.
+   */
+  const convertThread = (thread: string) => {
+    if (!conversationId) return
+    const id = conversationId
+    scroll.unpin()
+    setLeaving(thread, true)
+    // (Its card stays faded until it's gone from the data, see `useSideQuestions`; unless nothing was done.)
+    setTimeout(() => void threadToBranch(id, thread).then((done) => done || setLeaving(thread, false)), LEAVE_MS + 60)
+  }
   const [picker, setPicker] = useState<{
     x: number
     y: number
@@ -384,6 +398,7 @@ export function ChatView() {
               collapsed={!column.open}
               slide={slide}
               expanded={side.expanded}
+              leaving={leaving}
               hover={hover}
               onHover={hoverTo}
               onToggle={toggleCard}
@@ -403,6 +418,7 @@ export function ChatView() {
                     fallback={it.fallback}
                     dropTarget={card}
                     onCollapse={() => side.expand(null)}
+                    onConvert={() => convertThread(id)}
                   />
                 )
               }}
@@ -422,6 +438,7 @@ export function ChatView() {
                       thread={id}
                       fallback={it.fallback}
                       nodes={nodes}
+                      onConvert={() => convertThread(id)}
                       onArchive={() => void archiveThread(conversation.id, id)}
                     />
                   </CardMenu>

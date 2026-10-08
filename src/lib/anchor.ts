@@ -126,6 +126,8 @@ export interface AnchorMark {
   active?: boolean
   /** Notes are highlighted in their own style. */
   note?: boolean
+  /** Fading out: its side question is turning into a branch. */
+  leaving?: boolean
 }
 
 interface Ctx {
@@ -166,6 +168,7 @@ function markProps(ctx: Ctx, s: number, e: number, base: Record<string, unknown>
       ...(notes.length ? ['anchor-note'] : []),
       ...(side.some((h) => h.active) ? ['active'] : []),
       ...(notes.some((h) => h.active) ? ['note-active'] : []),
+      ...(side.length && side.every((h) => h.leaving) ? ['leaving'] : []),
     ]
     const prev = base.className
     props.className = [...(Array.isArray(prev) ? prev : prev ? [prev] : []), ...cls]

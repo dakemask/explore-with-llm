@@ -18,6 +18,9 @@ export interface ColumnItem {
   tip: string
 }
 
+/** How long an item's card, bar and highlight take to fade out before it leaves (`leaving`). */
+export const LEAVE_MS = 200
+
 /** Cards sit this much above their anchor's first line, so their title lines up with it. */
 const LIFT = 9
 
@@ -41,6 +44,7 @@ export function SideColumn({
   collapsed,
   slide,
   expanded,
+  leaving,
   hover,
   onHover,
   onToggle,
@@ -59,6 +63,8 @@ export function SideColumn({
   /** Its width is animating (the column opens / closes). */
   slide: boolean
   expanded: string | null
+  /** Items fading out before they leave (their card, expanded or not, and bar). */
+  leaving: Record<string, true>
   /** Items hovered here or in the text (their cards and bars light up). */
   hover: string[]
   onHover: (ids: string[]) => void
@@ -134,7 +140,10 @@ export function SideColumn({
               onClick={() => onToggle(it.id)}
               onMouseEnter={() => onHover([it.id])}
               onMouseLeave={() => onHover([])}
-              className="group/bar absolute flex justify-center rounded-sm transition-[top,height] duration-200 focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
+              className={clsx(
+                'group/bar absolute flex justify-center rounded-sm transition-[top,height,opacity] duration-200 focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
+                leaving[it.id] && 'pointer-events-none opacity-0',
+              )}
               style={{ top: span.top, height: span.bottom - span.top, left: 6 + lanes[i] * laneWidth, width: laneWidth }}
             >
               <span className={clsx('h-full w-[3px] rounded-full transition-colors', barClass[it.kind][lit ? 1 : 0])} />
@@ -160,7 +169,7 @@ export function SideColumn({
                   'group/card absolute right-3 flex items-center rounded-lg border bg-surface text-[13px] shadow-xs',
                   'transition-[top,opacity,border-color,background-color] duration-200',
                   lit ? 'border-border-strong' : 'border-border hover:border-border-strong',
-                  covered && 'pointer-events-none opacity-0',
+                  (covered || leaving[it.id]) && 'pointer-events-none opacity-0',
                 )}
                 style={{ top: tops[i], left: STRIP, height: CARD_HEIGHT }}
               >
@@ -183,7 +192,10 @@ export function SideColumn({
         <Layer
           ref={cardRef}
           key={expanded}
-          className="anim-fade absolute right-3 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top] duration-200"
+          className={clsx(
+            'anim-fade absolute right-3 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top,opacity] duration-200',
+            leaving[expanded!] && 'pointer-events-none opacity-0',
+          )}
           style={{ top: open, left: STRIP, height: cardLimit }}
           onMouseEnter={() => onHover([expanded!])}
           onMouseLeave={() => onHover([])}

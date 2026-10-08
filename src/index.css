@@ -203,6 +203,25 @@
     transform: translateX(12px);
   }
 }
+/* A node that just became a branch: its switcher dot pops in and ripples twice (`BRANCH_ANIM_MS`). */
+@keyframes branch-in {
+  0% {
+    transform: scale(0);
+  }
+  55% {
+    transform: scale(1.6);
+  }
+}
+@keyframes branch-ring {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
 @keyframes blink {
   50% {
     opacity: 0;
@@ -211,6 +230,12 @@
 
 .anim-fade {
   animation: fade-in 150ms ease-out;
+}
+.anim-branch-in {
+  animation: branch-in 450ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.anim-branch-ring {
+  animation: branch-ring 600ms ease-out 2 both;
 }
 .anim-pop {
   animation: pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -390,6 +415,20 @@
 .prose .anchor-note:not(.anchor-hl):hover,
 .prose .anchor-note.note-active {
   background: var(--c-note-active);
+}
+
+/* A side question turning into a branch fades its highlight out (`LEAVE_MS`). */
+.prose .anchor-hl.leaving {
+  background: transparent;
+  box-shadow: none;
+  cursor: auto;
+  transition:
+    background-color 200ms,
+    box-shadow 200ms;
+}
+.prose .anchor-hl.anchor-note.leaving {
+  background: var(--c-note);
+  box-shadow: inset 0 -1.5px 0 var(--c-note-line);
 }
 
 /* ---------- Tree map (components/chat/TreeMap.tsx) ---------- */

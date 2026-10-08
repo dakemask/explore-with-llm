@@ -6,6 +6,7 @@ import { useT } from '../../i18n'
 import { plainLine } from '../../lib/anchor'
 import { colorVar, GREY } from '../../lib/colors'
 import { siblingsOf } from '../../lib/tree'
+import { useUi } from '../../store/ui'
 import { IconButton, Tip } from '../ui/Button'
 
 /** What the switcher of one node shows. Plain data, so memoized messages only re-render when it changes. */
@@ -91,12 +92,13 @@ export function SiblingSwitcher({ info, onSelect }: { info: Siblings; onSelect: 
   return (
     <div className="flex shrink-0 items-center">
       {branches.map((b) => (
-        <Dot key={b.id} color={b.color} title={b.title} label={b.label} current={b.id === current} onClick={() => onSelect(b.id)} />
+        <Dot key={b.id} id={b.id} color={b.color} title={b.title} label={b.label} current={b.id === current} onClick={() => onSelect(b.id)} />
       ))}
       {branches.length > 0 && attempts.length > 0 && <span className="mx-1.5 h-3.5 w-px bg-border-strong" />}
       {attempts.length === 1 ? (
         // A single attempt beside branches is just one more (grey) dot.
         <Dot
+          id={attempts[0].id}
           color={GREY}
           title={attempts[0].title}
           label={attempts[0].label}
@@ -134,20 +136,26 @@ export function SiblingSwitcher({ info, onSelect }: { info: Siblings; onSelect: 
   )
 }
 
-/** One branch (or a lone attempt): a dot in its color; the shown one is ringed. Tip: its label, then `title`. */
+/**
+ * One branch (or a lone attempt): a dot in its color; the shown one is ringed. Tip: its label, then `title`.
+ * A node that just became a branch pops in with a ripple in its color (`useUi().newBranches`).
+ */
 function Dot({
+  id,
   color,
   title,
   label,
   current,
   onClick,
 }: {
+  id: string
   color: number
   title: string
   label?: string
   current: boolean
   onClick: () => void
 }) {
+  const fresh = useUi((s) => !!s.newBranches[id])
   return (
     <Tip
       content={
@@ -172,9 +180,15 @@ function Dot({
         )}
       >
         <span
-          className={clsx('size-2 rounded-full', current && 'outline-[1.5px] outline-offset-2 outline-text outline-solid')}
+          className={clsx(
+            'relative size-2 rounded-full',
+            current && 'outline-[1.5px] outline-offset-2 outline-text outline-solid',
+            fresh && 'anim-branch-in',
+          )}
           style={{ background: colorVar(color) }}
-        />
+        >
+          {fresh && <span aria-hidden className="anim-branch-ring absolute inset-0 rounded-full" style={{ background: colorVar(color) }} />}
+        </span>
       </button>
     </Tip>
   )
