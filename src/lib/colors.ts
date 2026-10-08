@@ -2,7 +2,7 @@ import type { ChatNode } from '../db/types'
 import { childrenOf } from './tree'
 
 /**
- * Branch colors ("rainbow flow", see `docs/tree-preview.html`): 7 colors on a ring (red, orange, yellow, green,
+ * Branch colors ("rainbow flow"; rules in CLAUDE.md › Product decisions): 7 colors on a ring (red, orange, yellow, green,
  * cyan, blue, violet; CSS `--branch-0` … `--branch-6`), plus grey for attempts.
  * Colors change only below forks (≥ 2 branches): there the branches take the next colors along the ring in
  * creation order (first = parent + 1, …). A branch not at a fork keeps the parent's color. Attempts are always

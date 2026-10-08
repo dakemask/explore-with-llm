@@ -2,7 +2,7 @@ import { ROOT_KEY, type ChatNode, type Conversation } from '../db/types'
 import { childrenOf, forkKey, pathTo } from './tree'
 
 /**
- * The tree map of a conversation's main line (see `docs/tree-preview.html`). What it draws are *units*:
+ * The tree map of a conversation's main line. What it draws are *units*:
  * every branch is one; a fork's attempts are drawn only where its children are all attempts, then stacked
  * into one unit (a single child, attempt or branch, is a plain unit); attempts beside branches aren't drawn.
  * Archived nodes and side questions never appear (`childrenOf` skips them).

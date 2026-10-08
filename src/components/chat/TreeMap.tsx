@@ -73,7 +73,7 @@ export function TreeMapPanel({
 }
 
 /**
- * The tree map panel's content (`docs/tree-preview.html`): a tidy horizontal tree of the main line in
+ * The tree map panel's content: a tidy horizontal tree of the main line in
  * branch colors. Laid out once when it opens; hovering a unit grows a bold path to it from the root.
  * `currentNodeId` = the turn the user was looking at (marked "current"); `onJump` gets the clicked unit.
  * Right-clicking a node edits its label (labels are read live, the layout stays as it was).
