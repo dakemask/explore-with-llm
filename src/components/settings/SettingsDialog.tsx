@@ -25,10 +25,10 @@ export function SettingsDialog() {
       open={open}
       onOpenChange={(o) => !o && close()}
       title={t('settings.title')}
-      className="h-[min(640px,85vh)] max-w-4xl"
+      className="h-[min(640px,85vh)] max-w-4xl max-sm:h-[90vh]"
     >
-      <div className="flex min-h-0 flex-1">
-        <nav className="w-44 shrink-0 space-y-px border-r border-border p-2">
+      <div className="flex min-h-0 flex-1 max-sm:flex-col">
+        <nav className="w-44 shrink-0 space-y-px border-r border-border p-2 max-sm:flex max-sm:w-auto max-sm:gap-1 max-sm:space-y-0 max-sm:border-r-0 max-sm:border-b">
           <TabButton active={tab === 'providers'} onClick={() => openTab('providers')} icon={<Plug size={15} />}>
             {t('settings.providers')}
           </TabButton>
@@ -36,7 +36,7 @@ export function SettingsDialog() {
             {t('settings.general')}
           </TabButton>
         </nav>
-        <div className="min-w-0 flex-1">{tab === 'providers' ? <ProvidersTab /> : <GeneralTab />}</div>
+        <div className="min-h-0 min-w-0 flex-1">{tab === 'providers' ? <ProvidersTab /> : <GeneralTab />}</div>
       </div>
     </Dialog>
   )
@@ -97,8 +97,8 @@ function ProvidersTab() {
   }
 
   return (
-    <div className="flex h-full">
-      <div className="flex w-52 shrink-0 flex-col border-r border-border">
+    <div className="flex h-full max-sm:flex-col">
+      <div className="flex w-52 shrink-0 flex-col border-r border-border max-sm:max-h-40 max-sm:w-auto max-sm:border-r-0 max-sm:border-b">
         <ul className="min-h-0 flex-1 space-y-px overflow-y-auto p-2">
           {providers?.map((p) => (
             <li key={p.id}>

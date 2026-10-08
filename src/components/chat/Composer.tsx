@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { ArrowUp, RotateCcw, Square } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { isPhone, usePhone } from '../../lib/phone'
 import { useT } from '../../i18n'
 import { useAutosize } from '../../lib/hooks'
 import type { ImageFile } from '../../lib/images'
@@ -44,6 +45,7 @@ export function Composer({
   regenerate?: { onClick?: () => void }
 }) {
   const t = useT()
+  const phone = usePhone()
   const [text, setText] = useState(initialText)
   const ref = useRef<HTMLTextAreaElement>(null)
   const box = useRef<HTMLDivElement>(null)
@@ -106,12 +108,13 @@ export function Composer({
           // Nothing typed (empty, or still the starting text): Escape may close what holds the box.
           data-pristine={(!attachments.images.length && (text === initialText || !text.trim())) || undefined}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            // (Phones: Enter is a new line, only the send button sends.)
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !isPhone()) {
               e.preventDefault()
               submit()
             }
           }}
-          placeholder={placeholder ?? t('chat.placeholder')}
+          placeholder={placeholder ?? t(phone ? 'chat.placeholderPhone' : 'chat.placeholder')}
           className="block max-h-60 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-relaxed placeholder:text-faint focus:outline-none"
         />
         {modelRow && <div className="flex min-w-0 px-2.5">{modelRow}</div>}

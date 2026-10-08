@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } 
 import type { Note, SideAnchor } from '../../db'
 import { useT } from '../../i18n'
 import { rangeToSource } from '../../lib/anchor'
+import { isPhone, usePhone } from '../../lib/phone'
 import { Layer } from '../ui/Layer'
 import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger } from '../ui/Menu'
 
@@ -52,7 +53,15 @@ export function SelectionAsk({
     }
     // Evaluate once the mouse/keyboard selection is finished; hide as soon as it collapses.
     const onUp = () => setTimeout(evaluate, 0)
+    // Phones have no mouseup: once the selection (long press, dragging its handles) rests for a moment.
+    // Hiding waits as well: a tap on the pill can collapse the selection before its click lands.
+    let rest = 0
     const onChange = () => {
+      if (isPhone()) {
+        clearTimeout(rest)
+        rest = window.setTimeout(evaluate, 400)
+        return
+      }
       const sel = getSelection()
       if (!sel || sel.isCollapsed) setHit(null)
     }
@@ -63,6 +72,7 @@ export function SelectionAsk({
       container.removeEventListener('mouseup', onUp)
       container.removeEventListener('keyup', onUp)
       document.removeEventListener('selectionchange', onChange)
+      clearTimeout(rest)
     }
   }, [containerRef])
 
@@ -79,10 +89,12 @@ export function SelectionAsk({
     [hit],
   )
   const boundary = containerRef.current ?? undefined
+  // Phones: below the selection, Chrome's own menu sits above it.
+  const phone = usePhone()
   const { refs, floatingStyles, middlewareData, isPositioned } = useFloating({
     open: !!hit,
     strategy: 'fixed',
-    placement: 'top',
+    placement: phone ? 'bottom' : 'top',
     // top / left instead of a transform: the pop-in animation uses transform.
     transform: false,
     elements: { reference },
@@ -106,7 +118,7 @@ export function SelectionAsk({
         getSelection()?.removeAllRanges()
         setHit(null)
       }}
-      className="flex h-8 items-center gap-1.5 px-3 transition-colors hover:bg-white/12 dark:hover:bg-black/8"
+      className="flex h-8 items-center gap-1.5 px-3 transition-colors max-sm:h-10 max-sm:px-4 hover:bg-white/12 dark:hover:bg-black/8"
     >
       {icon}
       {label}

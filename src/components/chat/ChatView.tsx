@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { GitBranch, KeyRound, PanelRightClose, PanelRightOpen, Settings, Sparkles } from 'lucide-react'
 import { nanoid } from 'nanoid'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
@@ -11,6 +11,7 @@ import { branchColors, colorVar, GREY } from '../../lib/colors'
 import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
 import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
+import { usePhone } from '../../lib/phone'
 import { activePath, busyIds, forkKey, isHidden } from '../../lib/tree'
 import { switchDir, useSwitchMotion } from '../../lib/switchMotion'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
@@ -22,6 +23,7 @@ import { useSettings } from '../../store/settings'
 import { NEW_CHAT, useUi } from '../../store/ui'
 import { SelectionAsk, ThreadPicker } from '../side/SelectionAsk'
 import { NoteCard } from '../side/NoteCard'
+import { PhoneSheet } from '../side/PhoneSheet'
 import { SideCard } from '../side/SideCard'
 import { CardMenu, NoteMenuItems, SideMenuItems } from '../side/CardMenu'
 import { LEAVE_MS, SideColumn } from '../side/SideColumn'
@@ -53,6 +55,8 @@ export function ChatView() {
   const { providers, provider, model, ready } = useCurrentModel()
   const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
   const column = useSettings((s) => s.panes.column)
+  // Phones: no side column (cards open in a sheet), the tree map fixed across the top (Product decisions › Phone).
+  const phone = usePhone()
   const setPane = useSettings((s) => s.setPane)
 
   const data = useConversationData(conversationId)
@@ -191,7 +195,7 @@ export function ChatView() {
     return () => ro.disconnect()
   }, [])
   // The column (collapsed: its marker strip) is always there, also with nothing in it (owner).
-  const frame = columnFrame(width, sideWidth(width, column.open, column.width))
+  const frame = columnFrame(width, phone ? 0 : sideWidth(width, column.open, column.width))
   const columnMax = Math.max(PANE_MIN.column, Math.min(PANE_MAX.column, width - CHAT_MIN))
   /** Opening / closing the column slides the chat and the column (CSS transitions, only meanwhile: not while
    * dragging or resizing the window). */
@@ -289,6 +293,28 @@ export function ChatView() {
     setScrollTarget(null)
   }, [path, scrollTarget, scroll.containerRef, scroll.glide])
 
+  /** The expanded side question / note: a card in the column, or (phones) the sheet's content. */
+  const renderCard = (id: string, card: RefObject<HTMLDivElement | null>) => {
+    if (!conversation || !nodes) return null
+    const it = side.items.find((it) => it.id === id)!
+    if (it.kind === 'note') return <NoteCard key={id} note={it.note} onCollapse={() => side.expand(null)} />
+    return (
+      <SideCard
+        key={id}
+        thread={id}
+        nodeId={it.nodeId}
+        path={it.path}
+        draft={it.draft}
+        conversation={conversation}
+        nodes={nodes}
+        fallback={it.fallback}
+        dropTarget={card}
+        onCollapse={() => side.expand(null)}
+        onConvert={() => convertThread(id)}
+      />
+    )
+  }
+
   const noProvider = providers && !provider
 
   return (
@@ -315,12 +341,14 @@ export function ChatView() {
               <GitBranch size={17} />
             </IconButton>
           )}
-          <IconButton
-            label={t(column.open ? 'pane.columnClose' : 'pane.columnOpen')}
-            onClick={() => setColumnOpen(!column.open)}
-          >
-            {column.open ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
-          </IconButton>
+          {!phone && (
+            <IconButton
+              label={t(column.open ? 'pane.columnClose' : 'pane.columnOpen')}
+              onClick={() => setColumnOpen(!column.open)}
+            >
+              {column.open ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
+            </IconButton>
+          )}
         </div>
       </header>
 
@@ -330,11 +358,11 @@ export function ChatView() {
         className={clsx(
           'pointer-events-none absolute top-14 bottom-0 w-px bg-border-strong transition-opacity duration-200',
           slide && 'transition-[left,opacity] ease-out motion-reduce:transition-none',
-          !column.open && 'opacity-0',
+          (!column.open || phone) && 'opacity-0',
         )}
         style={{ left: frame.sideLeft }}
       />
-      {column.open && !slide && (
+      {column.open && !slide && !phone && (
         <ResizeHandle
           label={t('pane.columnResize')}
           edge="right"
@@ -356,6 +384,7 @@ export function ChatView() {
           currentNodeId={treeCurrent}
           endNodeId={conversationId ? last?.id : undefined}
           closing={!!tree.closing}
+          docked={phone}
           opener={treeButton}
           onClose={closeTree}
           onJump={jump}
@@ -429,7 +458,7 @@ export function ChatView() {
                 (which observe this box's content size) see it grow as the box does. */}
             <div aria-hidden style={{ height: composerHeight }} />
           </div>
-          {conversation && nodes && (
+          {conversation && nodes && !phone && (
             <SideColumn
               items={path.length ? side.items : []}
               colorOf={(nodeId) => colorVar(colors.get(nodeId) ?? GREY)}
@@ -444,25 +473,7 @@ export function ChatView() {
               onHover={hoverTo}
               onToggle={toggleCard}
               onEscape={side.onEscape}
-              renderExpanded={(id, card) => {
-                const it = side.items.find((it) => it.id === id)!
-                if (it.kind === 'note') return <NoteCard key={id} note={it.note} onCollapse={() => side.expand(null)} />
-                return (
-                  <SideCard
-                    key={id}
-                    thread={id}
-                    nodeId={it.nodeId}
-                    path={it.path}
-                    draft={it.draft}
-                    conversation={conversation}
-                    nodes={nodes}
-                    fallback={it.fallback}
-                    dropTarget={card}
-                    onCollapse={() => side.expand(null)}
-                    onConvert={() => convertThread(id)}
-                  />
-                )
-              }}
+              renderExpanded={renderCard}
               renderMenu={(id, className) => {
                 const it = side.items.find((it) => it.id === id)!
                 if (it.kind === 'note')
@@ -489,6 +500,18 @@ export function ChatView() {
           )}
         </div>
       </div>
+
+      {phone && conversation && nodes && side.expanded && side.items.some((it) => it.id === side.expanded) && (
+        <PhoneSheet
+          id={side.expanded}
+          color={colorVar(colors.get(side.items.find((it) => it.id === side.expanded)!.nodeId) ?? GREY)}
+          leaving={!!leaving[side.expanded]}
+          onClose={() => side.expand(null)}
+          onEscape={side.onEscape}
+        >
+          {(card) => renderCard(side.expanded!, card)}
+        </PhoneSheet>
+      )}
 
       <SelectionAsk
         containerRef={scroll.containerRef}

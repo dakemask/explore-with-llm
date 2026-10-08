@@ -58,6 +58,7 @@ export function TreeMapPanel({
   onClose,
   nodes,
   mapKey,
+  docked,
   ...map
 }: {
   nodes: ChatNode[] | undefined
@@ -67,6 +68,8 @@ export function TreeMapPanel({
   /** The node the chat's path ends at (its attempts are drawn if it is one). */
   endNodeId: string | undefined
   closing: boolean
+  /** Phones: a fixed panel across the top of the chat (laid out by the parent), not a movable window. */
+  docked?: boolean
   opener: RefObject<HTMLElement | null>
   onClose: () => void
   onJump: (unit: MapUnit) => void
@@ -133,16 +136,22 @@ export function TreeMapPanel({
         close()
       }}
       className={clsx(
-        'fixed z-20 flex flex-col overflow-hidden rounded-xl border border-border-strong bg-surface shadow-pop',
+        'flex flex-col overflow-hidden bg-surface',
+        docked
+          ? 'h-[45%] shrink-0 border-b border-border-strong'
+          : 'fixed z-20 rounded-xl border border-border-strong shadow-pop',
         closing ? 'anim-menu-out pointer-events-none' : 'anim-menu',
         moving && 'select-none',
       )}
-      style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+      style={docked ? undefined : { left: box.x, top: box.y, width: box.w, height: box.h }}
     >
       <div
         data-tree-title
-        onPointerDown={drag('move')}
-        className="flex h-9 shrink-0 cursor-grab items-center gap-1 border-b border-border pr-1.5 pl-3 active:cursor-grabbing"
+        onPointerDown={docked ? undefined : drag('move')}
+        className={clsx(
+          'flex h-9 shrink-0 items-center gap-1 border-b border-border pr-1.5 pl-3',
+          !docked && 'cursor-grab active:cursor-grabbing',
+        )}
       >
         <span className="flex-1 truncate text-xs font-medium text-muted select-none">{t('tree.title')}</span>
         <HelpTip
@@ -167,7 +176,7 @@ export function TreeMapPanel({
       ) : (
         <div className="flex flex-1 items-center justify-center text-xs text-faint">{t('tree.empty')}</div>
       )}
-      <div
+      {!docked && <div
         aria-label={t('tree.resize')}
         onPointerDown={drag('resize')}
         className="absolute right-0 bottom-0 size-4 cursor-nwse-resize text-faint"
@@ -175,7 +184,7 @@ export function TreeMapPanel({
         <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
           <path d="M13 7L7 13M13 10.5L10.5 13" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
         </svg>
-      </div>
+      </div>}
     </div>
   )
 }

@@ -181,6 +181,12 @@
     transform: translateX(12px);
   }
 }
+/* Phones: the side question / note sheet rises from the bottom. */
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
 /* A node that just became a branch: its switcher dot pops in and ripples twice (`BRANCH_ANIM_MS`). */
 @keyframes branch-in {
   0% {
@@ -226,6 +232,9 @@
 }
 .anim-drawer {
   animation: drawer-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.anim-sheet {
+  animation: sheet-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Blinking caret appended to streaming text. */
