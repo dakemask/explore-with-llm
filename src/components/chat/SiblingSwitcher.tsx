@@ -21,7 +21,7 @@ export interface Siblings {
 }
 
 /**
- * Sibling info for every node of a path (nodes without siblings get none). `colors` = branch colors
+ * Sibling info for every node of a path (side nodes without siblings get none). `colors` = branch colors
  * (main path only). Unchanged entries keep their object identity.
  */
 export function useSiblings(path: ChatNode[], nodes: ChatNode[] | undefined, colors?: Map<string, number>) {
@@ -31,7 +31,8 @@ export function useSiblings(path: ChatNode[], nodes: ChatNode[] | undefined, col
     const next = new Map<string, Siblings>()
     for (const n of path) {
       const sibs = siblingsOf(nodes ?? [], n)
-      if (sibs.length < 2) continue
+      // Main nodes show a lone version too (its dot tells branch from attempt); side nodes only ‹n/m›.
+      if (sibs.length < (n.kind === 'side' ? 2 : 1)) continue
       // Retries share the user text, so the reply's opening tells them apart.
       const title = (s: ChatNode) => {
         const reply = firstLine(s.assistant.content)
@@ -59,7 +60,7 @@ export function useSiblings(path: ChatNode[], nodes: ChatNode[] | undefined, col
 const firstLine = (text: string) => plainLine(text, 30)
 
 /**
- * The versions at a node's fork, at the right end of its reply footer. Main nodes: one dot per branch in
+ * The versions at a node's fork, in its header (top left). Main nodes: one dot per branch in
  * its color, then the attempts as one grey dot (‹n/m› among them while one is shown). Side nodes: ‹n/m›.
  */
 export function SiblingSwitcher({ info, onSelect }: { info: Siblings; onSelect: (id: string) => void }) {

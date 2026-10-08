@@ -118,8 +118,9 @@ export function useAutoScroll(resetKey: string | null) {
       if (s.blank) setBlank(Math.min(s.blank, el.scrollTop + el.clientHeight - (el.scrollHeight - s.blank)))
     }
     /** Where `node` is, in the area's scroll coordinates. */
+    /** Includes what belongs above it (its `scroll-margin-top`, e.g. a node's header on its frame's border). */
     const topOf = (el: HTMLElement, node: Element) =>
-      node.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
+      node.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - marginTop(node)
     /** The end of the content, in the area's scroll coordinates. */
     const end = (el: HTMLElement) => {
       const c = contentRef.current
@@ -292,6 +293,9 @@ const gliding = new WeakMap<HTMLElement, object>()
  * Scrolls `el` to `top` in a short ease-out (250 ms). From far away it first jumps to within part of a
  * screen of the target, so long distances don't turn into a long animation.
  */
+/** An element's `scroll-margin-top`: room above it that belongs to it when it's brought to the top. */
+export const marginTop = (node: Element) => parseFloat(getComputedStyle(node).scrollMarginTop) || 0
+
 export function glideTo(el: HTMLElement, top: number) {
   // A newer glide on the same element takes over.
   const token = {}

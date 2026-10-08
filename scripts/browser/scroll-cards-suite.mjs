@@ -84,7 +84,7 @@ await page.waitForTimeout(300)
 const composerTop = () => page.evaluate(() => Math.round(document.querySelector('main > [data-main-composer]').getBoundingClientRect().top))
 const cTop = await composerTop()
 // make blank: fold a long reply's neighbour… simplest: switch the last turn to a shorter version at the end
-const swN = page.locator(`${SC} [data-switcher] button`)
+const swN = page.locator(`${SC} [data-fork]`).last().locator('[data-switcher] button')
 if (await swN.count()) {
   await clickAt(page, swN.first())
   await page.waitForTimeout(800)

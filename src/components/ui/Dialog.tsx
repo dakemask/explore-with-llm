@@ -18,7 +18,11 @@ function useReturnFocus(toComposer?: () => boolean) {
   const opener = useRef<{ el: HTMLElement; side: Element | null } | null>(null)
   return {
     remember: () => {
-      const el = document.activeElement
+      let el = document.activeElement
+      // Opened from a menu item: the item goes away with its menu, so return to the menu's button.
+      const menu = el?.closest('[role="menu"]')
+      const trigger = menu && document.getElementById(menu.getAttribute('aria-labelledby') ?? '')
+      if (trigger) el = trigger
       opener.current =
         el instanceof HTMLElement && el !== document.body ? { el, side: el.closest('[data-side-column]') } : null
     },

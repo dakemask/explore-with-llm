@@ -84,66 +84,65 @@ export const MessageNode = memo(function MessageNode({
     void editAssistant(node, text)
   }
   const errorBox = node.attempt.status === 'error' && !node.edit && !!node.attempt.error
-  // Always visible (not only on hover), at the right end of the footer, or of the error box's actions.
-  const switcher = siblings && <SiblingSwitcher info={siblings} onSelect={(id) => actions.select(node, id)} />
 
   return (
-    <div data-fork={forkKey(node)} className="space-y-3">
-      {editingUser && (
-        <UserEditDialog
-          initial={node.user.text}
-          initialImages={node.user.images}
-          system={first ? (node.system ?? '') : undefined}
-          focusSystem={editingUser === 'system'}
-          onClose={() => setEditingUser(false)}
-          onSend={(text, images, system) => actions.edit(node, text, images, system)}
-        />
-      )}
-      {first && <SystemRow text={node.system} onClick={canSend ? () => setEditingUser('system') : undefined} />}
-      <UserMessage
-        nodeId={node.id}
-        anchors={marks?.user}
-        text={node.user.text}
-        images={node.user.images}
-        onEdit={canSend ? () => setEditingUser('user') : undefined}
+    // Main chat: the header is on the frame's border above it (1 + 20 px up, 15 more above the border), so a
+    // hold that brings this to the top (a retry / edit) keeps the header in view.
+    <div data-fork={forkKey(node)} className={clsx(node.kind === 'main' && 'scroll-mt-10')}>
+      <NodeHeader
+        node={node}
+        switcher={siblings && <SiblingSwitcher info={siblings} onSelect={(id) => actions.select(node, id)} />}
+        onDetail={openDetail}
+        busy={!!busy}
       />
-      {/* data-reply: the reply part (scripts find it by this). */}
-      <div data-reply>
-        {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
-        {editing && (
-          <AssistantEditDialog initial={node.assistant.content} onClose={() => setEditing(false)} onSave={saveEdit} />
-        )}
-        {content ? (
-          <div data-anchor-root={marks && !streaming ? node.id : undefined}>
-            <Markdown
-              text={content}
-              className={clsx(streaming && 'streaming-caret')}
-              anchors={streaming ? undefined : marks?.reply}
-            />
-          </div>
-        ) : (
-          streaming && !hasReasoning(thinking) && <TypingDots since={node.attempt.startedAt} />
-        )}
-        {errorBox && <ErrorBox node={node} onDetail={openDetail} />}
-        {streaming ? (
-          // While streaming only the switcher shows (the reply's actions come once it's done).
-          switcher && (
-            <div data-switcher className="mt-2 flex h-7 items-center justify-end">
-              {switcher}
-            </div>
-          )
-        ) : (
-          <AssistantFooter
-            node={node}
-            content={content}
-            onRetry={retry}
-            // Also on a reply without text (failed, stopped early): the user may write one, as a new version.
-            onEdit={() => setEditing(true)}
-            onDetail={openDetail}
-            busy={!!busy}
-            switcher={switcher}
+      <div className="space-y-3">
+        {editingUser && (
+          <UserEditDialog
+            initial={node.user.text}
+            initialImages={node.user.images}
+            system={first ? (node.system ?? '') : undefined}
+            focusSystem={editingUser === 'system'}
+            onClose={() => setEditingUser(false)}
+            onSend={(text, images, system) => actions.edit(node, text, images, system)}
           />
         )}
+        {first && <SystemRow text={node.system} onClick={canSend ? () => setEditingUser('system') : undefined} />}
+        <UserMessage
+          nodeId={node.id}
+          anchors={marks?.user}
+          text={node.user.text}
+          images={node.user.images}
+          onEdit={canSend ? () => setEditingUser('user') : undefined}
+        />
+        {/* data-reply: the reply part (scripts find it by this). */}
+        <div data-reply>
+          {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
+          {editing && (
+            <AssistantEditDialog initial={node.assistant.content} onClose={() => setEditing(false)} onSave={saveEdit} />
+          )}
+          {content ? (
+            <div data-anchor-root={marks && !streaming ? node.id : undefined}>
+              <Markdown
+                text={content}
+                className={clsx(streaming && 'streaming-caret')}
+                anchors={streaming ? undefined : marks?.reply}
+              />
+            </div>
+          ) : (
+            streaming && !hasReasoning(thinking) && <TypingDots since={node.attempt.startedAt} />
+          )}
+          {errorBox && <ErrorBox node={node} onDetail={openDetail} />}
+          {/* The reply's actions come once it's done. */}
+          {!streaming && (
+            <AssistantFooter
+              node={node}
+              content={content}
+              onRetry={retry}
+              // Also on a reply without text (failed, stopped early): the user may write one, as a new version.
+              onEdit={() => setEditing(true)}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
@@ -171,8 +170,10 @@ export function Turn({
       data-turn={id}
       className={clsx(
         framed
-          ? ['-mx-3 rounded-xl border border-border px-3 pt-4 pb-3', !first && 'mt-4']
-          : !first && 'mt-8 border-t border-border pt-8',
+          ? // Room for the node header sitting on the top border (24 px apart, owner, 2026-10-08); brought to
+            // the top (a jump), the header shows.
+            ['relative -mx-3 scroll-mt-5 rounded-xl border border-border px-3 pt-5 pb-3', !first && 'mt-6']
+          : !first && 'mt-6 border-t border-border pt-4',
       )}
     >
       {children}
@@ -334,32 +335,96 @@ function ErrorBox({
   )
 }
 
+/**
+ * The node's header (owner, 2026-10-08): the sibling switcher (always shown, also while streaming) and the ⋯
+ * menu, at the top left where the user message is in view. Main chat: sitting on the turn frame's top border
+ * (the frame line stops behind it); side cards: a row above the user message. Main nodes show the switcher
+ * even without siblings (one dot, telling branch from attempt); side nodes only with ≥ 2 versions.
+ */
+function NodeHeader({
+  node,
+  switcher,
+  onDetail,
+  busy,
+}: {
+  node: ChatNode
+  switcher?: ReactNode
+  onDetail: () => void
+  busy: boolean
+}) {
+  const t = useT()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const main = node.kind === 'main'
+  return (
+    <div
+      className={clsx(
+        'flex h-7 items-center gap-0.5',
+        main ? 'absolute top-[-15px] left-2 bg-(--sticky-bg) px-1' : '-ml-1',
+      )}
+    >
+      {switcher && (
+        <div data-switcher className="flex h-7 items-center">
+          {switcher}
+        </div>
+      )}
+      <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
+        <MenuTrigger asChild>
+          <IconButton label={t('msg.more')} size="sm" active={menuOpen}>
+            <MoreHorizontal size={15} />
+          </IconButton>
+        </MenuTrigger>
+        <MenuContent>
+          {/* Side-thread nodes: details only; a side question is archived as a whole from its card. */}
+          {main && (
+            <>
+              <MenuItem icon={<Tag size={14} />} onSelect={() => void editLabel(node, t)}>
+                {t('label.menu')}
+              </MenuItem>
+              {!node.branch && (
+                <MenuItem icon={<GitBranch size={14} />} onSelect={() => void makeBranch(node.id)}>
+                  {t('msg.makeBranch')}
+                </MenuItem>
+              )}
+              {busy ? (
+                <Tip content={t('archive.busy')}>
+                  <MenuItem icon={<Archive size={14} />} disabled onSelect={() => {}}>
+                    {t('msg.archive')}
+                  </MenuItem>
+                </Tip>
+              ) : (
+                <MenuItem icon={<Archive size={14} />} onSelect={() => void archiveNode(node.id)}>
+                  {t('msg.archive')}
+                </MenuItem>
+              )}
+            </>
+          )}
+          <MenuItem icon={<Info size={14} />} onSelect={onDetail}>
+            {t('detail.open')}
+          </MenuItem>
+        </MenuContent>
+      </MenuRoot>
+    </div>
+  )
+}
+
 function AssistantFooter({
   node,
   content,
   onRetry,
   onEdit,
-  onDetail,
-  busy,
-  switcher,
 }: {
   node: ChatNode
   content: string
   onRetry?: () => void
   onEdit?: () => void
-  onDetail: () => void
-  busy: boolean
-  switcher?: ReactNode
 }) {
   const t = useT()
   const { copied, copy } = useCopy()
-  const [menuOpen, setMenuOpen] = useState(false)
   const tags = [
     node.attempt.status === 'aborted' && !node.edit && t('msg.aborted'),
     node.edit && t('msg.edited'),
   ].filter(Boolean)
   return (
-    // Wraps only in narrow places (a side-question card): the switcher then gets its own line, right-aligned.
     <div className="mt-2 flex min-h-7 flex-wrap items-center gap-x-1 gap-y-1 text-xs text-faint">
       {/* Status tags, then the actions (always shown; owner, 2026-10-08). */}
       {tags.map((tag) => (
@@ -391,47 +456,8 @@ function AssistantFooter({
             <Pencil size={14} />
           </IconButton>
         )}
-        <IconButton label={t('detail.open')} size="sm" onClick={onDetail}>
-          <Info size={14} />
-        </IconButton>
         <span className="ml-1 min-w-0 truncate whitespace-nowrap">{node.attempt.model}</span>
-        {/* Side-thread nodes have no menu: a side question is archived as a whole from its card. */}
-        {node.kind === 'main' && (
-          <MenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
-            <MenuTrigger asChild>
-              <IconButton label={t('msg.more')} size="sm" active={menuOpen} className="ml-1">
-                <MoreHorizontal size={15} />
-              </IconButton>
-            </MenuTrigger>
-            <MenuContent align="end">
-              <MenuItem icon={<Tag size={14} />} onSelect={() => void editLabel(node, t)}>
-                {t('label.menu')}
-              </MenuItem>
-              {!node.branch && (
-                <MenuItem icon={<GitBranch size={14} />} onSelect={() => void makeBranch(node.id)}>
-                  {t('msg.makeBranch')}
-                </MenuItem>
-              )}
-              {busy ? (
-                <Tip content={t('archive.busy')}>
-                  <MenuItem icon={<Archive size={14} />} disabled onSelect={() => {}}>
-                    {t('msg.archive')}
-                  </MenuItem>
-                </Tip>
-              ) : (
-                <MenuItem icon={<Archive size={14} />} onSelect={() => void archiveNode(node.id)}>
-                  {t('msg.archive')}
-                </MenuItem>
-              )}
-            </MenuContent>
-          </MenuRoot>
-        )}
       </div>
-      {switcher && (
-        <div data-switcher className="ml-auto flex h-7 items-center pl-2">
-          {switcher}
-        </div>
-      )}
     </div>
   )
 }

@@ -14,7 +14,7 @@ import { focusComposer } from '../../lib/focus'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
 import { jumpSelection, readingTurn, type MapUnit } from '../../lib/treeMap'
 import { archiveNote, createNote, noteTitle } from '../../lib/notes'
-import { glideTo, ScrollHold, useAutoScroll } from '../../lib/hooks'
+import { glideTo, marginTop, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { useConversationData } from '../../lib/useConversationData'
 import { useSettings } from '../../store/settings'
 import { NEW_CHAT, useUi } from '../../store/ui'
@@ -280,8 +280,11 @@ export function ChatView() {
     const box = scroll.containerRef.current
     const el = scrollTarget && box?.querySelector<HTMLElement>(`[data-turn="${CSS.escape(scrollTarget)}"]`)
     if (!box || !el) return // not on the path yet: the selection is still being saved
+    // (The turn's scroll margin: room for its header on the frame's top border.)
     const top =
-      path[0]?.id === scrollTarget ? 0 : el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop + 1
+      path[0]?.id === scrollTarget
+        ? 0
+        : el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - marginTop(el)
     glideTo(box, top)
     setScrollTarget(null)
   }, [path, scrollTarget, scroll.containerRef])

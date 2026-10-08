@@ -1,7 +1,8 @@
 /**
  * Where focus goes when what held it goes away. Rules (one place for them):
  * - A dialog / menu / panel that closes hands focus back to the button that opened it (`Dialog` does this
- *   itself; Radix menus and the tree map already do).
+ *   itself; Radix menus and the tree map already do). A dialog opened from a menu item returns to that
+ *   menu's button (the item is gone).
  * - After an action that starts a new reply (send from the edit dialog, retry, regenerate) or after
  *   switching conversation, focus goes to the input box the user would type in next (`focusComposer`):
  *   the side card's box if it happened in a side card, else the main one.
