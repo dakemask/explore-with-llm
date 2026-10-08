@@ -2,7 +2,7 @@
 // scrollbars as on Windows. Copy this folder into the session scratchpad (where playwright-core is
 // installed) and run `node layout-suite.mjs` there, with `pnpm dev` on 5173 and
 // `PORT=8788 node scripts/mock/server.mjs` (or use run-all.mjs). Prints PASS / FAIL per check.
-import { open, send, SC } from './lib.mjs'
+import { open, send, SC, newChat } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -293,7 +293,7 @@ for (const action of ['笔记', '追问']) {
   const w = await measure(page)
   check('W5 dragged far: the column stops at its widest, the chat keeps at least 420', w.colRight - w.colLeft === 640 && w.contentRight - w.contentLeft >= 420, w)
 
-  await page.getByRole('button', { name: '新对话' }).click()
+  await newChat(page)
   await page.waitForTimeout(300)
   // (A chat not created yet has no column element, only its space.)
   const n = await measure(page)

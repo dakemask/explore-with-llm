@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { GitBranch, KeyRound, PanelRightClose, PanelRightOpen, Settings, Sparkles, SquarePen } from 'lucide-react'
+import { GitBranch, KeyRound, PanelRightClose, PanelRightOpen, Settings, Sparkles } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
@@ -257,9 +257,6 @@ export function ChatView() {
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
         <div className="-mr-1 flex items-center gap-1">
           <ConversationList />
-          <IconButton label={t('sidebar.newChat')} onClick={() => setConversation(null)}>
-            <SquarePen size={16} />
-          </IconButton>
           <IconButton label={t('sidebar.settings')} onClick={() => openSettings()}>
             <Settings size={16} />
           </IconButton>

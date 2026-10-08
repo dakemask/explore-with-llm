@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Archive, Download, FileUp, MessagesSquare, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { Archive, Download, FileUp, MessagesSquare, MoreHorizontal, Pencil, SquarePen, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { db, type Conversation } from '../../db'
 import { useT } from '../../i18n'
@@ -17,7 +17,7 @@ import { ArchiveDialog } from './ArchiveDialog'
 
 /**
  * The conversation list: a card dropping down from the chat header's top-left button (owner, 2026-10-08:
- * no sidebar). Picking a conversation leaves it open; Escape, a click outside and the button close it.
+ * no sidebar). New chat and import sit at its top. Picking a conversation (or 新对话) leaves it open; Escape, a click outside and the button close it.
  * Focus moving out (opening a conversation focuses its input box; a dialog from an item's menu) doesn't.
  */
 export function ConversationList() {
@@ -82,9 +82,20 @@ function List() {
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-2 border-b border-border py-1.5 pr-1.5 pl-4">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{t('pane.list')}</span>
-        <IconButton label={t('conv.import')} size="sm" onClick={() => fileInput.current?.click()}>
+      <div className="flex shrink-0 gap-2 border-b border-border p-2">
+        {/* The conversation record is created lazily on the first message. */}
+        <button
+          onClick={() => setConversation(null)}
+          className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-[13px] font-medium shadow-xs transition-colors hover:bg-hover"
+        >
+          <SquarePen size={15} className="text-muted" />
+          {t('sidebar.newChat')}
+        </button>
+        <IconButton
+          label={t('conv.import')}
+          onClick={() => fileInput.current?.click()}
+          className="size-9! rounded-lg border border-border bg-surface shadow-xs"
+        >
           <FileUp size={15} />
         </IconButton>
         <input

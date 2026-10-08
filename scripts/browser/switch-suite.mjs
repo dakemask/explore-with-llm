@@ -2,7 +2,7 @@
 // conversation. Copy this folder into the session scratchpad (where playwright-core is installed) and run
 // `node switch-suite.mjs` there, with `pnpm dev` on 5173 and `PORT=8788 node scripts/mock/server.mjs`.
 // Prints PASS / FAIL per check.
-import { open, openConversation, send, SC } from './lib.mjs'
+import { open, openConversation, newChat as newChatFromList, send, SC } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -24,7 +24,7 @@ const go = async (title) => {
   await wait()
 }
 const newChat = async () => {
-  await page.getByRole('button', { name: '新对话' }).click()
+  await newChatFromList(page)
   await wait()
 }
 async function ask() {

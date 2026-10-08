@@ -89,6 +89,13 @@ export async function openConversation(page, title) {
   await list.getByText(title).first().click()
 }
 
+/** Starts a new chat from the conversation list card, then closes the card. */
+export async function newChat(page) {
+  if (!(await page.locator('[data-conversation-list]').count())) await page.getByRole('button', { name: '对话列表' }).click()
+  await page.getByRole('button', { name: '新对话' }).click()
+  await page.keyboard.press('Escape')
+}
+
 /** Collapses an expanded side / note card (locator) by clicking its header's title area. */
 export async function collapseCard(page, card) {
   const b = await card.locator('header').boundingBox()
