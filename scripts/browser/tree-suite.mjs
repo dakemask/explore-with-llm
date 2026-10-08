@@ -4,7 +4,7 @@
 // mouse wheel scrolling sideways. Escape / outside clicks: layers-suite; conversation switch: switch-suite. Copy this folder into the session scratchpad
 // (where playwright-core is installed) and run `node tree-suite.mjs` there, with `pnpm dev` on 5173 and
 // `PORT=8788 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
-import { open, openConversation, send, SC, waitDone } from './lib.mjs'
+import { clickAt, newChat, open, openConversation, send, SC, waitDone } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -14,7 +14,7 @@ const check = (name, ok, info) => {
 
 const W = 1400
 const H = 900
-const { browser, page } = await open({ model: 'mock-chat', width: W })
+const { browser, page } = await open({ models: ['mock-chat', 'mock-name'], model: 'mock-chat', width: W })
 const wait = (ms = 400) => page.waitForTimeout(ms)
 const TREE = '[data-tree-map]'
 const treeButton = page.getByRole('button', { name: '树图' })
@@ -93,17 +93,32 @@ await wait()
 const tiny = await box()
 check('M6 it shrinks no further than its minimum', tiny.width === 220 && tiny.height === 140, tiny)
 
-// ---- C: "current" follows the chat ----
+// ---- C: "current" follows the chat (the reading line, lib/reading.ts) ----
+/** Visible chat (the input box's cover left out) and the n-th turn's frame, relative to its top. */
+const geo = (i) =>
+  page.evaluate(
+    ({ sc, i }) => {
+      const box = document.querySelector(sc)
+      const r = box.getBoundingClientRect()
+      const composer = document.querySelector('main > [data-main-composer]').getBoundingClientRect().top
+      const t = box.querySelectorAll('[data-turn]')[i]?.getBoundingClientRect()
+      return { h: Math.min(r.bottom, composer) - r.top, top: t && t.top - r.top, bottom: t && t.bottom - r.top, s: box.scrollTop, max: box.scrollHeight - box.clientHeight }
+    },
+    { sc: SC, i },
+  )
+const turnNo = async () => Number((await current())?.match(/第 (\d+) 轮/)?.[1])
+const chat = await page.locator(SC).boundingBox()
+const wheel = async (dy, ms = 250) => {
+  await page.mouse.move(chat.x + 200, chat.y + 300)
+  await page.mouse.wheel(0, dy)
+  await wait(ms)
+}
 await page.evaluate((sc) => (document.querySelector(sc).scrollTop = 0), SC)
 await wait(500)
-check('C1 chat scrolled to the top: "current" = turn 1', (await current())?.includes('第 1 轮'), await current())
-await page.evaluate((sc) => {
-  const box = document.querySelector(sc)
-  const turn = box.querySelectorAll('[data-turn]')[5]
-  box.scrollTop = turn.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop + 5
-}, SC)
+check('C1 chat scrolled to the top: "current" = turn 1', (await turnNo()) === 1, await current())
+await page.evaluate((sc) => document.querySelector(sc).scrollTo(0, 1e6), SC)
 await wait(500)
-check('C2 turn 6 at the top: "current" = turn 6', (await current())?.includes('第 6 轮'), await current())
+check('C2 scrolled to the end: "current" = the last turn', (await turnNo()) === 12, await current())
 // The map brought "current" into its view.
 const seen = await page.evaluate((T) => {
   const g = document.querySelector(`${T} g[aria-current="true"]`).getBoundingClientRect()
@@ -111,62 +126,65 @@ const seen = await page.evaluate((T) => {
   return g.left >= area.left && g.right <= area.right && g.top >= area.top && g.bottom <= area.bottom
 }, TREE)
 check('C3 the map keeps "current" in its view', seen)
-// A short last turn: scrolled to the end, it's "current" even while the turn above still fills the top.
-await page.evaluate((sc) => document.querySelector(sc).scrollTo(0, 1e6), SC)
-await wait(500)
-check('C4 scrolled to the end: "current" = the last turn', (await current())?.includes('第 12 轮'), await current())
-// The reading line: halfway down the view. A turn starting just below it isn't current yet; just above, it is.
-const placeTurn = (i, y) =>
-  page.evaluate(
-    ({ sc, i, y }) => {
-      const box = document.querySelector(sc)
-      const turn = box.querySelectorAll('[data-turn]')[i]
-      const composer = document.querySelector('main > [data-main-composer]').getBoundingClientRect().top
-      const r = box.getBoundingClientRect()
-      const line = r.top + (Math.min(r.bottom, composer) - r.top) * y
-      box.scrollTop += turn.getBoundingClientRect().top - line
-    },
-    { sc: SC, i, y },
-  )
-await placeTurn(5, 0.53)
+// By the wheel from the top to the end and back: one turn at a time, never against the scroll, ends reached.
+await page.evaluate((sc) => (document.querySelector(sc).scrollTop = 0), SC)
 await wait(400)
-check('C5 turn 6 starting just below the reading line: still turn 5', (await current())?.includes('第 5 轮'), await current())
-await placeTurn(5, 0.47)
-await wait(400)
-check('C5 … just above it: turn 6', (await current())?.includes('第 6 轮'), await current())
+const walk = async (dy) => {
+  const seen = [await turnNo()]
+  for (let k = 0; k < 120; k++) {
+    const { s, max } = await geo(0)
+    if ((dy > 0 && s >= max - 1) || (dy < 0 && s <= 0)) break
+    await wheel(dy, 120)
+    seen.push(await turnNo())
+  }
+  await wait(300)
+  seen.push(await turnNo())
+  return seen
+}
+const down = await walk(150)
+check('C4 wheel down to the end: one turn at a time, ends on the last', down.every((t, i) => i === 0 || (t - down[i - 1] >= 0 && t - down[i - 1] <= 1)) && down.at(-1) === 12, down)
+const up = await walk(-150)
+check('C4 … and back up: one turn at a time, ends on the first', up.every((t, i) => i === 0 || (up[i - 1] - t >= 0 && up[i - 1] - t <= 1)) && up.at(-1) === 1, up)
+// In the middle a small scroll either way keeps "current" (the line moves with the content in the band).
+await wheel(1500, 600)
+const mid = await turnNo()
+await wheel(60)
+const a1 = await turnNo()
+await wheel(-100)
+const a2 = await turnNo()
+check('C5 a small scroll either way in the middle keeps "current"', a1 === mid && a2 === mid, { mid, a1, a2 })
 
-// ---- J: jumping keeps it open ----
-await page.locator(`${TREE} g[role=button]`).nth(2).click()
-await wait(900)
-check('J1 a click on a node jumps and the map stays open', await treeOpen())
-check('J1 "current" = the turn jumped to', (await current())?.includes('第 3 轮'), await current())
-// It stays so (turn 3 is short at the top; the reading line may be in turn 4) until the user scrolls by hand.
-await wait(800)
-check('J2 … and stays so after the glide', (await current())?.includes('第 3 轮'), await current())
-const chat = await page.locator(SC).boundingBox()
-await page.mouse.move(chat.x + 200, chat.y + 300)
-await page.mouse.wheel(0, 1200)
-await wait(800)
-check('J3 scrolling by hand: back to the reading line', !(await current())?.includes('第 3 轮'), await current())
-// A jump puts the turn's top a little above the reading line (halfway), so scrolling a little by hand
-// doesn't make "current" flip to a neighbour.
+// ---- J: jumping keeps it open; the turn lands at a fixed place near the top and is "current" ----
+const offset = (h) => Math.max(40, h / 10)
+const landed = async (i) => {
+  const g = await geo(i)
+  return { at: g.top - 20, want: offset(g.h), g } // (20 = the header's scroll margin above the frame)
+}
 await page.locator(`${TREE} g[role=button]`).nth(5).click()
 await wait(900)
-const placed = await page.evaluate((sc) => {
-  const box = document.querySelector(sc)
-  const r = box.getBoundingClientRect()
-  const composer = document.querySelector('main > [data-main-composer]').getBoundingClientRect().top
-  const turn = box.querySelectorAll('[data-turn]')[5].getBoundingClientRect()
-  return (turn.top - r.top) / (Math.min(r.bottom, composer) - r.top)
-}, SC)
-check('J4 a jump puts the turn top a little above halfway', placed > 0.3 && placed < 0.5, placed)
-await page.mouse.move(chat.x + 200, chat.y + 300)
-await page.mouse.wheel(0, 40)
-await wait(500)
-check('J4 … a small scroll down by hand: still that turn', (await current())?.includes('第 6 轮'), await current())
-await page.mouse.wheel(0, -60)
-await wait(500)
-check('J4 … a small scroll up by hand: still that turn', (await current())?.includes('第 6 轮'), await current())
+check('J1 a click on a node jumps and the map stays open', await treeOpen())
+check('J1 "current" = the turn jumped to', (await turnNo()) === 6, await current())
+let l = await landed(5)
+check('J2 its top lands at the fixed place near the top', Math.abs(l.at - l.want) <= 2, l)
+await wheel(40)
+const j3a = await turnNo()
+await wheel(-80)
+const j3b = await turnNo()
+check('J3 … a small scroll either way: still that turn', j3a === 6 && j3b === 6, { j3a, j3b })
+await page.locator(`${TREE} g[role=button]`).nth(2).click()
+await wait(900)
+l = await landed(2)
+check('J4 another turn lands at the same place', Math.abs(l.at - l.want) <= 2 && (await turnNo()) === 3, l)
+// Near the end (turn 11 of 12): it lands at the same place too and is current, not the last turn.
+await page.locator(`${TREE} g[role=button]`).nth(10).click()
+await wait(900)
+l = await landed(10)
+check('J5 a turn near the end lands at the same place too, current', Math.abs(l.at - l.want) <= 2 && (await turnNo()) === 11, l)
+// Near the start: nothing above to scroll, turn 1 stops higher; still current.
+await page.locator(`${TREE} g[role=button]`).nth(0).click()
+await wait(900)
+const g0 = await geo(0)
+check('J7 turn 1: the view at the very top, turn 1 current', g0.s === 0 && (await turnNo()) === 1, g0)
 
 // ---- R: the tree changes while open, animated (each drawn unit keeps its element: data-key) ----
 const lastKey = () => page.locator(`${TREE} g[data-key]`).last().getAttribute('data-key')
@@ -217,6 +235,61 @@ const after = await area()
 check('S1 the map is wider than the window', before.w > 0, before)
 check('S1 a wheel notch scrolls it sideways', after.left > before.left && after.top === before.top, { before, after, svgBox })
 // (Shift + wheel: one row of turns can't scroll up / down, so the wheel keeps its native direction there.)
+
+// ---- V: the switcher, a retry: "current" = the turn chosen ----
+// (Clicked with the real mouse: Playwright's click() scrolls, which counts as the user scrolling.)
+const turn3 = page.locator(`${SC} [data-turn]`).nth(2)
+await page.evaluate((sc) => {
+  const box = document.querySelector(sc)
+  const t = box.querySelectorAll('[data-turn]')[2]
+  box.scrollTop += t.getBoundingClientRect().bottom - box.getBoundingClientRect().top - 500
+}, SC)
+await wait(1500)
+await clickAt(page, turn3.locator('[aria-label="重新生成"]'))
+await waitDone(page)
+// (An attempt beside a branch isn't drawn in the map: "current" shows on the nearest drawn turn above it.)
+check('V1 a retry of turn 3: "current" = the new attempt (not drawn: shown on turn 2)', (await turnNo()) === 2 && (await page.locator(`${SC} [data-turn]`).count()) === 3, await current())
+await wait(1000)
+// Back to the branch: its dot, the first in turn 3's switcher.
+await clickAt(page, page.locator(`${SC} [data-fork]`).nth(2).locator('[data-switcher] button').first())
+await wait(1500)
+check('V2 switching back by the switcher: "current" = the turn switched to', (await turnNo()) === 3 && (await page.locator(`${SC} [data-turn]`).count()) > 3, await current())
+await wheel(80)
+const v3 = await turnNo()
+check('V3 … then a small scroll: still turn 3 or the next one', v3 === 3 || v3 === 4, v3)
+
+// ---- E: short turns (mock-name): a jump makes room with blank below; scrolling on at the end ----
+await page.evaluate(() => {
+  const st = JSON.parse(localStorage.getItem('ewl-settings'))
+  st.state.model = 'mock-name'
+  localStorage.setItem('ewl-settings', JSON.stringify(st))
+})
+await page.reload()
+await wait(1200)
+await newChat(page)
+for (let i = 1; i <= 3; i++) await send(page, `短${i}`)
+if (!(await treeOpen())) await treeButton.click()
+await wait(600)
+await page.locator(`${TREE} g[role=button]`).nth(1).click()
+await wait(900)
+l = await landed(1)
+const pad = await page.evaluate((sc) => parseFloat(document.querySelector(sc).firstElementChild.style.paddingBottom) || 0, SC)
+check('E1 a short chat: turn 2 lands at the fixed place, over blank space', Math.abs(l.at - l.want) <= 2 && pad > 0 && l.g.s >= l.g.max - 1, { l, pad })
+check('E1 … current = turn 2', (await turnNo()) === 2, await current())
+const onEnd = []
+for (let k = 0; k < 8; k++) {
+  await wheel(120, 150)
+  onEnd.push(await turnNo())
+}
+check('E2 the wheel on at the end (nothing moves): on to the last turn, one at a time', onEnd.at(-1) === 3 && onEnd.every((t, i) => t === 2 || t === 3) && (await geo(0)).s === l.g.s, onEnd)
+await page.locator(`${TREE} g[role=button]`).nth(1).click()
+await wait(900)
+const toTop = []
+for (let k = 0; k < 8; k++) {
+  await wheel(-120, 150)
+  toTop.push(await turnNo())
+}
+check('E3 from there up to the top (and on): to turn 1, one at a time', toTop.at(-1) === 1 && toTop.every((t) => t === 1 || t === 2), toTop)
 
 await browser.close()
 console.log(failures ? `${failures} FAILED` : 'ALL PASS')

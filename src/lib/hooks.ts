@@ -93,9 +93,13 @@ export function useAutoScroll(resetKey: string | null) {
     cap: null as HoldTarget | null,
     /** The mouse button is down after a press in the area. */
     pressed: false,
+    /** A jump's glide in progress (`glide`): its blank isn't trimmed meanwhile. */
+    gliding: null as object | null,
   })
   /** Told whenever the user scrolls by hand (`onUserScroll`). */
   const userScrollListeners = useRef(new Set<() => void>())
+  /** Told after every scroll that wasn't this hook's own, with where it went from / to (`onUserScrolled`). */
+  const scrolledListeners = useRef(new Set<ScrolledListener>())
 
   const api = useMemo(() => {
     const s = state.current
@@ -178,7 +182,7 @@ export function useAutoScroll(resetKey: string | null) {
       if (!el) return
       if (performance.now() < s.resetUntil) return toEnd(el)
       if (!applyHold(el) && !unclamp(el) && s.following) follow(el)
-      trim(el)
+      if (!s.gliding) trim(el)
     }
     const onScroll = () => {
       const el = containerRef.current
@@ -186,16 +190,50 @@ export function useAutoScroll(resetKey: string | null) {
       if (performance.now() < s.resetUntil) return toEnd(el)
       if (s.held) return void applyHold(el) // (something scrolled in the middle of a hold: back in place)
       if (unclamp(el)) return // (reported here when layout ran before the size observer did)
+      const max = el.scrollHeight - el.clientHeight
+      const from = { s: s.last, rest: max - s.last }
       s.last = el.scrollTop
+      s.gliding = null
       trim(el)
       s.following = end(el) - el.scrollTop - el.clientHeight < NEAR_END
+      const to = { s: el.scrollTop, rest: el.scrollHeight - el.clientHeight - el.scrollTop }
+      for (const fn of scrolledListeners.current) fn(from, to)
     }
     /** The user scrolls by hand: a hold or a cap ends (the scroll event then decides about following). */
     const release = () => {
       s.held = null
       s.cap = null
       s.resetUntil = 0
+      s.gliding = null
       for (const fn of userScrollListeners.current) fn()
+    }
+    /**
+     * Scrolls to `top` in a short ease-out (250 ms; from far away it first jumps to within part of a screen,
+     * so long distances don't turn into a long animation), adding blank below if the area is too short for it
+     * (a tree map jump to a turn near the end). Stops following and holding; scrolling by hand ends it.
+     */
+    const glide = (top: number) => {
+      const el = containerRef.current
+      if (!el) return
+      Object.assign(s, { following: false, held: null, cap: null })
+      top = Math.max(0, Math.round(top))
+      const max = el.scrollHeight - el.clientHeight
+      if (top > max) setBlank(s.blank + top - max)
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return scrollTo(el, top)
+      const token = {}
+      s.gliding = token
+      const reach = el.clientHeight * 0.6
+      if (Math.abs(top - el.scrollTop) > reach) scrollTo(el, top - Math.sign(top - el.scrollTop) * reach)
+      const start = el.scrollTop
+      const t0 = performance.now()
+      const step = (now: number) => {
+        if (s.gliding !== token) return
+        const p = Math.min(1, (now - t0) / 250)
+        scrollTo(el, start + (top - start) * (1 - (1 - p) ** 3))
+        if (p < 1) requestAnimationFrame(step)
+        else s.gliding = null
+      }
+      requestAnimationFrame(step)
     }
     const hold: Hold = (target, opts) => {
       const el = containerRef.current
@@ -218,7 +256,7 @@ export function useAutoScroll(resetKey: string | null) {
       Object.assign(s, { following: true, held: null, cap: null, resetUntil: performance.now() + 1000 })
       if (el) toEnd(el)
     }
-    return { settle, onScroll, release, hold, reset }
+    return { settle, onScroll, release, hold, reset, glide }
   }, [])
 
   useEffect(() => {
@@ -283,37 +321,21 @@ export function useAutoScroll(resetKey: string | null) {
     userScrollListeners.current.add(fn)
     return () => void userScrollListeners.current.delete(fn)
   }, [])
+  /**
+   * Calls `fn` after every scroll that wasn't this hook's own (following, holds, glides) — the user's, by
+   * hand or by a script — with the scroll position and the room left below, before and after; returns the
+   * unsubscribe.
+   */
+  const onUserScrolled = useCallback((fn: ScrolledListener) => {
+    scrolledListeners.current.add(fn)
+    return () => void scrolledListeners.current.delete(fn)
+  }, [])
 
-  return { containerRef, contentRef, blankRef, pin, unpin, hold: api.hold, onUserScroll }
+  return { containerRef, contentRef, blankRef, pin, unpin, hold: api.hold, glide: api.glide, onUserScroll, onUserScrolled }
 }
 
-const gliding = new WeakMap<HTMLElement, object>()
+export type AutoScroll = ReturnType<typeof useAutoScroll>
+type ScrolledListener = (from: { s: number; rest: number }, to: { s: number; rest: number }) => void
 
-/**
- * Scrolls `el` to `top` in a short ease-out (250 ms). From far away it first jumps to within part of a
- * screen of the target, so long distances don't turn into a long animation.
- */
 /** An element's `scroll-margin-top`: room above it that belongs to it when it's brought to the top. */
 export const marginTop = (node: Element) => parseFloat(getComputedStyle(node).scrollMarginTop) || 0
-
-export function glideTo(el: HTMLElement, top: number) {
-  // A newer glide on the same element takes over.
-  const token = {}
-  gliding.set(el, token)
-  const end = Math.max(0, Math.min(top, el.scrollHeight - el.clientHeight))
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    el.scrollTop = end
-    return
-  }
-  const reach = el.clientHeight * 0.6
-  if (Math.abs(end - el.scrollTop) > reach) el.scrollTop = end - Math.sign(end - el.scrollTop) * reach
-  const start = el.scrollTop
-  const t0 = performance.now()
-  const step = (now: number) => {
-    if (gliding.get(el) !== token) return
-    const p = Math.min(1, (now - t0) / 250)
-    el.scrollTop = start + (end - start) * (1 - (1 - p) ** 3)
-    if (p < 1) requestAnimationFrame(step)
-  }
-  requestAnimationFrame(step)
-}

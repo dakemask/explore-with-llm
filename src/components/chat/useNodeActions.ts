@@ -3,6 +3,7 @@ import { db, type ChatNode } from '../../db'
 import { resend, selectBranch } from '../../lib/chat'
 import type { Hold } from '../../lib/hooks'
 import type { ImageFile } from '../../lib/images'
+import { LAST } from '../../lib/reading'
 import { switchDir, type SwitchMotion } from '../../lib/switchMotion'
 import { forkKey } from '../../lib/tree'
 import type { NodeActions } from './MessageNode'
@@ -16,17 +17,24 @@ export const atFork = (node: ChatNode, inner = '') => `[data-fork="${CSS.escape(
  * never changes (memoized nodes stay put); it reads the latest nodes and model through a ref.
  * `hold` (the scroll area's) keeps things in place: a new attempt's top where the old node's was (its reply
  * is then followed until that top reaches the top of the screen), the switcher where it was clicked.
- * `motion` animates switching (the scroll area's `useSwitchMotion`).
+ * `motion` animates switching (the scroll area's `useSwitchMotion`). `choose` (the main chat's reading line,
+ * `lib/reading.ts`) is told the turn now chosen: the one switched to, or the new attempt (`LAST`: it ends the path).
  */
-export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold, motion?: SwitchMotion): NodeActions {
+export function useNodeActions(
+  nodes: ChatNode[] | undefined,
+  hold: Hold,
+  motion?: SwitchMotion,
+  choose?: (id: string) => void,
+): NodeActions {
   const { provider, model } = useCurrentModel()
-  const latest = useRef({ nodes, provider, model, hold, motion })
-  latest.current = { nodes, provider, model, hold, motion }
+  const latest = useRef({ nodes, provider, model, hold, motion, choose })
+  latest.current = { nodes, provider, model, hold, motion, choose }
   return useMemo<NodeActions>(() => {
     const again = (node: ChatNode, text: string, images: ImageFile[], system?: string) => {
-      const { provider, model, hold } = latest.current
+      const { provider, model, hold, choose } = latest.current
       if (!provider || !model) return
       hold(atFork(node), { follow: true })
+      choose?.(LAST)
       void resend(node, text, images, provider, model, system ?? node.system)
     }
     return {
@@ -36,8 +44,9 @@ export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold, motion
       },
       edit: again,
       select: (node, id) => {
-        const { nodes, hold, motion } = latest.current
+        const { nodes, hold, motion, choose } = latest.current
         hold(atFork(node, '[data-switcher]'))
+        choose?.(id)
         motion?.begin(forkKey(node), id, switchDir(nodes ?? [], node, id))
         void selectBranch(node.conversationId, forkKey(node), id)
       },

@@ -13,9 +13,10 @@ import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
 import { activePath, busyIds, forkKey, isHidden } from '../../lib/tree'
 import { switchDir, useSwitchMotion } from '../../lib/switchMotion'
-import { jumpScroll, jumpSelection, readingTurn, type MapUnit } from '../../lib/treeMap'
+import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { archiveNote, createNote, noteTitle } from '../../lib/notes'
-import { glideTo, marginTop, ScrollHold, useAutoScroll } from '../../lib/hooks'
+import { marginTop, ScrollHold, useAutoScroll } from '../../lib/hooks'
+import { jumpOffset, LAST, useReadingLine } from '../../lib/reading'
 import { useConversationData } from '../../lib/useConversationData'
 import { useSettings } from '../../store/settings'
 import { NEW_CHAT, useUi } from '../../store/ui'
@@ -79,6 +80,7 @@ export function ChatView() {
   const send = async (parentId: string | null, text: string, images: ImageFile[]) => {
     if (!provider || !model) return
     scroll.pin()
+    reading.select(LAST)
     let id = conversationId
     // A first turn takes the system message shown above the empty chat; the next new chat starts from the default.
     const system = parentId ? undefined : pendingSystem
@@ -102,7 +104,10 @@ export function ChatView() {
   // Opening a conversation (new, from the list, imported): ready to type.
   useEffect(() => focusComposer(), [conversationId])
   const motion = useSwitchMotion(scroll, path, conversationId)
-  const actions = useNodeActions(nodes, scroll.hold, motion)
+  // The floating input box (placed below); the reading line leaves out what it covers.
+  const composerRef = useRef<HTMLDivElement>(null)
+  const reading = useReadingLine(scroll, composerRef, conversationId)
+  const actions = useNodeActions(nodes, scroll.hold, motion, reading.select)
 
   // ---- side questions and notes: highlights in the messages, cards in the column right of the chat ----
   const notes = useNotes(path, data?.notes)
@@ -175,7 +180,6 @@ export function ChatView() {
   const width = area.width
   // The input box floats over the bottom of the chat (the chat and the column reach the window's bottom); the
   // messages end above it: the room below them follows its height (same frame, like the widths above).
-  const composerRef = useRef<HTMLDivElement>(null)
   const [composerHeight, setComposerHeight] = useState(0)
   useLayoutEffect(() => {
     const el = composerRef.current
@@ -235,42 +239,29 @@ export function ChatView() {
     setHover([])
   }
   const toggleTree = () => (tree && !tree.closing ? closeTree() : setTree({}))
-  // "Current" in the map, followed live while the map is open (read on scroll and whenever the path changes;
-  // reading only — scrolling is useAutoScroll's): the turn at the reading line (`readingTurn`), except that
-  // a turn jumped to from the map stays current until the user scrolls by hand.
+  // "Current" in the map, followed live while the map is open (read on scroll, when the reading line moves
+  // and whenever the path changes): the turn the reading line lies in (`lib/reading.ts`).
   const [treeCurrent, setTreeCurrent] = useState<string | undefined>()
-  const jumpedTo = useRef<string | null>(null)
   const treeOpen = !!tree
-  useEffect(() => scroll.onUserScroll(() => (jumpedTo.current = null)), [scroll.onUserScroll])
-  /** The visible chat for the reading line: the input box floats over the chat's bottom, what's under it isn't being read. */
-  const readingView = (box: HTMLElement) => {
-    const area = box.getBoundingClientRect()
-    const bottom = Math.min(area.bottom, composerRef.current?.getBoundingClientRect().top ?? area.bottom)
-    return { top: area.top, bottom, scrollTop: box.scrollTop, maxScroll: box.scrollHeight - box.clientHeight }
-  }
   useEffect(() => {
     const box = scroll.containerRef.current
     if (!treeOpen || !box) return
-    const read = () => {
-      const turns = [...box.querySelectorAll<HTMLElement>('[data-turn]')]
-      const pinned = jumpedTo.current && turns.find((el) => el.dataset.turn === jumpedTo.current)
-      if (pinned) return setTreeCurrent(jumpedTo.current!)
-      const at = readingTurn(turns.map((el) => el.getBoundingClientRect().top), readingView(box))
-      setTreeCurrent(turns[at]?.dataset.turn ?? last?.id)
-    }
+    const read = () => setTreeCurrent(reading.current() ?? last?.id)
     read()
     let frame = 0
-    const onScroll = () => {
+    const later = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(read)
     }
-    box.addEventListener('scroll', onScroll, { passive: true })
+    box.addEventListener('scroll', later, { passive: true })
+    const off = reading.onChange(later)
     return () => {
       cancelAnimationFrame(frame)
-      box.removeEventListener('scroll', onScroll)
+      box.removeEventListener('scroll', later)
+      off()
     }
-  }, [treeOpen, path, last?.id, scroll.containerRef])
-  /** Shows the clicked turn: remember the selection at every fork above it, then scroll it to the reading line. */
+  }, [treeOpen, path, last?.id, scroll.containerRef, reading])
+  /** Shows the clicked turn: remember the selection at every fork above it, then glide it near the top. */
   const jump = (unit: MapUnit) => {
     if (!conversation || !nodes) return
     const { target, selection } = jumpSelection(nodes, unit, conversation.selectedChild)
@@ -280,7 +271,7 @@ export function ChatView() {
       const to = selection[forkKey(part)]
       motion.begin(forkKey(part), to, to === target.id ? switchDir(nodes, part, to) : 0)
     }
-    jumpedTo.current = target.id
+    reading.select(target.id)
     setTreeCurrent(target.id)
     scroll.unpin()
     setScrollTarget(target.id)
@@ -290,19 +281,13 @@ export function ChatView() {
     const box = scroll.containerRef.current
     const el = scrollTarget && box?.querySelector<HTMLElement>(`[data-turn="${CSS.escape(scrollTarget)}"]`)
     if (!box || !el) return // not on the path yet: the selection is still being saved
-    // Its top (with its scroll margin: the header on the frame's border) a little above the reading line.
-    const view = readingView(box)
-    const top =
-      path[0]?.id === scrollTarget
-        ? 0
-        : jumpScroll(
-            el.getBoundingClientRect().top - view.top + box.scrollTop - marginTop(el),
-            view.bottom - view.top,
-            view.maxScroll,
-          )
-    glideTo(box, top)
+    // Its top (with its scroll margin: the header on the frame's border) at a fixed place near the top — turns
+    // near the start stop higher (nothing above to scroll), near the end blank space makes room below.
+    const area = box.getBoundingClientRect()
+    const h = Math.min(area.bottom, composerRef.current?.getBoundingClientRect().top ?? area.bottom) - area.top
+    scroll.glide(el.getBoundingClientRect().top - area.top + box.scrollTop - marginTop(el) - jumpOffset(h))
     setScrollTarget(null)
-  }, [path, scrollTarget, scroll.containerRef])
+  }, [path, scrollTarget, scroll.containerRef, scroll.glide])
 
   const noProvider = providers && !provider
 
