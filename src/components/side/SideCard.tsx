@@ -4,6 +4,7 @@ import { useT } from '../../i18n'
 import { archiveThread, lacksReply, sendMessage, stopGeneration } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
 import { ScrollHold, useAutoScroll } from '../../lib/hooks'
+import { useSwitchMotion } from '../../lib/switchMotion'
 import { useUi, type SideDraft } from '../../store/ui'
 import { Composer } from '../chat/Composer'
 import { MessageNode, Turn } from '../chat/MessageNode'
@@ -64,7 +65,8 @@ export function SideCard({
   const last = path[path.length - 1]
 
   const scroll = useAutoScroll(thread)
-  const actions = useNodeActions(nodes, scroll.hold)
+  const motion = useSwitchMotion(scroll, path, thread)
+  const actions = useNodeActions(nodes, scroll.hold, motion)
   const siblings = useSiblings(path, nodes)
 
   // Text typed in this card's box would be lost (owner: ask first, only then).
@@ -120,7 +122,7 @@ export function SideCard({
       <div ref={scroll.containerRef} className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable] [--sticky-bg:var(--c-surface)]">
         <ScrollHold.Provider value={scroll.hold}>
           {/* The blank space at the bottom goes on this wrapper (see useAutoScroll). */}
-          <div ref={scroll.blankRef}>
+          <div ref={scroll.blankRef} className="relative">
             <div ref={scroll.contentRef} className="px-4 pt-3 pb-5">
               {path.length === 0 ? (
                 <p className="px-2 py-1 text-center text-[13px] leading-relaxed text-faint">{t('side.draftHint')}</p>

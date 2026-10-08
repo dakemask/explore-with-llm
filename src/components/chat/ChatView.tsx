@@ -11,7 +11,8 @@ import { branchColors } from '../../lib/colors'
 import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
 import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
-import { activePath, busyIds, isHidden } from '../../lib/tree'
+import { activePath, busyIds, forkKey, isHidden } from '../../lib/tree'
+import { switchDir, useSwitchMotion } from '../../lib/switchMotion'
 import { jumpScroll, jumpSelection, readingTurn, type MapUnit } from '../../lib/treeMap'
 import { archiveNote, createNote, noteTitle } from '../../lib/notes'
 import { glideTo, marginTop, ScrollHold, useAutoScroll } from '../../lib/hooks'
@@ -100,7 +101,8 @@ export function ChatView() {
   const scroll = useAutoScroll(conversationId)
   // Opening a conversation (new, from the list, imported): ready to type.
   useEffect(() => focusComposer(), [conversationId])
-  const actions = useNodeActions(nodes, scroll.hold)
+  const motion = useSwitchMotion(scroll, path, conversationId)
+  const actions = useNodeActions(nodes, scroll.hold, motion)
 
   // ---- side questions and notes: highlights in the messages, cards in the column right of the chat ----
   const notes = useNotes(path, data?.notes)
@@ -272,6 +274,12 @@ export function ChatView() {
   const jump = (unit: MapUnit) => {
     if (!conversation || !nodes) return
     const { target, selection } = jumpSelection(nodes, unit, conversation.selectedChild)
+    // Where the paths part, the rest changes: sideways if the target is the sibling shown there, else a fade.
+    const part = path.find((n) => (selection[forkKey(n)] ?? n.id) !== n.id)
+    if (part) {
+      const to = selection[forkKey(part)]
+      motion.begin(forkKey(part), to, to === target.id ? switchDir(nodes, part, to) : 0)
+    }
     jumpedTo.current = target.id
     setTreeCurrent(target.id)
     scroll.unpin()
@@ -387,7 +395,7 @@ export function ChatView() {
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
       >
         {/* The blank space at the bottom goes on this wrapper (see useAutoScroll). */}
-        <div ref={scroll.blankRef} className={clsx('flex items-start', slideClass)} style={{ paddingLeft: frame.chatLeft }}>
+        <div ref={scroll.blankRef} className={clsx('relative flex items-start', slideClass)} style={{ paddingLeft: frame.chatLeft }}>
           <div
             ref={scroll.contentRef}
             onMouseOver={(e) => hoverTo(threadsAt(e.target))}

@@ -3,6 +3,7 @@ import { db, type ChatNode } from '../../db'
 import { resend, selectBranch } from '../../lib/chat'
 import type { Hold } from '../../lib/hooks'
 import type { ImageFile } from '../../lib/images'
+import { switchDir, type SwitchMotion } from '../../lib/switchMotion'
 import { forkKey } from '../../lib/tree'
 import type { NodeActions } from './MessageNode'
 import { useCurrentModel } from './ModelPicker'
@@ -15,11 +16,12 @@ export const atFork = (node: ChatNode, inner = '') => `[data-fork="${CSS.escape(
  * never changes (memoized nodes stay put); it reads the latest nodes and model through a ref.
  * `hold` (the scroll area's) keeps things in place: a new attempt's top where the old node's was (its reply
  * is then followed until that top reaches the top of the screen), the switcher where it was clicked.
+ * `motion` animates switching (the scroll area's `useSwitchMotion`).
  */
-export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold): NodeActions {
+export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold, motion?: SwitchMotion): NodeActions {
   const { provider, model } = useCurrentModel()
-  const latest = useRef({ nodes, provider, model, hold })
-  latest.current = { nodes, provider, model, hold }
+  const latest = useRef({ nodes, provider, model, hold, motion })
+  latest.current = { nodes, provider, model, hold, motion }
   return useMemo<NodeActions>(() => {
     const again = (node: ChatNode, text: string, images: ImageFile[], system?: string) => {
       const { provider, model, hold } = latest.current
@@ -34,7 +36,9 @@ export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold): NodeA
       },
       edit: again,
       select: (node, id) => {
-        latest.current.hold(atFork(node, '[data-switcher]'))
+        const { nodes, hold, motion } = latest.current
+        hold(atFork(node, '[data-switcher]'))
+        motion?.begin(forkKey(node), id, switchDir(nodes ?? [], node, id))
         void selectBranch(node.conversationId, forkKey(node), id)
       },
     }

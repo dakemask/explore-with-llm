@@ -136,6 +136,7 @@ export function SideColumn({
         return (
           <Tip key={it.id} content={it.tip}>
             <button
+              data-item={it.id}
               aria-label={it.tip}
               onClick={() => onToggle(it.id)}
               onMouseEnter={() => onHover([it.id])}
@@ -192,6 +193,7 @@ export function SideColumn({
         <Layer
           ref={cardRef}
           key={expanded}
+          data-expanded={expanded}
           className={clsx(
             'anim-fade absolute right-3 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top,opacity] duration-200',
             leaving[expanded!] && 'pointer-events-none opacity-0',

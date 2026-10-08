@@ -88,14 +88,15 @@ export const MessageNode = memo(function MessageNode({
   return (
     // Main chat: the header is on the frame's border above it (1 + 20 px up, 15 more above the border), so a
     // hold that brings this to the top (a retry / edit) keeps the header in view.
-    <div data-fork={forkKey(node)} className={clsx(node.kind === 'main' && 'scroll-mt-10')}>
+    <div data-fork={forkKey(node)} data-node={node.id} className={clsx(node.kind === 'main' && 'scroll-mt-10')}>
       <NodeHeader
         node={node}
         switcher={siblings && <SiblingSwitcher info={siblings} onSelect={(id) => actions.select(node, id)} />}
         onDetail={openDetail}
         busy={!!busy}
       />
-      <div className="space-y-3">
+      {/* data-node-body: what a switch animates (the header stays, see lib/switchMotion). */}
+      <div data-node-body className="space-y-3">
         {editingUser && (
           <UserEditDialog
             initial={node.user.text}
