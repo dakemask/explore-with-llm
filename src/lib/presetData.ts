@@ -48,12 +48,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "body": {
           "max_tokens": "VALUE"
         },
-        "min": 1000,
-        "max": 384000,
-        "step": 1000,
-        "default": 64000,
+        "min": 1024,
+        "max": 393216,
+        "step": 1024,
+        "default": 393216,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -110,12 +110,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "body": {
           "max_tokens": "VALUE"
         },
-        "min": 1000,
-        "max": 384000,
-        "step": 1000,
-        "default": 64000,
+        "min": 1024,
+        "max": 393216,
+        "step": 1024,
+        "default": 393216,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -174,9 +174,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -235,9 +235,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -296,9 +296,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -356,9 +356,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -416,9 +416,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -477,9 +477,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -538,9 +538,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -643,9 +643,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -749,9 +749,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -855,9 +855,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -942,9 +942,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -1029,9 +1029,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -1135,9 +1135,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -1241,9 +1241,9 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 32000,
+        "default": 128000,
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": true
       },
       {
         "type": "silent",
@@ -1309,12 +1309,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-opus-5-5",
@@ -1367,12 +1367,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），默认强度 medium。编辑过的历史回复之后的思考块会被丢弃而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），默认强度 medium。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-sonnet-5-5",
@@ -1446,7 +1446,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
@@ -1501,7 +1501,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
@@ -1576,7 +1576,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
@@ -1644,7 +1644,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
@@ -1711,7 +1711,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
@@ -1778,7 +1778,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
@@ -1844,7 +1844,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
@@ -1910,7 +1910,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 64000
+        "default": 128000
       }
     ],
     "echoReasoning": true,
