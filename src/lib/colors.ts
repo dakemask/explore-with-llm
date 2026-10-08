@@ -33,11 +33,6 @@ export function branchColors(nodes: ChatNode[]): Map<string, number> {
   return colors
 }
 
-/** The color of the turn above `node` (red at the top), i.e. where its line comes from. */
-export function parentColor(colors: Map<string, number>, node: ChatNode): number {
-  return node.parentId ? (colors.get(node.parentId) ?? 0) : 0
-}
-
 /** The CSS value for a color index. */
 export function colorVar(c: number): string {
   return c === GREY ? 'var(--branch-grey)' : `var(--branch-${c})`

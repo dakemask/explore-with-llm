@@ -6,7 +6,6 @@ import { useT } from '../../i18n'
 import { useCopy, useScrollHold } from '../../lib/hooks'
 import type { AnchorMark } from '../../lib/anchor'
 import { archiveNode, editAssistant, makeBranch } from '../../lib/chat'
-import { colorVar } from '../../lib/colors'
 import { focusComposer } from '../../lib/focus'
 import type { ImageFile } from '../../lib/images'
 import { hasReasoning, reasoningView, type ReasoningView } from '../../lib/reasoning'
@@ -133,46 +132,20 @@ export const MessageNode = memo(function MessageNode({
   )
 })
 
-/** Turn bars are hidden on trial (owner, 2026-10-08): colors stay in the switcher dots and the tree map. */
-const SHOW_TURN_BARS = false
-
-/**
- * One turn (user message + reply) in a list: a thin separator above it (except the first) and, in the
- * main chat, a slim bar in the left gutter in the turn's branch color, flowing in from the parent's color
- * where it changes (`lib/colors.ts`).
- */
+/** One turn (user message + reply) in a list: a thin separator above it (except the first). */
 export function Turn({
   id,
   first,
-  color,
-  from,
   children,
 }: {
   /** The node id, as `data-turn` (the tree map finds turns in the chat by it). */
   id?: string
   first: boolean
-  color?: number
-  from?: number
   children: ReactNode
 }) {
   return (
     <div data-turn={id} className={clsx(!first && 'mt-8 border-t border-border pt-8')}>
-      <div className="relative">
-        {SHOW_TURN_BARS && color !== undefined && (
-          <div
-            aria-hidden
-            // `--bar-gap`: its distance from the text, set by the chat (more where there's room on the left).
-            className="absolute top-0 bottom-0 left-[calc(-1*var(--bar-gap,16px))] w-px rounded-full"
-            style={{
-              background:
-                from !== undefined && from !== color
-                  ? `linear-gradient(in oklch, ${colorVar(from)}, ${colorVar(color)} 48px)`
-                  : colorVar(color),
-            }}
-          />
-        )}
-        {children}
-      </div>
+      {children}
     </div>
   )
 }

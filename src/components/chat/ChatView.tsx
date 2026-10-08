@@ -1,13 +1,13 @@
 import clsx from 'clsx'
 import { GitBranch, KeyRound, PanelLeftOpen, PanelRightClose, PanelRightOpen, Sparkles, SquarePen } from 'lucide-react'
 import { nanoid } from 'nanoid'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
 import { archiveThread, createConversation, lacksReply, selectPath, sendMessage, stopGeneration, threadToBranch } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
-import { branchColors, parentColor } from '../../lib/colors'
+import { branchColors } from '../../lib/colors'
 import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
 import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
@@ -350,8 +350,7 @@ export function ChatView() {
             onMouseOver={(e) => hoverTo(threadsAt(e.target))}
             onMouseLeave={() => hoverTo([])}
             className={clsx('shrink-0 px-6 py-8', slideClass)}
-            // Turn bars sit up to 48 px left of the text as the space left of the chat allows, at least 16 (owner).
-            style={{ width: frame.chatWidth, '--bar-gap': `${Math.min(48, 16 + frame.chatLeft)}px` } as CSSProperties}
+            style={{ width: frame.chatWidth }}
           >
             <ScrollHold.Provider value={scroll.hold}>
               {loading ? null : path.length === 0 ? (
@@ -372,7 +371,7 @@ export function ChatView() {
               ) : (
                 <div>
                   {path.map((n, i) => (
-                    <Turn key={n.id} id={n.id} first={i === 0} color={colors.get(n.id)} from={parentColor(colors, n)}>
+                    <Turn key={n.id} id={n.id} first={i === 0}>
                       <MessageNode
                         node={n}
                         siblings={siblings.get(n.id)}

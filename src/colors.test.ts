@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatNode } from './db'
-import { branchColors, GREY, parentColor } from './lib/colors'
+import { branchColors, GREY } from './lib/colors'
 
 let clock = 0
 function node(id: string, parentId: string | null, extra: Partial<ChatNode> = {}): ChatNode {
@@ -46,8 +46,6 @@ describe('branch colors', () => {
     const nodes = [br('a', null), br('b1', 'a'), br('b2', 'a'), node('t', 'a'), br('b3', 'a')]
     const c = branchColors(nodes)
     expect([c.get('b1'), c.get('b2'), c.get('b3'), c.get('t')]).toEqual([1, 2, 3, GREY])
-    expect(parentColor(c, nodes[1])).toBe(0)
-    expect(parentColor(c, nodes[0])).toBe(0)
   })
 
   it('continues a nested fork from the branch color and wraps around the ring', () => {
@@ -59,7 +57,6 @@ describe('branch colors', () => {
     expect(c.get('x1')).toBe(0)
     expect(c.get('x2')).toBe(1)
     expect(c.get('y')).toBe(1)
-    expect(parentColor(c, nodes.find((n) => n.id === 'x2')!)).toBe(6)
   })
 
   it('greys every attempt, a lone one too', () => {
