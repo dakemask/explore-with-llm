@@ -309,16 +309,11 @@ export function TreeMap({
                 onBlur={unhighlight}
               >
                 <circle className="halo" r={11} />
-                {u.type === 'stack' ? (
-                  <>
-                    <circle cx={3.5} cy={-3} r={5.5} style={{ fill: c }} opacity={0.55} />
-                    <circle r={5.5} style={{ fill: c, stroke: 'var(--c-surface)' }} strokeWidth={1.5} />
-                    <text x={10} y={4} fontSize={10.5} style={{ fill: 'var(--c-muted)' }}>
-                      ×{u.nodes.length}
-                    </text>
-                  </>
-                ) : (
-                  <circle className="core" r={5} style={{ fill: c }} />
+                <circle className="core" r={5} style={{ fill: c }} />
+                {u.type === 'stack' && (
+                  <text x={10} y={4} fontSize={10.5} style={{ fill: 'var(--c-muted)' }}>
+                    ×{u.nodes.length}
+                  </text>
                 )}
                 {here && <circle r={9.5} fill="none" style={{ stroke: 'var(--c-text)' }} strokeWidth={2} />}
               </g>

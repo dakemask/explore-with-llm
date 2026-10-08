@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useId, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { plainLine } from '../../lib/anchor'
@@ -60,7 +60,7 @@ const firstLine = (text: string) => plainLine(text, 30)
 
 /**
  * The versions at a node's fork, at the right end of its reply footer. Main nodes: one dot per branch in
- * its color, then the attempts as one grey stack (‹n/m› among them while one is shown). Side nodes: ‹n/m›.
+ * its color, then the attempts as one grey dot (‹n/m› among them while one is shown). Side nodes: ‹n/m›.
  */
 export function SiblingSwitcher({ info, onSelect }: { info: Siblings; onSelect: (id: string) => void }) {
   const t = useT()
@@ -194,19 +194,12 @@ function Dot({
   )
 }
 
-/** Two overlapping grey dots, like the tree map's attempt stack; ringed when one of the attempts is shown. */
+/** Several attempts: one grey dot (like a lone attempt's; the count beside it tells them apart), ringed when one of them is shown. */
 function Stack({ current }: { current?: boolean }) {
-  const mask = useId()
   return (
-    <svg width="16" height="16" viewBox="-8 -8 16 16" className="overflow-visible">
-      <mask id={mask}>
-        <rect x="-8" y="-8" width="16" height="16" fill="white" />
-        <circle cx="-1.4" cy="1.4" r="5" fill="black" />
-      </mask>
-      {/* The back dot is cut around the front one, so the two read as a stack on any background. */}
-      <circle cx="1.9" cy="-1.9" r="3.6" fill="var(--branch-grey)" mask={`url(#${mask})`} />
-      <circle cx="-1.4" cy="1.4" r="3.6" fill="var(--branch-grey)" />
-      {current && <circle r="7.75" fill="none" stroke="var(--c-text)" strokeWidth="1.5" />}
-    </svg>
+    <span
+      className={clsx('size-2 rounded-full', current && 'outline-[1.5px] outline-offset-2 outline-text outline-solid')}
+      style={{ background: colorVar(GREY) }}
+    />
   )
 }
