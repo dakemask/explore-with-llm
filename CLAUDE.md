@@ -217,13 +217,24 @@ What users see and can do, and why. These rules are deliberate: don't change one
 - Errors: a failed action the user just took (import, unreadable image, model fetch, saving a model config) → error notification (top right, stays until closed). A chat request's errors stay in the chat as the red error box with Details (HTTP errors, stream error events, network, connection dropped mid-reply with the partial text kept, empty reply). No request timeout (reasoning models can think for minutes); before the first output the reply shows "已等待 N 秒" after 5 s. A standing problem the user isn't looking at (e.g. the naming model was deleted) → one error notification when it matters (here: when a title was due); an identical notification already open isn't shown again (notifications stay until closed, so once is enough). Every error message names what it is about (e.g. "自定义请求头：第 1 行…").
 - Success: so far always a brief in-place confirmation (the button turns into ✓ + text for ~1.5 s, like copy buttons and "✓ 获取成功") or simply the visible result (dialog closes, list updates, conversation opens).
 - Help texts: consequences the user needs while deciding stay visible (request URL preview, "API Key 只保存在浏览器", edit-mode notes, state notes in the detail dialog); explanations of how something works go behind a hover question mark (`HelpTip`; a click pins it open until the next click on it, a click elsewhere or Escape); anything the UI already makes obvious is removed. Tooltips are always the app's `Tip`, never a native `title`.
-- UI languages: zh + en. Desktop only. Light and dark themes (the owner was willing to drop dark; it stays).
+- UI languages: zh + en. Desktop + phone (below). Light and dark themes (the owner was willing to drop dark; it stays).
 - UI should be clean and polished but not complex.
+
+### Phone (owner, 2026-10-09; being built — tasks 25–31)
+
+- Target: phones on Android Chrome; tablets not included. Features roughly complete, reshaped where the desktop form doesn't suit a phone. The desktop's behavior doesn't change: the phone layout applies only on narrow screens. One codebase: data, requests and rules are shared; only the layout and the touch-specific parts differ.
+- Data stays per browser: phone and computer don't share conversations or providers (export / import moves a conversation). Accepted by the owner.
+- Android's back gesture = Escape: closes the topmost open thing (side question / note sheet, tree map, dialog, menu…); with nothing open, it leaves the page as usual.
+- Side questions and notes: no column, no marker strip, no cascade of cards. The highlights stay in the text; tapping one opens it in a sheet rising from the bottom (about 90% of the screen; the strip of chat above it, or swiping down, closes it). No per-turn list of them for now (owner: not yet).
+- Tree map: fixed to the top half of the screen (like the old drop-down panel before task 15), the chat below; no dragging or resizing. A tap on a node jumps, the map stays open.
+- Hover tips: a long press shows them (switcher dots, tree map nodes); question-mark help opens with a tap.
+- Sending: Enter makes a new line; only the send button sends.
 
 ### Open (owner decides)
 
 - The names 尝试 / 分支 / 归档.
 - Whether some future case should show a success notification — ask when one comes up.
+- Phone: with the tree map open and the keyboard up, only a sliver of chat is left — hide the map while the keyboard is up? (asked 2026-10-09)
 
 ## Tasks
 
@@ -233,6 +244,14 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 - **Owner decides** the Open items above (names; success notifications when a case comes up).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
+- Phone (Product decisions › Phone), in this order, one at a time — todo:
+  25. Base layout: the narrow-screen switch, header, conversation list, chat, floating input box with the keyboard (Enter = new line), dialogs and settings fitting the screen. Set up checks on the owner's real phone (USB debugging).
+  26. Scrolling rules under touch (momentum, Chrome's address bar, the keyboard) — `useAutoScroll`, large.
+  27. Back gesture = Escape (through `Layer`).
+  28. Long-press tips, tap for help.
+  29. Side questions and notes as a bottom sheet (tap a highlight).
+  30. Selecting text on a phone → 追问 / 笔记 (beside Chrome's own selection menu and handles).
+  31. Tree map fixed to the top half.
 
 ### Done
 
