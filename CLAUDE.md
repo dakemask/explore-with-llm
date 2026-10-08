@@ -226,7 +226,7 @@ What users see and can do, and why. These rules are deliberate: don't change one
 - Data stays per browser: phone and computer don't share conversations or providers (export / import moves a conversation). Accepted by the owner.
 - Android's back gesture = Escape: closes the topmost open thing (side question / note sheet, tree map, dialog, menu…); with nothing open, it leaves the page as usual.
 - Side questions and notes: no column, no marker strip, no cascade of cards. The highlights stay in the text; tapping one opens it in a sheet rising from the bottom (about 90% of the screen; the strip of chat above it, or swiping down, closes it). No per-turn list of them for now (owner: not yet).
-- Tree map: fixed to the top half of the screen (like the old drop-down panel before task 15), the chat below; no dragging or resizing. A tap on a node jumps, the map stays open.
+- Tree map: fixed to the top half of the screen (like the old drop-down panel before task 15), the chat below; no dragging or resizing. A tap on a node jumps, the map stays open. It stays when the keyboard comes up too (owner, 2026-10-09: it never covers the input box; the chat between them may get small).
 - Hover tips: a long press shows them (switcher dots, tree map nodes); question-mark help opens with a tap.
 - Sending: Enter makes a new line; only the send button sends.
 
@@ -234,7 +234,6 @@ What users see and can do, and why. These rules are deliberate: don't change one
 
 - The names 尝试 / 分支 / 归档.
 - Whether some future case should show a success notification — ask when one comes up.
-- Phone: with the tree map open and the keyboard up, only a sliver of chat is left — hide the map while the keyboard is up? (asked 2026-10-09)
 
 ## Tasks
 
