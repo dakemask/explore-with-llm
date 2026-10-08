@@ -4,6 +4,8 @@ Pure-frontend branching chat app. Users bring their own provider + API key; all 
 
 The owner is not a programmer. Claude decides *how* things are built (code, libraries, architecture); the owner decides *what* users see and do. A technical choice that changes behavior the user notices, costs, or is hard to undo is explained in plain words and put to the owner (see Engineering principles › Before building). Requirements are disclosed incrementally — record each new decision in "Product decisions".
 
+Parts of this file are a trial in effect until 2026-10-10 (UTC+8). Which parts, and how they are tried, is disclosed only after that date.
+
 ## Way of working
 
 - There is a list of tasks (see Tasks; mostly independent, some depend on others). The owner and Claude pick one, and tasks can be added at any time.
@@ -27,14 +29,14 @@ model `mock-chat` streams plain reasoning + markdown/code/math, `mock-think` str
 
 Regression suites live in `scripts/browser/*-suite.mjs` (`scroll-stream`, `scroll-cards`, `scroll-branch` — the scroll suites, split to run side by side, helpers in `scroll-lib.mjs` —, `layers`, `selection`, `focus`, `switch`, `layout`; what each guards: its header); `run-all.mjs` there runs them side by side and starts / stops the mock itself (all ≈ 2 min; `node run-all.mjs scroll` runs the three scroll parts).
 
-Trial standard (owner, 2026-10-08, for the next 3 tasks, then review: checks took too long): Large changes run only the suites of the concerns they touch, not all; the full `run-all.mjs` runs every few tasks or before the owner tries several at once, not before each task. If a full run finds a break, find which recent commit caused it.
+Full runs (owner, 2026-10-08: checks took too long): the full `run-all.mjs` runs every 4 tasks (last: task 10; next due with task 13) or before the owner tries several at once, not before each task. Note each full run in Done. If a full run finds a break, find which recent commit caused it.
 
 How much to check depends on whether a change touches a shared concern, not on how big it looks (owner, 2026-10-08: full checks for tiny tasks were too slow; the foundations now make small additions predictable). The level comes from the same assessment as Engineering principles › Before building:
 - Always `pnpm test` + `pnpm build` (unit tests were once left broken because only the browser suites were rerun).
 - **Small** — text, i18n, tip contents, icons; styles or logic inside one component that touches no shared concern: just that; if it looks different, one cropped screenshot of that spot, one theme.
 - **Medium** — a new small component / menu item built on the existing owners (`Layer`, `Dialog`, `focus.ts`, `useAutoScroll`…) without changing them: + the suite of the concern it uses (e.g. a menu → `layers-suite`).
-- **Large** — changes a shared concern's owner (`useAutoScroll`, `Layer`, `focus.ts`, `ChatView`'s switch reset, `column.ts`, `useConversationData`), the data model / export format, streaming, or a feature spanning several parts: the suites of every concern touched (during the trial; else all), the browser in motion, both themes when styles change. Anything touching scrolling, streaming display, reasoning or side cards runs the scroll suites (`run-all.mjs scroll`); extend them with every scroll bug the owner reports.
-- The full `run-all.mjs` (during the trial: every few tasks, see above) checks small changes that add up together.
+- **Large** — changes a shared concern's owner (`useAutoScroll`, `Layer`, `focus.ts`, `ChatView`'s switch reset, `column.ts`, `useConversationData`), the data model / export format, streaming, or a feature spanning several parts: the suites of every concern touched (not all), the browser in motion, both themes when styles change. Anything touching scrolling, streaming display, reasoning or side cards runs the scroll suites (`run-all.mjs scroll`); extend them with every scroll bug the owner reports.
+- The full `run-all.mjs` (every 4 tasks, see above) checks small changes that add up together.
 - Screenshots only for new looks, cropped to the changed area; skip them where a suite already asserts the numbers (positions, widths, jumps). Both themes only when colors / tokens change.
 
 Shortcuts for scripts: seed the provider by writing straight into the `providers` store of the
