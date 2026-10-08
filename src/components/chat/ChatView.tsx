@@ -12,7 +12,7 @@ import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
 import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
 import { activePath, busyIds, isHidden } from '../../lib/tree'
-import { jumpSelection, readingTurn, type MapUnit } from '../../lib/treeMap'
+import { jumpScroll, jumpSelection, readingTurn, type MapUnit } from '../../lib/treeMap'
 import { archiveNote, createNote, noteTitle } from '../../lib/notes'
 import { glideTo, marginTop, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { useConversationData } from '../../lib/useConversationData'
@@ -240,6 +240,12 @@ export function ChatView() {
   const jumpedTo = useRef<string | null>(null)
   const treeOpen = !!tree
   useEffect(() => scroll.onUserScroll(() => (jumpedTo.current = null)), [scroll.onUserScroll])
+  /** The visible chat for the reading line: the input box floats over the chat's bottom, what's under it isn't being read. */
+  const readingView = (box: HTMLElement) => {
+    const area = box.getBoundingClientRect()
+    const bottom = Math.min(area.bottom, composerRef.current?.getBoundingClientRect().top ?? area.bottom)
+    return { top: area.top, bottom, scrollTop: box.scrollTop, maxScroll: box.scrollHeight - box.clientHeight }
+  }
   useEffect(() => {
     const box = scroll.containerRef.current
     if (!treeOpen || !box) return
@@ -247,11 +253,7 @@ export function ChatView() {
       const turns = [...box.querySelectorAll<HTMLElement>('[data-turn]')]
       const pinned = jumpedTo.current && turns.find((el) => el.dataset.turn === jumpedTo.current)
       if (pinned) return setTreeCurrent(jumpedTo.current!)
-      const area = box.getBoundingClientRect()
-      // The input box floats over the chat's bottom: what's under it isn't being read.
-      const bottom = Math.min(area.bottom, composerRef.current?.getBoundingClientRect().top ?? area.bottom)
-      const view = { top: area.top, bottom, scrollTop: box.scrollTop, maxScroll: box.scrollHeight - box.clientHeight }
-      const at = readingTurn(turns.map((el) => el.getBoundingClientRect().top), view)
+      const at = readingTurn(turns.map((el) => el.getBoundingClientRect().top), readingView(box))
       setTreeCurrent(turns[at]?.dataset.turn ?? last?.id)
     }
     read()
@@ -266,7 +268,7 @@ export function ChatView() {
       box.removeEventListener('scroll', onScroll)
     }
   }, [treeOpen, path, last?.id, scroll.containerRef])
-  /** Shows the clicked turn: remember the selection at every fork above it, then scroll it to the top. */
+  /** Shows the clicked turn: remember the selection at every fork above it, then scroll it to the reading line. */
   const jump = (unit: MapUnit) => {
     if (!conversation || !nodes) return
     const { target, selection } = jumpSelection(nodes, unit, conversation.selectedChild)
@@ -280,11 +282,16 @@ export function ChatView() {
     const box = scroll.containerRef.current
     const el = scrollTarget && box?.querySelector<HTMLElement>(`[data-turn="${CSS.escape(scrollTarget)}"]`)
     if (!box || !el) return // not on the path yet: the selection is still being saved
-    // (The turn's scroll margin: room for its header on the frame's top border.)
+    // Its top (with its scroll margin: the header on the frame's border) a little above the reading line.
+    const view = readingView(box)
     const top =
       path[0]?.id === scrollTarget
         ? 0
-        : el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - marginTop(el)
+        : jumpScroll(
+            el.getBoundingClientRect().top - view.top + box.scrollTop - marginTop(el),
+            view.bottom - view.top,
+            view.maxScroll,
+          )
     glideTo(box, top)
     setScrollTarget(null)
   }, [path, scrollTarget, scroll.containerRef])
@@ -293,7 +300,7 @@ export function ChatView() {
 
   return (
     <main ref={mainRef} className="relative flex h-full min-w-0 flex-1 flex-col bg-bg">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-strong px-4">
         <div className="-mr-1 flex items-center gap-1">
           <ConversationList />
           <IconButton label={t('sidebar.settings')} onClick={() => openSettings()}>
@@ -328,7 +335,7 @@ export function ChatView() {
       <div
         aria-hidden
         className={clsx(
-          'pointer-events-none absolute top-14 bottom-0 w-px bg-border transition-opacity duration-200',
+          'pointer-events-none absolute top-14 bottom-0 w-px bg-border-strong transition-opacity duration-200',
           slide && 'transition-[left,opacity] ease-out motion-reduce:transition-none',
           !column.open && 'opacity-0',
         )}

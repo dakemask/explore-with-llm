@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ROOT_KEY, type ChatNode } from './db'
-import { carryKeys, currentUnit, jumpSelection, layoutTree, readingTurn, routeTo, type TreeLayout } from './lib/treeMap'
+import { carryKeys, currentUnit, jumpScroll, jumpSelection, layoutTree, readingLine, readingTurn, routeTo, type TreeLayout } from './lib/treeMap'
 
 let clock = 0
 function node(id: string, parentId: string | null, extra: Partial<ChatNode> = {}): ChatNode {
@@ -189,9 +189,9 @@ describe('"current" while the chat scrolls', () => {
     expect(readingTurn(tops(0), view(0))).toBe(0)
   })
 
-  it('mid-way: the turn crossing a third of the way down', () => {
+  it('mid-way: the turn crossing halfway down', () => {
     const long = [0, 300, 600, 900, 1200, 1500, 1800, 2100, 2400, 2700].map((t) => t - 1000)
-    // scrollTop 1000 of 2000: line at 300 → content 1300 → the turn starting at 1200.
+    // scrollTop 1000 of 2000: line at 450 → content 1450 → the turn starting at 1200.
     expect(readingTurn(long, view(1000, 2000))).toBe(4)
   })
 
@@ -212,5 +212,37 @@ describe('"current" while the chat scrolls', () => {
       prev = at
     }
     expect(prev).toBe(5)
+  })
+})
+
+describe('where a jump from the map scrolls', () => {
+  // A 900 px tall view, turns starting every 300 px of content (10 turns), 2000 px to scroll.
+  const contentTops = [0, 300, 600, 900, 1200, 1500, 1800, 2100, 2400, 2700]
+  const view = (scrollTop: number) => ({ top: 0, bottom: 900, scrollTop, maxScroll: 2000 })
+  const at = (st: number) => readingTurn(contentTops.map((t) => t - st), view(st))
+
+  it('mid-way (a screen from both ends): the turn top sits lead px above the line, halfway down', () => {
+    const st = jumpScroll(2000, 900, 4000, 90)
+    expect(2000 - st).toBe(450 - 90)
+  })
+
+  it('near the ends (the line slides): the line still falls inside the turn', () => {
+    for (const i of [1, 2, 7, 8]) {
+      const st = jumpScroll(contentTops[i], 900, 2000, 90)
+      expect(readingLine(view(st)) - (contentTops[i] - st)).toBeCloseTo(90, 0)
+      expect(at(st)).toBe(i)
+    }
+  })
+
+  it('a little scrolling either way keeps the same turn current', () => {
+    for (const i of [2, 4, 6]) {
+      const st = jumpScroll(contentTops[i], 900, 2000, 90)
+      for (const d of [-60, -20, 20, 60]) expect(at(st + d)).toBe(i)
+    }
+  })
+
+  it('clamped to what can scroll', () => {
+    expect(jumpScroll(3000, 900, 2000)).toBe(2000)
+    expect(jumpScroll(300, 900, 0)).toBe(0)
   })
 })

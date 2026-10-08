@@ -133,28 +133,63 @@ export function carryKeys(prev: Map<string, string>, layout: TreeLayout) {
   return { byUnit, byNode }
 }
 
+/** The visible chat (`top`–`bottom`, screen px; the input box's cover left out) and its scroll state. */
+export interface ReadingView {
+  top: number
+  bottom: number
+  scrollTop: number
+  maxScroll: number
+}
+
 /**
- * The tree map's "current" turn while the chat scrolls (owner, 2026-10-08): the turn crossing a *reading
- * line* a third of the way down the visible chat (`top`–`bottom`, screen px; the input box's cover left
- * out). Within a screen of either end the line slides toward that edge (top: scrolled to the top, bottom:
- * scrolled to the end — also when nothing scrolls), so the first and the last turn, however short, get
- * their turn. `turnTops` = each turn's top on screen, in order; returns the index of the turn (the last one
- * starting at or above the line; the first if none does).
+ * The *reading line* (screen y): halfway down the visible chat (owner, 2026-10-08; was a third). Within a
+ * screen of either end it slides toward that edge (top: scrolled to the top, bottom: scrolled to the end —
+ * also when nothing scrolls), so the first and the last turn, however short, get their turn.
  */
-export function readingTurn(turnTops: number[], view: { top: number; bottom: number; scrollTop: number; maxScroll: number }) {
-  const { top, bottom, scrollTop, maxScroll } = view
+export function readingLine({ top, bottom, scrollTop, maxScroll }: ReadingView) {
   const screen = Math.max(1, bottom - top)
-  const base = top + screen / 3
+  const base = top + screen / 2
   const fromTop = Math.min(1, scrollTop / screen)
   const fromEnd = Math.min(1, Math.max(0, maxScroll - scrollTop) / screen)
   const nearTop = top + (base - top) * fromTop
   // (`- 1`: the line stays on screen, inside the last turn when scrolled to the end.)
-  const line = bottom - 1 + (nearTop - (bottom - 1)) * fromEnd
+  return bottom - 1 + (nearTop - (bottom - 1)) * fromEnd
+}
+
+/**
+ * The tree map's "current" turn while the chat scrolls (owner, 2026-10-08): the turn crossing the reading
+ * line. `turnTops` = each turn's top on screen, in order; returns the index of the turn (the last one
+ * starting at or above the line; the first if none does).
+ */
+export function readingTurn(turnTops: number[], view: ReadingView) {
+  const line = readingLine(view)
   let at = 0
   turnTops.forEach((t, i) => {
     if (t <= line) at = i
   })
   return at
+}
+
+/**
+ * Where a jump from the map scrolls (owner, 2026-10-08): the turn's top a little above the reading line
+ * (`lead` px; a tenth of the screen by default), so the line is inside the turn and scrolling a little
+ * doesn't make "current" flip to its neighbour. The line slides near the ends, so this solves for the
+ * scroll position where turn top + lead = line (unique: the gap only shrinks as the view scrolls down);
+ * clamped to what can scroll. `turnTop` = the turn's top in scroll coordinates (at scrollTop 0);
+ * `height` = the visible chat's height (`bottom - top` of `ReadingView`).
+ */
+export function jumpScroll(turnTop: number, height: number, maxScroll: number, lead = Math.max(40, height / 10)) {
+  const gap = (s: number) => readingLine({ top: 0, bottom: height, scrollTop: s, maxScroll }) - (turnTop - s) - lead
+  if (gap(0) >= 0) return 0
+  if (gap(maxScroll) <= 0) return Math.max(0, maxScroll)
+  let lo = 0
+  let hi = maxScroll
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2
+    if (gap(mid) < 0) lo = mid
+    else hi = mid
+  }
+  return Math.round(hi)
 }
 
 /** Unit ids from the top down to `unitId`. */

@@ -172,7 +172,7 @@ export function Turn({
         framed
           ? // Room for the node header sitting on the top border (24 px apart, owner, 2026-10-08); brought to
             // the top (a jump), the header shows.
-            ['relative -mx-3 scroll-mt-5 rounded-xl border border-border px-3 pt-5 pb-3', !first && 'mt-6']
+            ['relative -mx-3 scroll-mt-5 rounded-xl border border-border-strong px-3 pt-5 pb-3', !first && 'mt-6']
           : !first && 'mt-6 border-t border-border pt-4',
       )}
     >
