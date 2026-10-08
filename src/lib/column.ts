@@ -20,7 +20,7 @@ export interface Frame {
 }
 
 /** The marker strip's width: the column's left part (cards start right of it), all of it when collapsed. */
-export const STRIP = 22
+export const STRIP = 14
 /** The column (dragged wider) never leaves the chat narrower than this, unless the column is at its minimum. */
 export const CHAT_MIN = 420
 

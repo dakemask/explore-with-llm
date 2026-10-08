@@ -12,9 +12,9 @@ export interface ConversationFile {
   format: typeof FORMAT
   /**
    * 1: before node kinds (no `branch` / `archived`; branches are derived on import). 2: before notes. 3: before labels.
-   * 4: before system messages (none was sent).
+   * 4: before system messages (none was sent). 5: before note titles.
    */
-  version: 1 | 2 | 3 | 4 | 5
+  version: 1 | 2 | 3 | 4 | 5 | 6
   exportedAt: number
   conversation: Conversation
   nodes: ChatNode[]
@@ -37,7 +37,7 @@ export async function exportConversation(id: string): Promise<{ name: string; js
   const keys = (await db.providers.toArray()).map((p) => p.apiKey)
   const file: ConversationFile = {
     format: FORMAT,
-    version: 5,
+    version: 6,
     exportedAt: Date.now(),
     conversation,
     nodes: stripSecrets(nodes, keys),
@@ -155,7 +155,7 @@ function parseFile(text: string): ConversationFile {
     throw new ImportError('not JSON')
   }
   if (!f || f.format !== FORMAT) throw new ImportError('not an exported conversation')
-  if (![1, 2, 3, 4, 5].includes(f.version)) throw new ImportError(`unsupported version ${f.version}`)
+  if (![1, 2, 3, 4, 5, 6].includes(f.version)) throw new ImportError(`unsupported version ${f.version}`)
   const c = f.conversation
   if (!c || typeof c.title !== 'string' || !isRecord(c.selectedChild) || !Array.isArray(f.nodes) || !Array.isArray(f.images))
     throw new ImportError('missing fields')
@@ -194,6 +194,7 @@ const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
 function isNote(n: any, nodeIds: Set<string>) {
   if (!isRecord(n) || typeof n.id !== 'string' || typeof n.text !== 'string' || !nodeIds.has(n.nodeId)) return false
   if (n.target !== 'user' && n.target !== 'assistant') return false
+  if (n.title !== undefined && typeof n.title !== 'string') return false
   const a = n.anchor
   if (!isRecord(a) || !isNum(a.start) || !isNum(a.end) || a.end < a.start || typeof a.text !== 'string') return false
   return isNum(n.createdAt) && isNum(n.updatedAt) && (n.archived === undefined || isNum(n.archived))

@@ -2,7 +2,7 @@ import { NotebookPen, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Note } from '../../db'
 import { useT } from '../../i18n'
-import { archiveNote, deleteNote, saveNoteText } from '../../lib/notes'
+import { archiveNote, deleteNote, noteFirstLine, saveNoteText, saveNoteTitle } from '../../lib/notes'
 import { Markdown } from '../chat/Markdown'
 import { Button } from '../ui/Button'
 import { CardMenu, NoteMenuItems } from './CardMenu'
@@ -10,27 +10,37 @@ import { collapseOnClick } from './SideColumn'
 
 /**
  * The expanded card of a note in the column: the rendered Markdown with an Edit button, or a plain editor
- * (a new, empty note opens in it). Typing saves after a short pause; leaving the editor saves at once. A
- * note that is empty when its editor closes or its card goes away is deleted (it never existed).
+ * (a new, empty note opens in it), under a title box in the header (empty = the text's first line shows,
+ * as its placeholder). Typing saves after a short pause; leaving the editor saves at once. A note with
+ * neither text nor title when its editor closes or its card goes away is deleted (it never existed).
  */
 export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => void }) {
   const t = useT()
   // Local text: IndexedDB writes are async, so binding to the stored note would drop keystrokes.
   const [text, setText] = useState(note.text)
+  const [title, setTitle] = useState(note.title ?? '')
   const [editing, setEditing] = useState(!note.text.trim())
-  const latest = useRef({ text, saved: note.text })
+  const editor = useRef<HTMLTextAreaElement>(null)
+  const latest = useRef({ text, saved: note.text, title, savedTitle: note.title ?? '' })
   latest.current.text = text
+  latest.current.title = title
+  const empty = () => !latest.current.text.trim() && !latest.current.title.trim()
 
   const flush = () => {
-    const { text, saved } = latest.current
-    if (text === saved) return
-    latest.current.saved = text
-    void saveNoteText(note.id, text)
+    const l = latest.current
+    if (l.text !== l.saved) {
+      l.saved = l.text
+      void saveNoteText(note.id, l.text)
+    }
+    if (l.title !== l.savedTitle) {
+      l.savedTitle = l.title
+      void saveNoteTitle(note.id, l.title)
+    }
   }
   useEffect(() => {
     const timer = setTimeout(flush, 400)
     return () => clearTimeout(timer)
-  }, [text])
+  }, [text, title])
 
   // The card goes away (collapsed, another card expanded, conversation switched): save, or delete if empty.
   // Deferred so a remount right away (StrictMode) doesn't count.
@@ -41,14 +51,14 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
       mounted.current = false
       setTimeout(() => {
         if (mounted.current) return
-        if (!latest.current.text.trim()) void deleteNote(note.id)
+        if (empty()) void deleteNote(note.id)
         else flush()
       })
     }
   }, [note.id])
 
   const done = () => {
-    if (!text.trim()) {
+    if (empty()) {
       void deleteNote(note.id)
       onCollapse()
       return
@@ -69,11 +79,33 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
         onClick={collapseOnClick(onCollapse)}
         className="flex shrink-0 cursor-pointer items-center gap-1 border-b border-border py-2 pr-2 pl-4"
       >
-        <div className="flex h-7 min-w-0 flex-1 items-center gap-2 text-[13px] font-medium text-muted">
-          <NotebookPen size={14} className="shrink-0 text-mark-note-strong" />
-          {t('note.label')}
+        <div className="flex h-7 min-w-0 flex-1 items-center gap-2">
+          <NotebookPen size={14} className="shrink-0 text-node" />
+          <input
+            value={title}
+            aria-label={t('note.titlePlaceholder')}
+            placeholder={noteFirstLine(text) || t('note.titlePlaceholder')}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={flush}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing) return
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                if (editing) editor.current?.focus()
+                else setEditing(true)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                if (editing) done()
+                else {
+                  flush()
+                  onCollapse()
+                }
+              }
+            }}
+            className="h-7 min-w-0 flex-1 truncate bg-transparent text-[13.5px] font-semibold placeholder:font-normal placeholder:text-faint focus:outline-none"
+          />
         </div>
-        {text.trim() && (
+        {(text.trim() || title.trim()) && (
           <CardMenu>
             <NoteMenuItems onArchive={() => void archive()} />
           </CardMenu>
@@ -84,6 +116,7 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
         {editing ? (
           // Fills the card (fixed height, like a side question's); its text scrolls inside.
           <textarea
+            ref={editor}
             value={text}
             autoFocus
             placeholder={t('note.placeholder')}

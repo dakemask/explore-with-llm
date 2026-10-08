@@ -33,18 +33,14 @@
   --c-success-soft: #ecfdf3;
   --c-user-bubble: #f0efec;
   --c-code-bg: #f6f6f4;
-  --c-anchor: rgb(79 70 229 / 0.09);
-  --c-anchor-active: rgb(79 70 229 / 0.2);
-  --c-anchor-line: rgb(79 70 229 / 0.45);
-  /* Marker bars in the side-question column (side questions; notes, step 6.5). */
-  --c-mark-side: rgb(79 70 229 / 0.3);
-  --c-mark-side-strong: rgb(79 70 229 / 0.8);
-  --c-mark-note: oklch(0.76 0.13 75 / 0.55);
-  --c-mark-note-strong: oklch(0.68 0.15 70);
-  /* Text with a note on it (amber, beside the side questions' indigo). */
-  --c-note: oklch(0.85 0.13 85 / 0.22);
-  --c-note-active: oklch(0.85 0.14 85 / 0.5);
-  --c-note-line: oklch(0.72 0.15 75 / 0.75);
+  /*
+   * Side questions and notes take their node's branch color (`--node`, set on each turn and column item):
+   * how much of it highlights (resting / hovered), their underline and the marker bars use.
+   */
+  --hl: 16%;
+  --hl-active: 34%;
+  --hl-line: 75%;
+  --mark: 50%;
   /* Branch colors (lib/colors.ts): the 7-color ring, then grey for attempts with siblings. */
   --branch-0: oklch(0.62 0.2 27);
   --branch-1: oklch(0.72 0.17 55);
@@ -80,16 +76,10 @@
   --c-success-soft: rgb(74 222 128 / 0.12);
   --c-user-bubble: #2c2c2a;
   --c-code-bg: #1f1f1e;
-  --c-anchor: rgb(129 140 248 / 0.13);
-  --c-anchor-active: rgb(129 140 248 / 0.28);
-  --c-anchor-line: rgb(129 140 248 / 0.55);
-  --c-mark-side: rgb(129 140 248 / 0.35);
-  --c-mark-side-strong: rgb(129 140 248 / 0.9);
-  --c-mark-note: oklch(0.78 0.12 75 / 0.45);
-  --c-mark-note-strong: oklch(0.8 0.14 75);
-  --c-note: oklch(0.8 0.12 80 / 0.13);
-  --c-note-active: oklch(0.8 0.13 80 / 0.28);
-  --c-note-line: oklch(0.78 0.13 78 / 0.6);
+  --hl: 18%;
+  --hl-active: 32%;
+  --hl-line: 70%;
+  --mark: 45%;
   /* Light values + 0.06 lightness, capped at 0.86. */
   --branch-0: oklch(0.68 0.2 27);
   --branch-1: oklch(0.78 0.17 55);
@@ -125,16 +115,7 @@
   --color-success-soft: var(--c-success-soft);
   --color-user-bubble: var(--c-user-bubble);
   --color-code-bg: var(--c-code-bg);
-  --color-anchor: var(--c-anchor);
-  --color-anchor-active: var(--c-anchor-active);
-  --color-anchor-line: var(--c-anchor-line);
-  --color-mark-side: var(--c-mark-side);
-  --color-mark-side-strong: var(--c-mark-side-strong);
-  --color-mark-note: var(--c-mark-note);
-  --color-mark-note-strong: var(--c-mark-note-strong);
-  --color-note: var(--c-note);
-  --color-note-active: var(--c-note-active);
-  --color-note-line: var(--c-note-line);
+  --color-node: var(--node, var(--branch-grey));
   --shadow-pop: var(--shadow-pop);
   --shadow-composer: var(--shadow-composer);
   --font-sans:
@@ -384,48 +365,50 @@
 }
 
 /*
- * Text quoted by side questions (indigo) and notes (amber). Runs are split per element, so keep the look
- * seamless across them. Where both overlap: the side question's tint over the note's underline.
+ * Text quoted by side questions and notes, in its node's color (`--node`): side questions underlined,
+ * notes underlined dashed, both where they overlap. Runs are split per element, so keep the look seamless
+ * across them.
  */
 .prose .anchor-hl,
 .prose .anchor-note {
   color: inherit;
   cursor: pointer;
+  background: color-mix(in srgb, var(--node, var(--branch-grey)) var(--hl), transparent);
   transition: background-color 120ms;
 }
 .prose .anchor-hl {
-  background: var(--c-anchor);
-  box-shadow: inset 0 -1.5px 0 var(--c-anchor-line);
+  box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--node, var(--branch-grey)) var(--hl-line), transparent);
 }
 .prose .anchor-note {
-  background: var(--c-note);
-  box-shadow: inset 0 -1.5px 0 var(--c-note-line);
-}
-.prose .anchor-hl.anchor-note {
-  background: linear-gradient(var(--c-anchor), var(--c-anchor)), var(--c-note);
-  box-shadow: inset 0 -1.5px 0 var(--c-anchor-line), inset 0 -3px 0 var(--c-note-line);
+  text-decoration: underline dashed 1.5px color-mix(in srgb, var(--node, var(--branch-grey)) var(--hl-line), transparent);
+  text-underline-offset: 4px;
 }
 .prose .anchor-hl:hover,
-.prose .anchor-hl.active {
-  background: var(--c-anchor-active);
-}
-.prose .anchor-note:not(.anchor-hl):hover,
+.prose .anchor-hl.active,
+.prose .anchor-note:hover,
 .prose .anchor-note.note-active {
-  background: var(--c-note-active);
+  background: color-mix(in srgb, var(--node, var(--branch-grey)) var(--hl-active), transparent);
 }
 
-/* A side question turning into a branch fades its highlight out (`LEAVE_MS`). */
-.prose .anchor-hl.leaving {
+/* A side question turning into a branch fades its highlight out (`LEAVE_MS`); a note on it stays. */
+.prose .anchor-hl.leaving:not(.anchor-note) {
   background: transparent;
+}
+.prose .anchor-hl.leaving {
   box-shadow: none;
   cursor: auto;
   transition:
     background-color 200ms,
     box-shadow 200ms;
 }
-.prose .anchor-hl.anchor-note.leaving {
-  background: var(--c-note);
-  box-shadow: inset 0 -1.5px 0 var(--c-note-line);
+
+/* Marker bars in the side column, in their node's color: resting, deeper on hover / lit. */
+.node-bar {
+  background: color-mix(in srgb, var(--node, var(--branch-grey)) var(--mark), transparent);
+}
+.group\/bar:hover .node-bar,
+.node-bar.lit {
+  background: var(--node, var(--branch-grey));
 }
 
 /* ---------- Tree map (components/chat/TreeMap.tsx) ---------- */

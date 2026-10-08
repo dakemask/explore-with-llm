@@ -7,7 +7,7 @@ import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
 import { archiveThread, createConversation, lacksReply, selectPath, sendMessage, stopGeneration, threadToBranch } from '../../lib/chat'
 import type { ImageFile } from '../../lib/images'
-import { branchColors } from '../../lib/colors'
+import { branchColors, colorVar, GREY } from '../../lib/colors'
 import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
 import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
@@ -148,7 +148,7 @@ export function ChatView() {
     else if (ids.length > 1) {
       const entry = (id: string) => {
         const it = side.items.find((it) => it.id === id)
-        if (it?.kind === 'note') return { id, kind: 'note' as const, title: noteTitle(it.note.text) || t('note.new') }
+        if (it?.kind === 'note') return { id, kind: 'note' as const, title: noteTitle(it.note) || t('note.new') }
         return { id, kind: 'side' as const, title: conversation?.threadTitles?.[id] ?? (it?.fallback || t('image.only')) }
       }
       setPicker({ x: e.clientX, y: e.clientY, items: ids.map(entry) })
@@ -364,14 +364,7 @@ export function ChatView() {
 
       {hoverMarks.length > 0 && (
         <style>
-          {(['side', 'note'] as const)
-            .map((kind) => {
-              const marks = hoverMarks.filter((it) => it.kind === kind)
-              if (!marks.length) return ''
-              const sel = marks.map((it) => `.prose mark[data-threads~="${CSS.escape(it.mark)}"]`).join(',')
-              return `${sel}{background: var(${kind === 'note' ? '--c-note-active' : '--c-anchor-active'})}`
-            })
-            .join('')}
+          {`${hoverMarks.map((it) => `.prose mark[data-threads~="${CSS.escape(it.mark)}"]`).join(',')}{background: color-mix(in srgb, var(--node, var(--branch-grey)) var(--hl-active), transparent)}`}
         </style>
       )}
 
@@ -418,7 +411,7 @@ export function ChatView() {
               ) : (
                 <div>
                   {path.map((n, i) => (
-                    <Turn key={n.id} id={n.id} first={i === 0} framed>
+                    <Turn key={n.id} id={n.id} first={i === 0} framed color={colorVar(colors.get(n.id) ?? GREY)}>
                       <MessageNode
                         node={n}
                         siblings={siblings.get(n.id)}
@@ -439,6 +432,7 @@ export function ChatView() {
           {conversation && nodes && (
             <SideColumn
               items={path.length ? side.items : []}
+              colorOf={(nodeId) => colorVar(colors.get(nodeId) ?? GREY)}
               width={frame.sideWidth}
               content={scroll.contentRef}
               scroller={scroll.containerRef}

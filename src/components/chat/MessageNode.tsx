@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Archive, AlertCircle, Brain, Check, ChevronRight, Copy, GitBranch, Info, Lock, MoreHorizontal, Pencil, RotateCcw, Tag } from 'lucide-react'
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { useCopy, useScrollHold } from '../../lib/hooks'
@@ -158,17 +158,21 @@ export function Turn({
   id,
   first,
   framed,
+  color,
   children,
 }: {
   /** The node id, as `data-turn` (the tree map finds turns in the chat by it). */
   id?: string
   first: boolean
   framed?: boolean
+  /** Its branch color (CSS value): what its side questions' and notes' highlights are tinted with. */
+  color?: string
   children: ReactNode
 }) {
   return (
     <div
       data-turn={id}
+      style={color ? ({ '--node': color } as CSSProperties) : undefined}
       className={clsx(
         framed
           ? // Room for the node header sitting on the top border (24 px apart, owner, 2026-10-08); brought to

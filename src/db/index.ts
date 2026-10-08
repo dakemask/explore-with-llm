@@ -108,7 +108,7 @@ export async function recoverInterruptedNodes() {
 
 /** A new note left empty when the app closed (its card would have deleted it). */
 export async function dropEmptyNotes() {
-  const empty = await db.notes.filter((n) => !n.text.trim()).primaryKeys()
+  const empty = await db.notes.filter((n) => !n.text.trim() && !n.title?.trim()).primaryKeys()
   if (empty.length) await db.notes.bulkDelete(empty)
 }
 

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, STRIP, type Span } from '../../lib/column'
 import { Tip } from '../ui/Button'
 import { Layer } from '../ui/Layer'
@@ -11,6 +11,8 @@ import { Layer } from '../ui/Layer'
 export interface ColumnItem {
   id: string
   kind: 'side' | 'note'
+  /** The main node it sits on (its color: `colorOf`). */
+  nodeId: string
   /** The id its highlight carries in `data-threads` (where it is measured). */
   mark: string
   title: ReactNode
@@ -24,11 +26,8 @@ export const LEAVE_MS = 200
 /** Cards sit this much above their anchor's first line, so their title lines up with it. */
 const LIFT = 9
 
-/** Marker bar colors per kind: resting (deepens on hover), lit (its card is hovered or expanded). */
-const barClass = {
-  side: ['bg-mark-side group-hover/bar:bg-mark-side-strong', 'bg-mark-side-strong'],
-  note: ['bg-mark-note group-hover/bar:bg-mark-note-strong', 'bg-mark-note-strong'],
-}
+/** Sets `--node` (the item's node color: its bar, card icon) on an element's style. */
+const nodeStyle = (color: string, style: CSSProperties) => ({ ...style, '--node': color }) as CSSProperties
 
 /**
  * The column right of the chat, inside the chat's scroll area. Collapsed cards sit level with their
@@ -38,6 +37,7 @@ const barClass = {
  */
 export function SideColumn({
   items,
+  colorOf,
   width,
   content,
   scroller,
@@ -53,6 +53,8 @@ export function SideColumn({
   renderMenu,
 }: {
   items: ColumnItem[]
+  /** A node's branch color (CSS value). */
+  colorOf: (nodeId: string) => string
   width: number
   /** The chat content holding the highlights. */
   content: RefObject<HTMLElement | null>
@@ -116,7 +118,7 @@ export function SideColumn({
     open === null ? [] : [expanded!, ...coveredCards(tops, open, open + cardHeight).map((i) => placed[i].id)],
   )
   const { lanes, count } = markerLanes(placed.map((it) => spans[it.id]))
-  const laneWidth = Math.min(6, (STRIP - 6) / Math.max(1, count))
+  const laneWidth = Math.min(6, (STRIP - 4) / Math.max(1, count))
   const extent =
     Math.max(
       0,
@@ -146,9 +148,9 @@ export function SideColumn({
                 'group/bar absolute flex justify-center rounded-sm transition-[top,height,opacity] duration-200 focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
                 leaving[it.id] && 'pointer-events-none opacity-0',
               )}
-              style={{ top: span.top, height: span.bottom - span.top, left: 6 + lanes[i] * laneWidth, width: laneWidth }}
+              style={nodeStyle(colorOf(it.nodeId), { top: span.top, height: span.bottom - span.top, left: 2 + lanes[i] * laneWidth, width: laneWidth })}
             >
-              <span className={clsx('h-full w-[3px] rounded-full transition-colors', barClass[it.kind][lit ? 1 : 0])} />
+              <span className={clsx('node-bar h-full w-[3px] rounded-full transition-colors', lit && 'lit')} />
             </button>
           </Tip>
         )
@@ -168,12 +170,12 @@ export function SideColumn({
                 onMouseEnter={() => onHover([it.id])}
                 onMouseLeave={() => onHover([])}
                 className={clsx(
-                  'group/card absolute right-3 flex items-center rounded-lg border bg-surface text-[13px] shadow-xs',
+                  'group/card absolute right-1.5 flex items-center rounded-lg border bg-surface text-[13px] shadow-xs',
                   'transition-[top,opacity,border-color,background-color] duration-200',
                   lit ? 'border-border-strong' : 'border-border hover:border-border-strong',
                   (covered || leaving[it.id]) && 'pointer-events-none opacity-0',
                 )}
-                style={{ top: tops[i], left: STRIP, height: CARD_HEIGHT }}
+                style={nodeStyle(colorOf(it.nodeId), { top: tops[i], left: STRIP, height: CARD_HEIGHT })}
               >
                 <button
                   tabIndex={covered ? -1 : undefined}
@@ -196,10 +198,10 @@ export function SideColumn({
           key={expanded}
           data-expanded={expanded}
           className={clsx(
-            'anim-fade absolute right-3 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top,opacity] duration-200',
+            'anim-fade absolute right-1.5 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top,opacity] duration-200',
             leaving[expanded!] && 'pointer-events-none opacity-0',
           )}
-          style={{ top: open, left: STRIP, height: cardLimit }}
+          style={nodeStyle(colorOf(placed.find((it) => it.id === expanded)!.nodeId), { top: open, left: STRIP, height: cardLimit })}
           onMouseEnter={() => onHover([expanded!])}
           onMouseLeave={() => onHover([])}
           // Collapses only by Escape (or its buttons), never by clicks or focus elsewhere.
@@ -213,13 +215,14 @@ export function SideColumn({
 }
 
 /**
- * An expanded card's header collapses it when clicked, except on its buttons. (React events bubble out of
- * portals too: a click in the header's menu must not count, hence the DOM `contains`.)
+ * An expanded card's header collapses it when clicked, except on its buttons and inputs (a note's title
+ * box). (React events bubble out of portals too: a click in the header's menu must not count, hence the
+ * DOM `contains`.)
  */
 export function collapseOnClick(onCollapse: () => void) {
   return (e: MouseEvent<HTMLElement>) => {
     const target = e.target as Element
-    if (e.currentTarget.contains(target) && !target.closest('button')) onCollapse()
+    if (e.currentTarget.contains(target) && !target.closest('button, input')) onCollapse()
   }
 }
 

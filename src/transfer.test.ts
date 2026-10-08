@@ -84,7 +84,7 @@ describe('conversation export / import', () => {
 
   it('exports version 5 and still imports versions 4 (no system messages) and 3 (no labels)', async () => {
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(5)
+    expect(f.version).toBe(6)
     f.version = 4
     for (const n of f.nodes) delete n.system
     const v4 = await importConversation(JSON.stringify(f))

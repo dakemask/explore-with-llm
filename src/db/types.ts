@@ -191,6 +191,8 @@ export interface Note {
   /** Offsets into the target text + the quoted text. */
   anchor: SideAnchor
   text: string
+  /** The user's title (absent = none: the first line of `text` shows). */
+  title?: string
   createdAt: number
   updatedAt: number
   /** When the user archived it (restored from the archive dialog). */

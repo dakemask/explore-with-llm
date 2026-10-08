@@ -1,3 +1,4 @@
+import { MessageSquareText } from 'lucide-react'
 import { type RefObject } from 'react'
 import type { ChatNode, Conversation } from '../../db'
 import { useT } from '../../i18n'
@@ -96,12 +97,11 @@ export function SideCard({
         onClick={collapseOnClick(onCollapse)}
         className="flex shrink-0 cursor-pointer items-center gap-1 border-b border-border py-2 pr-2 pl-4"
       >
-        <div className="min-w-0 flex-1">
-          <h2 className="flex h-5 items-center text-[13.5px] font-semibold">
-            <ThreadTitle thread={thread} conversation={conversation} fallback={fallback} />
-          </h2>
-          <div className="text-[11px] leading-4 text-faint">{root ? t('side.title') : t('side.draft')}</div>
-        </div>
+        <h2 className="flex h-7 min-w-0 flex-1 items-center gap-2 text-[13.5px] font-semibold">
+          <MessageSquareText size={14} className="shrink-0 text-node" />
+          <ThreadTitle thread={thread} conversation={conversation} fallback={fallback} />
+          {!root && <span className="shrink-0 text-[11px] font-normal text-faint">{t('side.draft')}</span>}
+        </h2>
         {root && (
           <CardMenu>
             <SideMenuItems

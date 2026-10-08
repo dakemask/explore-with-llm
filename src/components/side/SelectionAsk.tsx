@@ -157,7 +157,7 @@ export function ThreadPicker({
             key={it.id}
             icon={
               it.kind === 'note' ? (
-                <NotebookPen size={14} className="text-mark-note-strong" />
+                <NotebookPen size={14} />
               ) : (
                 <MessageSquareText size={14} />
               )

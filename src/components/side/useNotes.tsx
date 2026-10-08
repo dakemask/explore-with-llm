@@ -24,7 +24,8 @@ export function useNotes(path: ChatNode[], notes: Note[] | undefined) {
     return (notes ?? [])
       .filter((n) => !n.archived && onPath.has(n.nodeId))
       .map((note): NoteItem => {
-        const title = noteTitle(note.text)
+        const title = noteTitle(note)
+        const snippet = noteSnippet(note.text)
         return {
           id: note.id,
           kind: 'note',
@@ -33,11 +34,11 @@ export function useNotes(path: ChatNode[], notes: Note[] | undefined) {
           note,
           title: (
             <span className="flex min-w-0 items-center gap-2">
-              <NotebookPen size={13} className="shrink-0 text-mark-note-strong" />
+              <NotebookPen size={13} className="shrink-0 text-node" />
               <span className={title ? 'truncate text-muted' : 'truncate text-faint'}>{title || t('note.new')}</span>
             </span>
           ),
-          tip: noteSnippet(note.text) || t('note.new'),
+          tip: (note.title?.trim() ? [note.title.trim(), snippet].filter(Boolean).join(' · ') : snippet) || t('note.new'),
         }
       })
   }, [notes, path, t])

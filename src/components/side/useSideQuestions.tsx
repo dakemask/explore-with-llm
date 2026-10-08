@@ -1,3 +1,4 @@
+import { MessageSquareText } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import type { ChatNode, Conversation } from '../../db'
 import { useT } from '../../i18n'
@@ -52,11 +53,12 @@ export function useSideQuestions(
         ...it,
         kind: 'side',
         title: (
-          <>
+          <span className="flex min-w-0 items-center gap-2">
+            <MessageSquareText size={13} className="shrink-0 text-node" />
             <ThreadTitle thread={it.id} conversation={conversation} fallback={it.fallback} />
             {/* (Only drafts say what they are: one looks like a sent question otherwise.) */}
-            {it.draft && <span className="ml-2 shrink-0 text-[11px] text-faint">{t('side.draft')}</span>}
-          </>
+            {it.draft && <span className="shrink-0 text-[11px] text-faint">{t('side.draft')}</span>}
+          </span>
         ),
         tip: `${title} · ${meta}`,
       }

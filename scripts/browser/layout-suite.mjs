@@ -227,7 +227,7 @@ for (const action of ['笔记', '追问']) {
   }
   const off = await slideGaps('收起侧栏')
   check('W5 collapsing slides with chat, input box and column joined in every frame', off.max <= 1 && off.widths > 3, off)
-  check('W5 collapsed: only the marker strip', (await colWidth()) === 22 && (await page.locator('[data-side-column] > div button').count()) === 0, await colWidth())
+  check('W5 collapsed: only the marker strip', (await colWidth()) === 14 && (await page.locator('[data-side-column] > div button').count()) === 0, await colWidth())
   await bar.click()
   await page.waitForTimeout(400)
   check('W5 collapsed, a bar click opens the column and the card', (await colWidth()) === 380 && (await cards()) === 1, await colWidth())

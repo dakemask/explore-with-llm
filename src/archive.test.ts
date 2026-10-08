@@ -254,7 +254,7 @@ describe('archive actions (db)', () => {
   it('exports kinds; importing a version 1 file derives branches', async () => {
     await db.nodes.update('b', { branch: true, archived: 7 })
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(5)
+    expect(f.version).toBe(6)
     expect(f.nodes.find((n: ChatNode) => n.id === 'b')).toMatchObject({ branch: true, archived: 7 })
     const id2 = await importConversation(JSON.stringify(f))
     expect((await db.nodes.where('conversationId').equals(id2).toArray()).filter((n) => n.archived)).toHaveLength(1)
@@ -314,7 +314,7 @@ describe('notes', () => {
   it('exports notes (version 3+) and imports them with new ids on the new nodes', async () => {
     await archiveNote('nc')
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(5)
+    expect(f.version).toBe(6)
     expect(f.notes.map((n: Note) => n.id).sort()).toEqual(['nb', 'nc', 'nd'])
 
     const id = await importConversation(JSON.stringify(f))

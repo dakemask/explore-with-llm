@@ -78,7 +78,7 @@ function Row({
   const lang = useSettings((s) => s.lang)
 
   const title = (() => {
-    if (item.note) return noteTitle(item.note.text)
+    if (item.note) return noteTitle(item.note)
     if (item.kind !== 'side') return firstLine(item.nodes[0].user.text) || t('image.only')
     const root = item.nodes.find((n) => n.id === conversation.selectedChild[item.key]) ?? item.nodes[item.nodes.length - 1]
     return conversation.threadTitles?.[item.key] ?? (sideFallbackTitle(root, root.anchor?.text ?? '') || t('image.only'))
