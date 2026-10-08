@@ -350,8 +350,8 @@ export function ChatView() {
             onMouseOver={(e) => hoverTo(threadsAt(e.target))}
             onMouseLeave={() => hoverTo([])}
             className={clsx('shrink-0 px-6 py-8', slideClass)}
-            // Turn bars sit up to 36 px left of the text as the space left of the chat allows, at least 16 (owner).
-            style={{ width: frame.chatWidth, '--bar-gap': `${Math.min(36, 16 + frame.chatLeft)}px` } as CSSProperties}
+            // Turn bars sit up to 48 px left of the text as the space left of the chat allows, at least 16 (owner).
+            style={{ width: frame.chatWidth, '--bar-gap': `${Math.min(48, 16 + frame.chatLeft)}px` } as CSSProperties}
           >
             <ScrollHold.Provider value={scroll.hold}>
               {loading ? null : path.length === 0 ? (
