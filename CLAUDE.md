@@ -119,7 +119,7 @@ What users see and can do, and why. These rules are deliberate: don't change one
 
 ### Main view, colors and navigation
 
-- Main view: linear chat of the active path. Turns are split by a thin separator; main-chat turns have a 3px bar in the left gutter in the turn's branch color, its top 48px a gradient (oklch) from the parent's color where that differs. Side threads get separators, no bar.
+- Main view: linear chat of the active path. Turns are split by a thin separator. Turn color bars are hidden on trial (owner, 2026-10-08: their information is mostly in the switcher already — dots at every fork, grey for attempts — and they caused the red-first-turn and contrast questions; colors stay in the switcher dots and the tree map). If they come back: 1 px, up to 48 px left of the text as room allows (at least 16), the top 48 px a gradient (oklch) from the parent's color where that differs (`SHOW_TURN_BARS` in `MessageNode.tsx`); palette options were shown to the owner (A deepened rainbow / B jewel / C alternating lightness / D evened hues) — the current yellow is too faint on white.
 - Colors ("rainbow flow"): 7 colors on a ring (red, orange, yellow, green, cyan, blue, violet; yellow-green dropped as too close), each at its own lightness. A segment runs from one fork to the next; a fork = ≥ 2 branches (one branch + attempts is not a fork, the branch keeps the color). At a fork the branches take the next colors along the ring in creation order (first = parent + 1, …), so colors change only below forks — accepting that a line's lower part recolors when a second branch appears. Attempts are always grey, a lone one too (owner, 2026-10-07: the parent's color made a fresh reply look settled). Rejected: equal-lightness 8-color jump, hue-interval splitting.
 - Sibling switcher: right end of the reply footer of any node with ≥ 2 non-archived siblings — always visible, also while streaming (a row of its own), error replies included (the footer row under the error box). Main nodes: one dot per branch in its color (oldest first, the shown one ringed; tip = the node's label in bold if it has one, then user message first line → reply first line, so same-text retries differ); then, after a divider, the attempts: a single attempt is one more grey dot; several are a grey stack — showing a branch, the stack is "×n" and jumps to the newest attempt; showing an attempt, the stack is ringed with ‹n/m› among the attempts. Side nodes: plain ‹n/m› over all versions.
 - Tree map: header button (GitBranch, tip 树图) toggles a panel dropping down under the chat header over the chat (full column width, height = tree, ≤ 50vh, scrolls both ways).
@@ -203,8 +203,6 @@ What users see and can do, and why. These rules are deliberate: don't change one
 
 ### Open (owner decides)
 
-- The full-strength color bar (could be softened) (Claude, unconfirmed).
-- Every conversation's first turn bar is red (the ring starts at red), which reads like an error — options: start the ring elsewhere, soften the bar. Parked by the owner: don't change it until the owner brings it up. (With attempts always grey, a lone first turn shows a red → grey gradient at its top.)
 - The names 尝试 / 分支 / 归档.
 - Whether some future case should show a success notification — ask when one comes up.
 
@@ -214,7 +212,8 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 ### Open
 
-- **Owner decides** the Open items above — next.
+- **Owner decides** the Open items above (names; success notifications when a case comes up).
+- **Turn bars on trial** — hidden; the owner uses the app without them for a while, then they're deleted for good or brought back (then: pick a palette).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
 
 ### Done

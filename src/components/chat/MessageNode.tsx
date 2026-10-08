@@ -133,6 +133,9 @@ export const MessageNode = memo(function MessageNode({
   )
 })
 
+/** Turn bars are hidden on trial (owner, 2026-10-08): colors stay in the switcher dots and the tree map. */
+const SHOW_TURN_BARS = false
+
 /**
  * One turn (user message + reply) in a list: a thin separator above it (except the first) and, in the
  * main chat, a slim bar in the left gutter in the turn's branch color, flowing in from the parent's color
@@ -155,7 +158,7 @@ export function Turn({
   return (
     <div data-turn={id} className={clsx(!first && 'mt-8 border-t border-border pt-8')}>
       <div className="relative">
-        {color !== undefined && (
+        {SHOW_TURN_BARS && color !== undefined && (
           <div
             aria-hidden
             // `--bar-gap`: its distance from the text, set by the chat (more where there's room on the left).
