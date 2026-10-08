@@ -158,7 +158,8 @@ export function Turn({
         {color !== undefined && (
           <div
             aria-hidden
-            className="absolute top-0 bottom-0 -left-4 w-[3px] rounded-full"
+            // `--bar-gap`: its distance from the text, set by the chat (more where there's room on the left).
+            className="absolute top-0 bottom-0 left-[calc(-1*var(--bar-gap,16px))] w-[2px] rounded-full"
             style={{
               background:
                 from !== undefined && from !== color

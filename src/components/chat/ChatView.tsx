@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { GitBranch, KeyRound, PanelLeftOpen, PanelRightClose, PanelRightOpen, Sparkles, SquarePen } from 'lucide-react'
 import { nanoid } from 'nanoid'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useT } from '../../i18n'
 import { quoteForInput } from '../../lib/anchor'
@@ -350,7 +350,8 @@ export function ChatView() {
             onMouseOver={(e) => hoverTo(threadsAt(e.target))}
             onMouseLeave={() => hoverTo([])}
             className={clsx('shrink-0 px-6 py-8', slideClass)}
-            style={{ width: frame.chatWidth }}
+            // Turn bars sit 24 px left of the text where the space left of the chat allows, else 16 (owner).
+            style={{ width: frame.chatWidth, '--bar-gap': `${Math.min(24, 16 + frame.chatLeft)}px` } as CSSProperties}
           >
             <ScrollHold.Provider value={scroll.hold}>
               {loading ? null : path.length === 0 ? (
