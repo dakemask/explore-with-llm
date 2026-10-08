@@ -76,6 +76,28 @@ await waitDone(page)
 check('C3 card follows its reply to the end', atEnd(await state(page, CS)), await state(page, CS))
 await page.screenshot({ path: `${SP}/C3.png` })
 
+// ---- CW: the wheel over an expanded card never scrolls the chat (owner, 2026-10-09) ----
+await setScroll(page, SC, 60)
+const wheelAt = async (box, dy) => {
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  for (let i = 0; i < 3; i++) await page.mouse.wheel(0, dy)
+  await page.waitForTimeout(300)
+}
+const pw0 = (await state(page)).scrollTop
+const msgs = await page.locator(CS).boundingBox()
+await wheelAt(msgs, 120)
+check('CW wheel down at the card\'s end: chat still', (await state(page)).scrollTop === pw0, { pw0, now: await state(page) })
+await wheelAt(await page.locator(`${CARD} header`).boundingBox(), 120)
+await wheelAt(await page.locator(`${CARD} header`).boundingBox(), -120)
+check('CW wheel over the card header: chat still', (await state(page)).scrollTop === pw0, { pw0, now: await state(page) })
+const inner0 = (await state(page, CS)).scrollTop
+await wheelAt(await page.locator(CS).boundingBox(), -120)
+const inner1 = (await state(page, CS)).scrollTop
+check('CW wheel still scrolls inside the card', inner1 < inner0, { inner0, inner1 })
+await setScroll(page, CS, 0)
+await wheelAt(await page.locator(CS).boundingBox(), -120)
+check('CW wheel up at the card\'s top: chat still', (await state(page)).scrollTop === pw0, { pw0, now: await state(page) })
+
 // ---- N: new conversation / switching back, also leaving with blank at the bottom ----
 await collapseCard(page, page.locator(CARD))
 await page.waitForTimeout(1300)

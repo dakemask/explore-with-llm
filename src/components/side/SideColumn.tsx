@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, STRIP, type Span } from '../../lib/column'
 import { Tip } from '../ui/Button'
 import { Layer } from '../ui/Layer'
@@ -111,6 +111,7 @@ export function SideColumn({
       ? Math.max(0, anchorTop - lift.px)
       : null
   const cardHeight = useHeight(cardRef, open === null ? null : expanded)
+  useWheelInside(cardRef, open === null ? null : expanded)
   const hidden = new Set(
     open === null ? [] : [expanded!, ...coveredCards(tops, open, open + cardHeight).map((i) => placed[i].id)],
   )
@@ -270,6 +271,40 @@ function useSpans(items: ColumnItem[], content: RefObject<HTMLElement | null>, c
   }, [key, content, col])
 
   return spans
+}
+
+/**
+ * The wheel over an expanded card never scrolls the chat behind it (owner, 2026-10-09): it scrolls what's under
+ * the mouse inside the card, and at that box's end (or over the header) nothing. The chat's own listeners (its
+ * scroll rules, the reading line) don't see it either. Ctrl + wheel (zoom) is left alone.
+ */
+function useWheelInside(ref: RefObject<HTMLElement | null>, key: unknown) {
+  useEffect(() => {
+    const card = ref.current
+    if (!card) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return
+      e.stopPropagation()
+      const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX
+      const dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY
+      for (let el = e.target as HTMLElement | null; el && el !== card; el = el.parentElement) {
+        if (canScroll(el, dx, dy)) return
+      }
+      e.preventDefault()
+    }
+    card.addEventListener('wheel', onWheel, { passive: false })
+    return () => card.removeEventListener('wheel', onWheel)
+  }, [ref, key])
+}
+
+function canScroll(el: HTMLElement, dx: number, dy: number) {
+  const s = getComputedStyle(el)
+  const can = (overflow: string, pos: number, max: number, d: number) =>
+    /auto|scroll/.test(overflow) && max > 1 && ((d < 0 && pos > 0) || (d > 0 && pos < max - 1))
+  return (
+    can(s.overflowY, el.scrollTop, el.scrollHeight - el.clientHeight, dy) ||
+    can(s.overflowX, el.scrollLeft, el.scrollWidth - el.clientWidth, dx)
+  )
 }
 
 /** The height of the element in `ref` (0 when there is none), following its size. `key` = when it may have changed. */

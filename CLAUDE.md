@@ -172,6 +172,7 @@ What users see and can do, and why. These rules are deliberate: don't change one
   - Collapsed card = title (naming dots) + ⋯ on hover; drafts show a small "草稿". Its top = its anchor's first line, pushed down only to avoid overlap; positions follow content resizes (0.2 s transition).
   - One card expanded at a time, at its anchor; it *covers* (doesn't push) the cards it overlaps (they fade out, their bars stay).
   - Every expanded card has a fixed height (min(75vh, scroll area − 32 px)): a side question's messages scroll inside with the same rules as the chat, a note's text / editor scrolls inside (owner, 2026-10-07: notes as tall as their text hung off the screen, typing pushed the chat up, 完成 / collapsing made it jump).
+  - The wheel over an expanded card never scrolls the chat behind it (owner, 2026-10-09): it scrolls what's under the mouse inside the card; at that box's end, or over the header, nothing moves. Ctrl + wheel (zoom) is untouched.
   - Expanding never scrolls the page; a card that wouldn't fit on screen below its anchor opens shifted up by just enough, fixed once open. Rejected: choosing only between opening down or up from the anchor (at 75vh a card then often overhangs the screen when its anchor is mid-screen; a half-screen card was too small).
   - Marker strip along the column's chat side (like VS Code's gutter change bars): a bar per anchor spanning its lines (overlapping anchors in side-by-side lanes), whether its card is visible or covered; tip = title · turns. Hovering a card / bar deepens its highlight and vice versa.
   - Clicking a highlight or a bar toggles its card (expanded → collapses, else expands, collapsing the one covering it).
@@ -227,6 +228,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 ### Open
 
+- **22. Card wheel stays in the card** — built, owner to try. The wheel over an expanded side / note card no longer scrolls the main chat at the card's ends (`useWheelInside` in `SideColumn`). Checked: `pnpm test` + `pnpm build`; browser check skipped at the owner's word (2026-10-09). New `scroll-cards` checks CW not yet run — they run with the next full run (task 24).
 - **Owner decides** the Open items above (names; success notifications when a case comes up).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
 
