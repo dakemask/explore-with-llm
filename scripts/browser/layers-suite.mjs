@@ -1,5 +1,5 @@
-// Escape / outside-click layering (ui/Layer.tsx): one Escape closes only the topmost open thing — tree map,
-// expanded side card / note card, the conversation list card, menus, dialogs, a pinned help tip. Copy this folder into the session
+// Escape / outside-click layering (ui/Layer.tsx): one Escape closes only the topmost open thing — the tree
+// map window (not a layer: Escape only with focus inside it, never outside clicks), expanded side card / note card, the conversation list card, menus, dialogs, a pinned help tip. Copy this folder into the session
 // scratchpad (where playwright-core is installed) and run `node layers-suite.mjs` there, with `pnpm dev` on
 // 5173 and `PORT=8788 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
 import { open, send, SC } from './lib.mjs'
@@ -25,6 +25,8 @@ const dialogOpen = async () => (await page.locator('[role=dialog]').count()) > 0
 const treeButton = page.getByRole('button', { name: '树图' })
 /** Moves the mouse out of the way (a hovered button's tooltip is a layer of its own). */
 const park = () => page.mouse.move(5, 890)
+const focusInTree = () => page.locator(`${TREE} g[role=button]`).first().focus()
+const focusOnTreeButton = () => page.evaluate(() => document.activeElement?.getAttribute('aria-label') === '树图')
 
 /** Selects the start of the first reply paragraph and clicks `action` in the pill (追问 / 笔记). */
 async function selectAnd(action) {
@@ -48,12 +50,19 @@ await park()
 await wait()
 check('T1 tree map opens', await treeOpen())
 await esc()
-check('T1 Escape closes it', !(await treeOpen()))
+check('T1 Escape with focus outside it keeps it', await treeOpen())
+await focusInTree()
+await esc()
+check('T1 Escape with focus inside closes it', !(await treeOpen()))
+check('T1 … and hands focus back to its button', await focusOnTreeButton())
 await treeButton.click()
 await wait()
 await page.mouse.click(700, 700)
 await wait()
-check('T2 a click outside closes it', !(await treeOpen()))
+check('T2 a click outside keeps it', await treeOpen())
+await page.locator(`${TREE} [aria-label="关闭"]`).click()
+await wait()
+check('T2 its ✕ closes it', !(await treeOpen()))
 await treeButton.click()
 await wait()
 await treeButton.click()
@@ -73,6 +82,7 @@ await wait()
 await page.getByRole('button', { name: '确定' }).click()
 await wait()
 check('T4 OK closes only the dialog', !(await dialogOpen()) && (await treeOpen()))
+await focusInTree()
 await esc()
 check('T4 next Escape closes the tree map', !(await treeOpen()))
 
@@ -107,10 +117,20 @@ await treeButton.click()
 await park()
 await wait()
 check('L1 card + tree map open', (await cardOpen()) && (await treeOpen()))
+await focusInTree()
 await esc()
-check('L1 first Escape closes only the tree map', (await cardOpen()) && !(await treeOpen()))
+check('L1 Escape with focus in the map closes only the map', (await cardOpen()) && !(await treeOpen()))
 await esc()
-check('L1 second Escape collapses the card', !(await cardOpen()))
+check('L1 next Escape collapses the card', !(await cardOpen()))
+await selectAnd('追问')
+await park()
+await treeButton.click()
+await park()
+await wait()
+await esc()
+check('L1 Escape with focus outside the map collapses only the card', !(await cardOpen()) && (await treeOpen()))
+await focusInTree()
+await esc()
 
 await selectAnd('追问')
 await page.locator(`${SC} [data-fork]`).last().getByRole('button', { name: '更多' }).click()

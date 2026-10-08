@@ -25,6 +25,9 @@ interface SettingsState {
   /** The side-question column: open, and width in px (`lib/panes.ts`). */
   panes: Record<Pane, { open: boolean; width: number }>
   setPane: (pane: Pane, patch: Partial<{ open: boolean; width: number }>) => void
+  /** The tree map window's place and size in px (viewport); null = not moved yet (opens top right). */
+  treeWindow: TreeWindow | null
+  setTreeWindow: (box: TreeWindow) => void
   setLang: (lang: Lang) => void
   setTheme: (theme: Theme) => void
   setModel: (providerId: string, model: string) => void
@@ -33,6 +36,13 @@ interface SettingsState {
   setSystemPrompt: (text: string) => void
   /** A model was renamed in settings: keep it selected and keep its parameter choices. */
   renameModel: (providerId: string, from: string, to: string) => void
+}
+
+export interface TreeWindow {
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 export const paramKey = (providerId: string, model: string) => `${providerId}/${model}`
@@ -55,6 +65,8 @@ export const useSettings = create<SettingsState>()(
       systemPrompt: DEFAULT_SYSTEM,
       panes: { column: { open: true, width: PANE_DEFAULT.column } },
       setPane: (pane, patch) => set((s) => ({ panes: { ...s.panes, [pane]: { ...s.panes[pane], ...patch } } })),
+      treeWindow: null,
+      setTreeWindow: (treeWindow) => set({ treeWindow }),
       setLang: (lang) => set({ lang }),
       setTheme: (theme) => set({ theme }),
       setModel: (providerId, model) => set({ providerId, model }),

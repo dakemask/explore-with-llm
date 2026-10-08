@@ -212,9 +212,9 @@ export function ChatView() {
     side.expand(id)
   }
 
-  // ---- tree map: drops down under the header; `current` = the turn in view when it opened ----
+  // ---- tree map: a floating window that stays open (through jumps and conversation switches) until closed ----
   const treeButton = useRef<HTMLButtonElement>(null)
-  const [tree, setTree] = useState<{ current?: string; closing?: boolean } | null>(null)
+  const [tree, setTree] = useState<{ closing?: boolean } | null>(null)
   const [scrollTarget, setScrollTarget] = useState<string | null>(null)
   const closeTree = () => setTree((s) => (s && !s.closing ? { ...s, closing: true } : s))
   useEffect(() => {
@@ -228,26 +228,39 @@ export function ChatView() {
   const [shownFor, setShownFor] = useState(conversationId)
   if (shownFor !== conversationId) {
     setShownFor(conversationId)
-    setTree(null)
     setScrollTarget(null)
     setPicker(null)
     setHover([])
   }
-  const toggleTree = () => {
-    if (tree && !tree.closing) return closeTree()
-    // The topmost turn still showing more than its footer.
+  const toggleTree = () => (tree && !tree.closing ? closeTree() : setTree({}))
+  // "Current" in the map = the topmost turn still showing more than its footer, followed live while the
+  // map is open (read on scroll and whenever the path changes; reading only — scrolling is useAutoScroll's).
+  const [treeCurrent, setTreeCurrent] = useState<string | undefined>()
+  const treeOpen = !!tree
+  useEffect(() => {
     const box = scroll.containerRef.current
-    const top = (box?.getBoundingClientRect().top ?? 0) + 48
-    const turn = [...(box?.querySelectorAll<HTMLElement>('[data-turn]') ?? [])].find(
-      (el) => el.getBoundingClientRect().bottom > top,
-    )
-    setTree({ current: turn?.dataset.turn ?? last?.id })
-  }
+    if (!treeOpen || !box) return
+    const read = () => {
+      const top = box.getBoundingClientRect().top + 48
+      const turn = [...box.querySelectorAll<HTMLElement>('[data-turn]')].find((el) => el.getBoundingClientRect().bottom > top)
+      setTreeCurrent(turn?.dataset.turn ?? last?.id)
+    }
+    read()
+    let frame = 0
+    const onScroll = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(read)
+    }
+    box.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      box.removeEventListener('scroll', onScroll)
+    }
+  }, [treeOpen, path, last?.id, scroll.containerRef])
   /** Shows the clicked turn: remember the selection at every fork above it, then scroll it to the top. */
   const jump = (unit: MapUnit) => {
     if (!conversation || !nodes) return
     const { target, selection } = jumpSelection(nodes, unit, conversation.selectedChild)
-    closeTree()
     scroll.unpin()
     setScrollTarget(target.id)
     void selectPath(conversation.id, selection)
@@ -277,7 +290,7 @@ export function ChatView() {
           {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{conversation?.title}</span>}
         </div>
         <div className="flex items-center gap-1">
-          {path.length > 0 && (
+          {(path.length > 0 || tree) && (
             <IconButton
               ref={treeButton}
               label={t('tree.title')}
@@ -307,7 +320,7 @@ export function ChatView() {
         )}
         style={{ left: frame.sideLeft }}
       />
-      {column.open && !slide && !tree && (
+      {column.open && !slide && (
         <ResizeHandle
           label={t('pane.columnResize')}
           edge="right"
@@ -322,12 +335,13 @@ export function ChatView() {
         />
       )}
 
-      {tree && nodes && (
+      {tree && (
         <TreeMapPanel
-          nodes={nodes}
-          currentNodeId={tree.current}
+          mapKey={conversationId ?? ''}
+          nodes={conversationId ? nodes : []}
+          currentNodeId={treeCurrent}
           closing={!!tree.closing}
-          ignore={treeButton}
+          opener={treeButton}
           onClose={closeTree}
           onJump={jump}
         />

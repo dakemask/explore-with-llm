@@ -28,7 +28,7 @@ export type AnyItem = SideItem | NoteItem
  * The column's items for the active path — its side questions, plus `notes` (`useNotes`) — the
  * highlights for each message, and the rules around them: a sent draft becomes its thread, a card whose
  * item leaves the path (archived, another branch shown) collapses, Escape collapses (`onEscape`, unless
- * focus is in an input other than the card's own box with nothing typed; menus / dialogs above it take
+ * focus is in the tree map window or in an input other than the card's own box with nothing typed; menus / dialogs above it take
  * Escape first by layering).
  */
 export function useSideQuestions(
@@ -111,6 +111,8 @@ export function useSideQuestions(
   const onEscape = (e: KeyboardEvent) => {
     if (e.isComposing) return
     const focus = document.activeElement
+    // Focus in the tree map window: that Escape is the window's.
+    if (focus?.closest('[data-tree-map]')) return
     const busy = 'input, textarea, select, [contenteditable="true"]'
     // A card's own input box with nothing typed in it doesn't hold Escape back.
     if (focus?.closest(busy) && !focus.matches('[data-side-column] textarea[data-pristine]')) return
