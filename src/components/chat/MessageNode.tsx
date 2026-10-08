@@ -14,7 +14,7 @@ import { useUi } from '../../store/ui'
 import { Button, IconButton, Tip } from '../ui/Button'
 import { Dots } from '../ui/Dots'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
-import { AssistantEditDialog, UserEditDialog } from './EditDialogs'
+import { AssistantEditDialog, SystemEditDialog, UserEditDialog } from './EditDialogs'
 import { MessageImages } from './Images'
 import { editLabel } from './labels'
 import { Markdown } from './Markdown'
@@ -25,8 +25,9 @@ import { atFork } from './useNodeActions'
 /** Callbacks from ChatView. Kept referentially stable so memoized nodes don't re-render. */
 export interface NodeActions {
   retry: (node: ChatNode) => void
-  /** `system`: a first turn's system message as edited ('' = none). */
-  edit: (node: ChatNode, text: string, images: ImageFile[], system?: string) => void
+  edit: (node: ChatNode, text: string, images: ImageFile[]) => void
+  /** A first turn again with another system message ('' = none), same message and images. */
+  editSystem: (node: ChatNode, system: string) => void
   /** Shows `id` (a sibling of `node`) at their fork. */
   select: (node: ChatNode, id: string) => void
 }
@@ -75,8 +76,8 @@ export const MessageNode = memo(function MessageNode({
   const openDetail = () => useUi.getState().setPanel({ type: 'detail', nodeId: node.id })
   const hold = useScrollHold()
   const [editing, setEditing] = useState(false)
-  /** The user message editor is open (`system`: opened from the system message). */
-  const [editingUser, setEditingUser] = useState<false | 'user' | 'system'>(false)
+  const [editingUser, setEditingUser] = useState(false)
+  const [editingSystem, setEditingSystem] = useState(false)
   const first = node.kind === 'main' && node.parentId === null
   // The new version takes the original's place on screen.
   const saveEdit = (text: string) => {
@@ -93,19 +94,25 @@ export const MessageNode = memo(function MessageNode({
         <UserEditDialog
           initial={node.user.text}
           initialImages={node.user.images}
-          system={first ? (node.system ?? '') : undefined}
-          focusSystem={editingUser === 'system'}
           onClose={() => setEditingUser(false)}
-          onSend={(text, images, system) => actions.edit(node, text, images, system)}
+          onSend={(text, images) => actions.edit(node, text, images)}
         />
       )}
-      {first && <SystemRow text={node.system} onClick={canSend ? () => setEditingUser('system') : undefined} />}
+      {editingSystem && (
+        <SystemEditDialog
+          send
+          initial={node.system ?? ''}
+          onClose={() => setEditingSystem(false)}
+          onSave={(system) => actions.editSystem(node, system)}
+        />
+      )}
+      {first && <SystemRow text={node.system} onClick={canSend ? () => setEditingSystem(true) : undefined} />}
       <UserMessage
         nodeId={node.id}
         anchors={marks?.user}
         text={node.user.text}
         images={node.user.images}
-        onEdit={canSend ? () => setEditingUser('user') : undefined}
+        onEdit={canSend ? () => setEditingUser(true) : undefined}
       />
       <div className="group/assistant">
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}

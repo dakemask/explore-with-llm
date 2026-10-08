@@ -21,18 +21,17 @@ export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold): NodeA
   const latest = useRef({ nodes, provider, model, hold })
   latest.current = { nodes, provider, model, hold }
   return useMemo<NodeActions>(() => {
-    const again = (node: ChatNode, text: string, images: ImageFile[], system?: string) => {
+    const again = (node: ChatNode, text: string, images: ImageFile[], system = node.system) => {
       const { provider, model, hold } = latest.current
       if (!provider || !model) return
       hold(atFork(node), { follow: true })
-      void resend(node, text, images, provider, model, system ?? node.system)
+      void resend(node, text, images, provider, model, system)
     }
+    const storedImages = async (node: ChatNode) => (await db.images.bulkGet(node.user.images ?? [])).filter((i) => !!i)
     return {
-      retry: async (node) => {
-        const images = (await db.images.bulkGet(node.user.images ?? [])).filter((i) => !!i)
-        again(node, node.user.text, images)
-      },
-      edit: again,
+      retry: async (node) => again(node, node.user.text, await storedImages(node)),
+      edit: (node, text, images) => again(node, text, images),
+      editSystem: async (node, system) => again(node, node.user.text, await storedImages(node), system),
       select: (node, id) => {
         latest.current.hold(atFork(node, '[data-switcher]'))
         void selectBranch(node.conversationId, forkKey(node), id)
