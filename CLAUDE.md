@@ -21,7 +21,7 @@ Parts of this file are a trial in effect until 2026-10-10 (UTC+8). Which parts, 
 
 ## Verifying changes
 
-The owner can't review code, so check changes in a real browser before reporting done:
+These verification rules are themselves part of the trial (owner, 2026-10-09) and will keep being adjusted. The owner can't review code; tests stand in for that review, sized by the levels below. When checks are needed, check in a real browser:
 run `pnpm dev` + `pnpm mock`, then drive the page with `playwright-core` using the locally installed
 Chrome (`C:/Program Files/Google/Chrome/Application/chrome.exe`) — install playwright-core in the
 session scratchpad, not in this project. Add a provider of any protocol with base URL `http://localhost:8787`;
@@ -34,9 +34,11 @@ Full runs (owner, 2026-10-08: checks took too long): the full `run-all.mjs` runs
 How much to check depends on whether a change touches a shared concern, not on how big it looks (owner, 2026-10-08: full checks for tiny tasks were too slow; the foundations now make small additions predictable). The level comes from the same assessment as Engineering principles › Before building:
 - Always `pnpm test` + `pnpm build` (unit tests were once left broken because only the browser suites were rerun).
 - **Small** — text, i18n, tip contents, icons; styles or logic inside one component that touches no shared concern: just that; if it looks different, one cropped screenshot of that spot, one theme.
-- **Medium** — a new small component / menu item built on the existing owners (`Layer`, `Dialog`, `focus.ts`, `useAutoScroll`…) without changing them: + the suite of the concern it uses (e.g. a menu → `layers-suite`).
-- **Large** — changes a shared concern's owner (`useAutoScroll`, `Layer`, `focus.ts`, `ChatView`'s switch reset, `column.ts`, `useConversationData`), the data model / export format, streaming, or a feature spanning several parts: the suites of every concern touched (not all), the browser in motion, both themes when styles change. Anything touching scrolling, streaming display, reasoning or side cards runs the scroll suites (`run-all.mjs scroll`); extend them with every scroll bug the owner reports.
+- **Medium** — a new small component / menu item built on the existing owners (`Layer`, `Dialog`, `focus.ts`, `useAutoScroll`…) without changing them: just `pnpm test` + `pnpm build`; the owner tries it (owner, 2026-10-09: daily checks were too many; breaks surface at the latest in the next full run).
+- **Large** — changes a shared concern's owner (`useAutoScroll`, `Layer`, `focus.ts`, `ChatView`'s switch reset, `column.ts`, `useConversationData`), the data model / export format, streaming, or a feature spanning several parts: only the suite(s) of the owner it changes (for scrolling: the scroll part concerned, not all three), the browser in motion, both themes when styles change.
 - The full `run-all.mjs` (every 4 tasks, see above) checks small changes that add up together.
+- If the owner says a change needs no browser check, skip it and note that in its task line.
+- Add a check only for a rule of a shared foundation that other changes could easily break again — not one per reported bug (owner, 2026-10-09: the suites were bloating).
 - Screenshots only for new looks, cropped to the changed area; skip them where a suite already asserts the numbers (positions, widths, jumps). Both themes only when colors / tokens change.
 
 Shortcuts for scripts: seed the provider by writing straight into the `providers` store of the
@@ -228,7 +230,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 ### Open
 
-- **22. Card wheel stays in the card** — built, owner to try. The wheel over an expanded side / note card no longer scrolls the main chat at the card's ends (`useWheelInside` in `SideColumn`). Checked: `pnpm test` + `pnpm build`; browser check skipped at the owner's word (2026-10-09). New `scroll-cards` checks CW not yet run — they run with the next full run (task 24).
+- **22. Card wheel stays in the card** — built, owner to try. The wheel over an expanded side / note card no longer scrolls the main chat at the card's ends (`useWheelInside` in `SideColumn`). Checked: `pnpm test` + `pnpm build`; browser check skipped at the owner's word (2026-10-09).
 - **Owner decides** the Open items above (names; success notifications when a case comes up).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
 
@@ -262,7 +264,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 - Before writing anything general-purpose, look for a mature library (installed ones first, e.g. Radix for overlays). Write our own only where nothing fits, and say why here. (Owner: "borrow predecessors' wisdom, don't reinvent wheels".)
 - One owner per shared concern: data reads `useConversationData`; scrolling `useAutoScroll`; Escape / outside clicks `Layer` + Radix primitives; focus `lib/focus.ts` + `Dialog`; conversation switch `setConversation` + `ChatView`'s reset; layout widths `columnFrame`. No second mechanism beside it.
 - Derive, don't store a second copy (colors are computed from the tree; the streamed-text race came from two copies of the same text).
-- Tests guard the rules of these foundations (e.g. the scroll suite), not one test per reported bug.
+- Tests guard the rules of these foundations (e.g. the scroll suite), not one test per reported bug (see Verifying changes).
 - Library decisions (foundation pass, 2026-10-07):
   - Scrolling: kept `useAutoScroll` after reading `use-stick-to-bottom` 1.1.6's source. It only sticks to the bottom: no holds, no blank space (it clamps the view back down — the opposite of rule 3), re-locks following when content shrinks near the end (against rule 2), observes only the content box. Adopting it would put a second scroll writer beside our hold / blank code — what broke scrolling before. Virtualizing lists (react-virtuoso `followOutput`, virtua) not tried: they'd take over rendering for one feature.
   - Selection pill: Floating UI (`@floating-ui/react-dom`, the version inside Radix) with the selection as a virtual reference. Not Radix Popover: its anchor is one box, and only Floating UI's `inline` middleware centers on the first line (or last, when flipped below) of a multi-line selection. The overlap picker is a Radix menu at the click point.
