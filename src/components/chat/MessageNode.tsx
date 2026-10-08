@@ -107,7 +107,7 @@ export const MessageNode = memo(function MessageNode({
         images={node.user.images}
         onEdit={canSend ? () => setEditingUser('user') : undefined}
       />
-      <div className="group/assistant">
+      <div>
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
         {editing && (
           <AssistantEditDialog initial={node.assistant.content} onClose={() => setEditing(false)} onSave={saveEdit} />
@@ -170,7 +170,7 @@ export function Turn({
       data-turn={id}
       className={clsx(
         framed
-          ? ['-mx-3 rounded-xl border border-border px-3 pt-4 pb-1', !first && 'mt-6']
+          ? ['-mx-3 rounded-xl border border-border px-3 pt-4 pb-3', !first && 'mt-4']
           : !first && 'mt-8 border-t border-border pt-8',
       )}
     >
@@ -201,7 +201,7 @@ function UserMessage({
   const { copied, copy } = useCopy()
 
   return (
-    <div className="group/user flex flex-col items-end">
+    <div className="flex flex-col items-end">
       {images && images.length > 0 && <MessageImages ids={images} />}
       {text && (
         <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5">
@@ -211,7 +211,7 @@ function UserMessage({
         </div>
       )}
       <div className="mt-1 flex h-7 items-center gap-1">
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/user:opacity-100 focus-within:opacity-100">
+        <div className="flex items-center gap-1">
           {text && (
             <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={() => copy(text)}>
               {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -360,18 +360,13 @@ function AssistantFooter({
   return (
     // Wraps only in narrow places (a side-question card): the switcher then gets its own line, right-aligned.
     <div className="mt-2 flex min-h-7 flex-wrap items-center gap-x-1 gap-y-1 text-xs text-faint">
-      {/* Status tags stay visible; actions reveal on hover. */}
+      {/* Status tags, then the actions (always shown; owner, 2026-10-08). */}
       {tags.map((tag) => (
         <span key={String(tag)} className="mr-1 rounded bg-subtle px-1.5 py-0.5 text-[11px] text-muted">
           {tag}
         </span>
       ))}
-      <div
-        className={clsx(
-          'flex max-w-full min-w-0 items-center gap-1 transition-opacity group-hover/assistant:opacity-100 focus-within:opacity-100',
-          !menuOpen && 'opacity-0',
-        )}
-      >
+      <div className="flex max-w-full min-w-0 items-center gap-1">
         {content && (
           <IconButton label={copied ? t('msg.copied') : t('msg.copy')} size="sm" onClick={() => copy(content)}>
             {copied ? <Check size={14} /> : <Copy size={14} />}

@@ -222,7 +222,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 - **Owner decides** the Open items above (names; success notifications when a case comes up).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
-- **13. Turn frames** — built, owner to try. Rules (owner, 2026-10-08; move to Product decisions once accepted): in the main chat each turn (user message + reply; the first also its system message) sits in a thin rounded frame, 12 px outside the text (lined up with the input box's edges; text width unchanged), frames 24 px apart; the thin separator between turns is gone. Side cards keep their separators (narrow, already a frame). Full run: all suites pass.
+- **13. Turn frames** — built, owner to try. Rules (owner, 2026-10-08; move to Product decisions once accepted): in the main chat each turn (user message + reply; the first also its system message) sits in a thin rounded frame, 12 px outside the text (lined up with the input box's edges; text width unchanged), frames 16 px apart, 12 px under the reply footer; the thin separator between turns is gone. Message footer buttons (copy / edit / retry / details / model / ⋯) always shown, main chat and side cards (owner, 2026-10-08; were hover-only). Side cards keep their separators (narrow, already a frame). Full run: all suites pass.
 
 ### Done
 
