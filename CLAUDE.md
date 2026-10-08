@@ -114,7 +114,7 @@ What users see and can do, and why. These rules are deliberate: don't change one
 
 ### Concepts (owner; names 尝试 / 分支 / 归档 not final)
 
-- A main node's children are *attempts*, *branches*, *archived* nodes and side questions. Every new node (send, retry, edit user message, edit reply) is an attempt of its parent; an attempt that gets a follow-up or a side question becomes a branch; attempts can be made branches by hand ("设为分支"), never back.
+- A main node's children are *attempts*, *branches*, *archived* nodes and side questions. Every new node (send, retry, edit user message, edit reply) is an attempt of its parent; an attempt that gets a follow-up or a side question becomes a branch; attempts can be made branches by hand ("设为分支"), never back. A side question can be turned into main nodes ("转为分支", below).
 - Attempts and branches can be archived (with their subtree) and restored to their former kind. Deleting happens only inside the archive (it deletes the subtree), apart from deleting a whole conversation. One archive per conversation.
 
 ### Main view, colors and navigation
@@ -151,7 +151,9 @@ What users see and can do, and why. These rules are deliberate: don't change one
 ### Side questions, notes and the side panes
 
 - Side questions: select text in a main-line reply (body only, not reasoning or user messages) → floating "追问" → a draft card expanded in the side-question column at the selection. Its input box is prefilled with the selection as a `> ` blockquote + blank line, so the user decides what gets quoted; context = root→node main path + the side thread, sent as typed. Side threads never enter the main context. A thread is a full mini-chat (follow-ups, retry, edit, ‹n/m›). No side questions inside side answers. Anchored text is highlighted; overlapping highlights show a picker listing both kinds.
-- Card ⋯ menu (collapsed cards show it on hover; drafts have none): side question = 重命名 (shown at once, even while a naming request runs, which then leaves it alone) / 归档 (the whole thread); note = 归档 (once it has text). No confirms: archiving is reversible. Clicking an expanded card's header (not its buttons) collapses it; cards have no collapse button (Escape and the header do it).
+- Card ⋯ menu (collapsed cards show it on hover; drafts have none): side question = 重命名 (shown at once, even while a naming request runs, which then leaves it alone) / 转为分支 / 归档 (the whole thread); note = 归档 (once it has text). No confirms: archiving is reversible. Clicking an expanded card's header (not its buttons) collapses it; cards have no collapse button (Escape and the header do it).
+- 转为分支 (side-card ⋯ menu; owner, 2026-10-08): the whole thread (every root version and its follow-ups) becomes main nodes under the node it was asked from; anchor, highlight, side title and remembered version go. Kinds: a single root version → branch; several → those with follow-ups are branches, the rest attempts; follow-ups by the main chat's rule (attempt until followed up). Its title (only a real one — named or renamed, not the first-line fallback) becomes the shown root's label. No confirm, though it can't be undone — except when the card's input box has unsent text, which converting drops: then it asks first. Disabled (with a tip) while anything in the thread streams or its title is being named (a late title would have nowhere to go). An archived thread must be restored first. The view stays where it is: the card, bar and highlight fade out (0.2 s), then the data changes; asked from the last turn, the thread continues the main chat below (not followed); otherwise what's shown at the fork stays and the switcher gains a dot. Context is unchanged by construction (a side thread's context = main path + thread = the branch's path), so the stored requests stay true.
+- Whenever a node becomes a branch (转为分支, 设为分支, an attempt followed up or asked from), its switcher dot pops in and ripples twice in its color (~1.2 s).
 - Side-question column: right of the chat inside its scroll area, scrolling with it.
   - Width depends only on the window and the user's dragged width: the chat stays centered while the column fits, else shifts left, then narrows; column 260–640 px, default 380, never leaving the chat under 420 px.
   - Collapsed card = title (naming dots) + ⋯ on hover; drafts show a small "草稿". Its top = its anchor's first line, pushed down only to avoid overlap; positions follow content resizes (0.2 s transition).
@@ -212,8 +214,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 ### Open
 
-- **转为分支** (8.1b.3) — built, owner to try. In the side-card ⋯ menu (between 重命名 and 归档), disabled while anything in the thread streams or its title is being named (Claude: a title arriving afterwards would have no thread to go to); no confirm (owner, though irreversible). The whole thread (every non-archived root version and its follow-ups) becomes main nodes under the node it was asked from; anchor, highlight, thread title entry and `selectedChild[thread]` go away. Kinds (owner): a single root version → branch; several → only those with follow-ups become branches, the rest attempts; the follow-ups follow the main chat's rule (attempt until followed up). The thread's title becomes the shown root's label. The view stays where it is (no jump): the card fades out, the highlight fades, and the new dot appears in the switcher with an animation — the same "became a branch" animation also plays for 设为分支 and for an attempt promoted by a follow-up / side question. Context is unchanged by construction (a side thread's context = main path + thread = the branch's path), so the stored requests stay true. Level: large (data model, cards, animation). Walk-through decisions (owner, 2026-10-08): asked from the last turn, the thread simply continues the main chat below (not followed: what's on screen stays); unsent text in the card's input box → a confirm first (only then), since converting drops it. Claude: the label is set only from a real title (named / renamed), not the first-line fallback; restoring from the archive is needed before an archived thread can be converted (the archive has no such button). The fade is 0.2 s, then the data changes; the dot pops in and ripples twice in its color (~1.2 s).
-- **Owner decides** the Open items above — after 转为分支.
+- **Owner decides** the Open items above — next.
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
 
 ### Done
@@ -227,6 +228,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 7. Polish: scroll rules (one owner + suite), sticky reasoning toggle, edit / detail dialogs, fixed-height cards, no-reply-text rule, one-snapshot conversation reads.
 8. Foundation pass (layering, floating positions, scrolling, focus, conversation switch, layout widths — see Engineering principles); collapsible, resizable side panes + floating input box; card ⋯ menus (8.1b.1); node labels + tree map help tip (8.1b.2). All accepted by the owner (2026-10-08).
 9. Docs cleanup (verification levels, this file reorganized, presets report rewritten; presets: 最大输出 on at the maximum, Claude effort = 投入程度) and parameter help (`help` per parameter; known small thing: a row's tip can briefly cover the panel header when the mouse crosses it). Accepted by the owner (2026-10-08).
+10. 转为分支 (side question → main nodes) + the "became a branch" dot animation. Accepted by the owner (2026-10-08).
 
 ## Engineering principles
 
