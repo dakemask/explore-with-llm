@@ -223,3 +223,28 @@ describe('openai-responses', () => {
     expect(msgs[1]).toEqual({ role: 'assistant', content: 'edited answer' })
   })
 })
+
+describe('system message', () => {
+  const first = { ...node('openai-chat', {}), system: 'Be brief.' }
+  const messages = buildMessages([first], 'next')
+
+  it('comes first, from the path’s first turn', () => {
+    expect(messages[0]).toEqual({ role: 'system', content: 'Be brief.' })
+    expect(buildMessages([], 'hi', undefined, undefined, 'New.')[0]).toEqual({ role: 'system', content: 'New.' })
+    expect(buildMessages([node('openai-chat', {})], 'next')[0].role).toBe('user')
+  })
+
+  it('goes in each protocol’s own place', () => {
+    const chat = prepareChat(provider('openai-chat'), 'm', messages, {}).body as any
+    expect(chat.messages[0]).toEqual({ role: 'system', content: 'Be brief.' })
+    const claude = prepareChat(provider('anthropic'), 'm', messages, {}).body as any
+    expect(claude.system).toBe('Be brief.')
+    expect(claude.messages.map((m: any) => m.role)).toEqual(['user', 'assistant', 'user'])
+    const responses = prepareChat(provider('openai-responses'), 'm', messages, {}).body as any
+    expect(responses.instructions).toBe('Be brief.')
+    expect(responses.input.some((m: any) => m.role === 'system')).toBe(false)
+    // Parameter configs may not set it a second way.
+    expect(anthropic.reserved).toContain('system')
+    expect(openaiResponses.reserved).toContain('instructions')
+  })
+})

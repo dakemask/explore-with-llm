@@ -19,8 +19,9 @@
 //   mock-name   a short quoted title instead of the usual reply (automatic naming): which prompt it got
 //               (conversation / side question) and how many context messages the side prompt had
 // Every reply starts with a line echoing the request (counter, protocol, context size, echoed reasoning found
-// in the context, body fields beyond the protocol's own, last user message) so branches, echo-back and
-// parameters are visible in tests. Anthropic requests without max_tokens get the API's 400 error.
+// in the context, body fields beyond the protocol's own, the system message (chat: a `system` message, not
+// counted in the context; anthropic: `system`; responses: `instructions`), last user message) so branches,
+// echo-back, parameters and system messages are visible in tests. Anthropic requests without max_tokens get the API's 400 error.
 // User content may be a list of parts (images + text in the protocol's own shape): the echo line counts the
 // images in the whole context, and a part of unknown shape gets a 400 like a real API.
 import fs from 'node:fs'
@@ -81,12 +82,12 @@ function userParts(protocol, content) {
 }
 
 /** First line of every reply. `users`: the content of every user message in the context. */
-function echoLine({ protocol, context, echoed, params, users }) {
+function echoLine({ protocol, context, echoed, params, users, system }) {
   const p = Object.keys(params).length ? JSON.stringify(params) : '无'
   const parts = users.map((c) => userParts(protocol, c))
   const images = parts.reduce((n, u) => n + u.images, 0)
   const last = parts.at(-1)?.text ?? ''
-  return `> 第 ${count} 次请求 · ${protocol} · 上下文 ${context} 条 · 回传 ${echoed.size ? [...echoed].join(', ') : '无'} · 参数 ${p} · 图片 ${images} 张 · 「${String(last).slice(0, 30)}」\n\n`
+  return `> 第 ${count} 次请求 · ${protocol} · 上下文 ${context} 条 · 回传 ${echoed.size ? [...echoed].join(', ') : '无'} · 参数 ${p} · 系统 ${system ? `「${String(system).slice(0, 30)}」` : '无'} · 图片 ${images} 张 · 「${String(last).slice(0, 30)}」\n\n`
 }
 
 const userContents = (protocol, body) =>
@@ -113,7 +114,9 @@ async function streamText(text, emit) {
 }
 
 async function chat(res, body) {
-  const { model, messages, stream, ...params } = body
+  const { model, messages: all, stream, ...params } = body
+  const system = all.find((m) => m.role === 'system')?.content
+  const messages = all.filter((m) => m.role !== 'system')
   const echoed = new Set()
   for (const m of messages) {
     if (m.role === 'assistant') for (const k of Object.keys(m)) if (k !== 'role' && k !== 'content') echoed.add(k)
@@ -137,7 +140,7 @@ async function chat(res, body) {
       await sleep(pause(model))
     }
   }
-  const line = echoLine({ protocol: 'chat', context: messages.length, echoed, params, users: userContents('chat', body) })
+  const line = echoLine({ protocol: 'chat', context: messages.length, echoed, params, system, users: userContents('chat', body) })
   await streamText(replyText(model, line, userContents('chat', body), 'chat'), (t) => delta({ content: t }))
   send({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
   send({
@@ -148,7 +151,7 @@ async function chat(res, body) {
 }
 
 async function anthropic(res, body) {
-  const { model, messages, stream, ...params } = body
+  const { model, messages, stream, system, ...params } = body
   const echoed = new Set()
   for (const m of messages) {
     if (m.role === 'assistant' && Array.isArray(m.content)) for (const b of m.content) if (b.type !== 'text') echoed.add(b.type)
@@ -174,7 +177,7 @@ async function anthropic(res, body) {
     send({ type: 'content_block_stop', index: index++ })
   }
   send({ type: 'content_block_start', index, content_block: { type: 'text', text: '' } })
-  const line = echoLine({ protocol: 'anthropic', context: messages.length, echoed, params, users: userContents('anthropic', body) })
+  const line = echoLine({ protocol: 'anthropic', context: messages.length, echoed, params, system, users: userContents('anthropic', body) })
   await streamText(replyText(model, line, userContents('anthropic', body), 'anthropic'), (t) => send({ type: 'content_block_delta', index, delta: { type: 'text_delta', text: t } }))
   send({ type: 'content_block_stop', index })
   send({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 100 } })
@@ -183,7 +186,7 @@ async function anthropic(res, body) {
 }
 
 async function responses(res, body) {
-  const { model, input, stream, ...params } = body
+  const { model, input, stream, instructions: system, ...params } = body
   const echoed = new Set()
   for (const it of input) if (it.type) echoed.add(it.type)
   let seq = 0
@@ -214,7 +217,7 @@ async function responses(res, body) {
   const id = `msg_${count}`
   send({ type: 'response.output_item.added', output_index: oi, item: { id, type: 'message', status: 'in_progress', role: 'assistant', content: [] } })
   send({ type: 'response.content_part.added', item_id: id, output_index: oi, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } })
-  const line = echoLine({ protocol: 'responses', context: input.length, echoed, params, users: userContents('responses', body) })
+  const line = echoLine({ protocol: 'responses', context: input.length, echoed, params, system, users: userContents('responses', body) })
   const text = replyText(model, line, userContents('responses', body), 'responses')
   await streamText(text, (t) => send({ type: 'response.output_text.delta', item_id: id, output_index: oi, content_index: 0, delta: t }))
   send({ type: 'response.output_text.done', item_id: id, output_index: oi, content_index: 0, text })

@@ -36,7 +36,7 @@ beforeEach(async () => {
   await db.providers.add({ id: 'p', name: 'P', protocol: 'openai-chat', baseUrl: 'http://x/v1', apiKey: KEY, models: ['m'], createdAt: 0 })
   await db.conversations.add({ id: 'c', title: 'T', createdAt: 0, updatedAt: 0, selectedChild: { [ROOT_KEY]: 'n1', n1: 'n3', th: 's1' } })
   await db.nodes.bulkAdd([
-    node('n1', null, { user: { text: 'look', images: ['img1'] } }),
+    node('n1', null, { user: { text: 'look', images: ['img1'] }, system: 'Be brief.' }),
     node('n2', 'n1'),
     node('n3', 'n1', { edit: { from: 'n2', history: [{ content: 'a n2', at: 0 }], at: 1 }, label: '改过的版本' }),
     node('s1', 'n1', { kind: 'side', thread: 'th', anchor: { start: 0, end: 1, text: 'a' } }),
@@ -69,6 +69,7 @@ describe('conversation export / import', () => {
     expect(path.map((n) => n.assistant.content)).toEqual(['a n1', 'a n3'])
     expect(path[1].edit!.from).toBe(nodes.find((n) => n.assistant.content === 'a n2')!.id)
     expect(path.map((n) => n.label)).toEqual([undefined, '改过的版本'])
+    expect(path[0].system).toBe('Be brief.')
     const thread = nodes.find((n) => n.anchor)!.thread!
     expect(thread).not.toBe('th')
     expect(threadPath(nodes, thread, conv.selectedChild).map((n) => n.assistant.content)).toEqual(['a s1', 'a s2'])
@@ -81,9 +82,13 @@ describe('conversation export / import', () => {
     expect(path[0].attempt.rawChunks).toEqual([{ t: 1, text: 'data: {}' }])
   })
 
-  it('exports version 4 and still imports version 3 (no labels)', async () => {
+  it('exports version 5 and still imports versions 4 (no system messages) and 3 (no labels)', async () => {
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(4)
+    expect(f.version).toBe(5)
+    f.version = 4
+    for (const n of f.nodes) delete n.system
+    const v4 = await importConversation(JSON.stringify(f))
+    expect((await db.nodes.where('conversationId').equals(v4).toArray()).some((n) => n.system)).toBe(false)
     f.version = 3
     for (const n of f.nodes) delete n.label
     const id = await importConversation(JSON.stringify(f))
@@ -97,6 +102,9 @@ describe('conversation export / import', () => {
     f.nodes[2].label = 42
     await expect(importConversation(JSON.stringify(f))).rejects.toThrow('bad message')
     delete f.nodes[2].label
+    f.nodes[0].system = ['x']
+    await expect(importConversation(JSON.stringify(f))).rejects.toThrow('bad message')
+    delete f.nodes[0].system
     f.nodes[1].parentId = 'missing'
     await expect(importConversation(JSON.stringify(f))).rejects.toThrow('broken message tree')
     expect(await db.conversations.count()).toBe(1)

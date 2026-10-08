@@ -21,11 +21,11 @@ export function useNodeActions(nodes: ChatNode[] | undefined, hold: Hold): NodeA
   const latest = useRef({ nodes, provider, model, hold })
   latest.current = { nodes, provider, model, hold }
   return useMemo<NodeActions>(() => {
-    const again = (node: ChatNode, text: string, images: ImageFile[]) => {
+    const again = (node: ChatNode, text: string, images: ImageFile[], system?: string) => {
       const { provider, model, hold } = latest.current
       if (!provider || !model) return
       hold(atFork(node), { follow: true })
-      void resend(node, text, images, provider, model)
+      void resend(node, text, images, provider, model, system ?? node.system)
     }
     return {
       retry: async (node) => {

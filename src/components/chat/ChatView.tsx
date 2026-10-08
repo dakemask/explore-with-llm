@@ -29,6 +29,8 @@ import { Button, IconButton } from '../ui/Button'
 import { ResizeHandle } from '../ui/ResizeHandle'
 import { Dots } from '../ui/Dots'
 import { Composer } from './Composer'
+import { SystemEditDialog } from './EditDialogs'
+import { SystemRow } from './SystemMessage'
 import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
 import { useSiblings } from './SiblingSwitcher'
@@ -77,15 +79,22 @@ export function ChatView() {
     if (!provider || !model) return
     scroll.pin()
     let id = conversationId
+    // A first turn takes the system message shown above the empty chat; the next new chat starts from the default.
+    const system = parentId ? undefined : pendingSystem
+    if (!parentId) setSystemDraft(draftKey, null)
     if (!id) {
       id = await createConversation()
       setConversation(id)
     }
-    await sendMessage({ conversationId: id, parentId, text, images, provider, model })
+    await sendMessage({ conversationId: id, parentId, text, images, provider, model, system })
   }
 
   const mainRef = useRef<HTMLElement>(null)
   const draftKey = conversationId ?? NEW_CHAT
+  const defaultSystem = useSettings((s) => s.systemPrompt)
+  const pendingSystem = useUi((s) => s.systemDrafts[draftKey]) ?? defaultSystem.trim()
+  const setSystemDraft = useUi((s) => s.setSystemDraft)
+  const [editingSystem, setEditingSystem] = useState(false)
   // Read once per box (it reads its starting text on mount); not a subscription.
   const composerDraft = useMemo(() => useUi.getState().composerDrafts[draftKey], [draftKey])
   const scroll = useAutoScroll(conversationId)
@@ -365,7 +374,17 @@ export function ChatView() {
                     }
                   />
                 ) : (
-                  <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
+                  <>
+                    <SystemRow text={pendingSystem} onClick={() => setEditingSystem(true)} />
+                    {editingSystem && (
+                      <SystemEditDialog
+                        initial={pendingSystem}
+                        onClose={() => setEditingSystem(false)}
+                        onSave={(text) => setSystemDraft(draftKey, text)}
+                      />
+                    )}
+                    <EmptyState icon={<Sparkles size={22} />} title={t('chat.emptyTitle')} />
+                  </>
                 )
               ) : (
                 <div>

@@ -20,6 +20,8 @@ interface SettingsState {
   paramChoices: Record<string, Record<string, ParamChoice>>
   /** Model that names conversations and side questions (`lib/naming.ts`); null = no automatic naming. */
   namingModel: { providerId: string; model: string } | null
+  /** The system message new conversations start from (empty: none is sent). */
+  systemPrompt: string
   /** The side-question column: open, and width in px (`lib/panes.ts`). */
   panes: Record<Pane, { open: boolean; width: number }>
   setPane: (pane: Pane, patch: Partial<{ open: boolean; width: number }>) => void
@@ -28,6 +30,7 @@ interface SettingsState {
   setModel: (providerId: string, model: string) => void
   setParamChoice: (key: string, name: string, choice: ParamChoice) => void
   setNamingModel: (m: { providerId: string; model: string } | null) => void
+  setSystemPrompt: (text: string) => void
   /** A model was renamed in settings: keep it selected and keep its parameter choices. */
   renameModel: (providerId: string, from: string, to: string) => void
 }
@@ -35,6 +38,8 @@ interface SettingsState {
 export const paramKey = (providerId: string, model: string) => `${providerId}/${model}`
 /** Naming keeps its own choices: a title needs far less (e.g. reasoning effort) than a chat reply. */
 export const namingParamKey = (providerId: string, model: string) => `naming:${providerId}/${model}`
+
+export const DEFAULT_SYSTEM = 'You are a helpful assistant.'
 
 const defaultLang: Lang = typeof navigator !== 'undefined' && !navigator.language.startsWith('zh') ? 'en' : 'zh'
 
@@ -47,12 +52,14 @@ export const useSettings = create<SettingsState>()(
       model: null,
       paramChoices: {},
       namingModel: null,
+      systemPrompt: DEFAULT_SYSTEM,
       panes: { column: { open: true, width: PANE_DEFAULT.column } },
       setPane: (pane, patch) => set((s) => ({ panes: { ...s.panes, [pane]: { ...s.panes[pane], ...patch } } })),
       setLang: (lang) => set({ lang }),
       setTheme: (theme) => set({ theme }),
       setModel: (providerId, model) => set({ providerId, model }),
       setNamingModel: (namingModel) => set({ namingModel }),
+      setSystemPrompt: (systemPrompt) => set({ systemPrompt }),
       setParamChoice: (key, name, choice) =>
         set((s) => {
           const forModel = s.paramChoices[key] ?? {}

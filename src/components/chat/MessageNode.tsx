@@ -19,12 +19,14 @@ import { MessageImages } from './Images'
 import { editLabel } from './labels'
 import { Markdown } from './Markdown'
 import { SiblingSwitcher, type Siblings } from './SiblingSwitcher'
+import { SystemRow } from './SystemMessage'
 import { atFork } from './useNodeActions'
 
 /** Callbacks from ChatView. Kept referentially stable so memoized nodes don't re-render. */
 export interface NodeActions {
   retry: (node: ChatNode) => void
-  edit: (node: ChatNode, text: string, images: ImageFile[]) => void
+  /** `system`: a first turn's system message as edited ('' = none). */
+  edit: (node: ChatNode, text: string, images: ImageFile[], system?: string) => void
   /** Shows `id` (a sibling of `node`) at their fork. */
   select: (node: ChatNode, id: string) => void
 }
@@ -73,6 +75,9 @@ export const MessageNode = memo(function MessageNode({
   const openDetail = () => useUi.getState().setPanel({ type: 'detail', nodeId: node.id })
   const hold = useScrollHold()
   const [editing, setEditing] = useState(false)
+  /** The user message editor is open (`system`: opened from the system message). */
+  const [editingUser, setEditingUser] = useState<false | 'user' | 'system'>(false)
+  const first = node.kind === 'main' && node.parentId === null
   // The new version takes the original's place on screen.
   const saveEdit = (text: string) => {
     hold(atFork(node))
@@ -84,12 +89,23 @@ export const MessageNode = memo(function MessageNode({
 
   return (
     <div data-fork={forkKey(node)} className="space-y-3">
+      {editingUser && (
+        <UserEditDialog
+          initial={node.user.text}
+          initialImages={node.user.images}
+          system={first ? (node.system ?? '') : undefined}
+          focusSystem={editingUser === 'system'}
+          onClose={() => setEditingUser(false)}
+          onSend={(text, images, system) => actions.edit(node, text, images, system)}
+        />
+      )}
+      {first && <SystemRow text={node.system} onClick={canSend ? () => setEditingUser('system') : undefined} />}
       <UserMessage
         nodeId={node.id}
         anchors={marks?.user}
         text={node.user.text}
         images={node.user.images}
-        onEdit={canSend ? (text, images) => actions.edit(node, text, images) : undefined}
+        onEdit={canSend ? () => setEditingUser('user') : undefined}
       />
       <div className="group/assistant">
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
@@ -165,17 +181,14 @@ function UserMessage({
   anchors?: AnchorMark[]
   text: string
   images?: string[]
-  onEdit?: (text: string, images: ImageFile[]) => void
+  /** Opens the message editor. */
+  onEdit?: () => void
 }) {
   const t = useT()
-  const [editing, setEditing] = useState(false)
   const { copied, copy } = useCopy()
 
   return (
     <div className="group/user flex flex-col items-end">
-      {editing && onEdit && (
-        <UserEditDialog initial={text} initialImages={images} onClose={() => setEditing(false)} onSend={onEdit} />
-      )}
       {images && images.length > 0 && <MessageImages ids={images} />}
       {text && (
         <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5">
@@ -192,7 +205,7 @@ function UserMessage({
             </IconButton>
           )}
           {onEdit && (
-            <IconButton label={t('msg.edit')} size="sm" onClick={() => setEditing(true)}>
+            <IconButton label={t('msg.edit')} size="sm" onClick={onEdit}>
               <Pencil size={14} />
             </IconButton>
           )}

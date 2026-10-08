@@ -26,12 +26,15 @@ export const anthropic: ProtocolAdapter = {
   chatPath: '/v1/messages',
 
   buildRequest(provider, model, messages, params) {
+    // The system message is a top-level field here, not a message.
+    const system = messages.find((m) => m.role === 'system')?.content
     return {
       url: joinUrl(provider.baseUrl, this.chatPath),
       headers: { 'Content-Type': 'application/json', ...baseHeaders(provider.apiKey) },
       body: {
         model,
-        messages: messages.map((m) => {
+        ...(system && { system }),
+        messages: messages.filter((m) => m.role !== 'system').map((m) => {
           const { role, content, extra } = m
           if (role === 'user') return { role, content: userContent(m, imageBlock, 'text') }
           // Echoed reasoning blocks come first, as the model produced them, then the (possibly edited) text.
@@ -44,7 +47,7 @@ export const anthropic: ProtocolAdapter = {
     }
   },
 
-  reserved: ['model', 'messages', 'stream'],
+  reserved: ['model', 'system', 'messages', 'stream'],
 
   /** `fields` name content block types (`thinking`, `redacted_thinking`…); `*` means every non-text block. */
   echo(message, fields) {

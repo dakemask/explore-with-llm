@@ -54,18 +54,20 @@ export async function deleteConversation(id: string) {
  * Nodes whose request produced no assistant text still contribute their user turn.
  * Replies carry the native fields the target model's config asks to be echoed back (see `ModelConfig.echoFields`).
  * `images` supplies the data of every image the user turns refer to (`ChatNode.user.images`, `images.user`).
+ * `system` (the path's first node's, or the new first turn's) goes first.
  */
 export function buildMessages(
   path: ChatNode[],
   userText: string,
   target?: { provider: Provider; model: string },
   images?: { payloads: Map<string, ImagePayload>; user: string[] },
+  system = path[0]?.system,
 ): ChatMessage[] {
   const userTurn = (content: string, ids: string[] | undefined): ChatMessage => {
     const found = (ids ?? []).flatMap((id) => images?.payloads.get(id) ?? [])
     return found.length ? { role: 'user', content, images: found } : { role: 'user', content }
   }
-  const messages: ChatMessage[] = []
+  const messages: ChatMessage[] = system ? [{ role: 'system', content: system }] : []
   for (const n of path) {
     messages.push(userTurn(n.user.text, n.user.images))
     if (n.assistant.content) {
@@ -118,6 +120,8 @@ export async function sendMessage(opts: {
   provider: Provider
   model: string
   side?: { thread: string; anchor?: SideAnchor }
+  /** A new first turn's system message (empty: none); other turns use their path's first node's. */
+  system?: string
 }) {
   const { conversationId, parentId, text, provider, model, side } = opts
   const images = opts.images ?? []
@@ -129,7 +133,8 @@ export async function sendMessage(opts: {
   const path = parentId ? pathTo(allNodes, parentId) : []
   const imageIds = images.map((i) => i.id)
   const payloads = await loadPayloads([...path.flatMap((n) => n.user.images ?? []), ...imageIds])
-  const messages = buildMessages(path, text, { provider, model }, { payloads, user: imageIds })
+  const system = !parentId && !side && opts.system ? opts.system : undefined
+  const messages = buildMessages(path, text, { provider, model }, { payloads, user: imageIds }, parentId ? path[0]?.system : system)
 
   const nodeId = nanoid()
   const now = Date.now()
@@ -151,6 +156,7 @@ export async function sendMessage(opts: {
     kind: side ? 'side' : 'main',
     ...(side && { thread: side.thread }),
     ...(side?.anchor && { anchor: side.anchor }),
+    ...(system && { system }),
     createdAt: now,
     user: imageIds.length ? { text, images: imageIds } : { text },
     assistant: { content: '' },
@@ -278,8 +284,11 @@ async function runAttempt(
   }
 }
 
-/** A new version of `node` (retry, or edited question): a sibling at the same fork, same thread/anchor. */
-export function resend(node: ChatNode, text: string, images: ImageFile[], provider: Provider, model: string) {
+/**
+ * A new version of `node` (retry, or edited question): a sibling at the same fork, same thread/anchor. A first
+ * turn keeps its system message unless `system` gives another one.
+ */
+export function resend(node: ChatNode, text: string, images: ImageFile[], provider: Provider, model: string, system = node.system) {
   return sendMessage({
     conversationId: node.conversationId,
     parentId: node.parentId,
@@ -288,6 +297,7 @@ export function resend(node: ChatNode, text: string, images: ImageFile[], provid
     provider,
     model,
     side: node.thread ? { thread: node.thread, anchor: node.anchor } : undefined,
+    system,
   })
 }
 
@@ -451,6 +461,7 @@ export async function editAssistant(node: ChatNode, content: string): Promise<st
     kind: node.kind,
     ...(node.thread && { thread: node.thread }),
     ...(node.anchor && { anchor: node.anchor }),
+    ...(node.system && { system: node.system }),
     createdAt: now,
     user: node.user,
     assistant: { content },

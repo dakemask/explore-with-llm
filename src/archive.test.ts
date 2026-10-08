@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db, ROOT_KEY, type ChatNode, type Note } from './db'
-import { archiveNode, archiveThread, deleteArchived, deleteConversation, restoreArchived, sendMessage, threadToBranch } from './lib/chat'
+import { archiveNode, archiveThread, deleteArchived, deleteConversation, resend, restoreArchived, sendMessage, threadToBranch } from './lib/chat'
 import { archiveNote, restoreNote } from './lib/notes'
 import {
   activePath,
@@ -198,6 +198,23 @@ describe('archive actions (db)', () => {
     expect(nodes.filter((n) => n.user.text === 'next' || n.user.text === '> q').every((n) => !n.branch)).toBe(true)
   })
 
+  it('a first turn keeps its system message; retries keep it, edits may change it', async () => {
+    const provider = { id: 'p', name: 'P', protocol: 'anthropic' as const, baseUrl: 'http://127.0.0.1:1', apiKey: 'k', models: ['m'], createdAt: 0 }
+    await sendMessage({ conversationId: 'c', parentId: null, text: 'hi', provider, model: 'm', system: 'Be brief.' })
+    const root = (await db.nodes.toArray()).find((n) => n.user.text === 'hi')!
+    expect(root.system).toBe('Be brief.')
+    expect((root.attempt.requestBody as { system?: string }).system).toBe('Be brief.')
+    await resend(root, 'hi', [], provider, 'm')
+    await resend(root, 'hi', [], provider, 'm', '')
+    const versions = (await db.nodes.toArray()).filter((n) => n.user.text === 'hi')
+    expect(versions.map((n) => n.system ?? 'none').sort()).toEqual(['Be brief.', 'Be brief.', 'none'])
+    // A follow-up's request carries its path's system message.
+    await sendMessage({ conversationId: 'c', parentId: root.id, text: 'more', provider, model: 'm' })
+    const more = (await db.nodes.toArray()).find((n) => n.user.text === 'more')!
+    expect(more.system).toBeUndefined()
+    expect((more.attempt.requestBody as { system?: string }).system).toBe('Be brief.')
+  })
+
   it('turns a side question into main nodes under its node, keeping the view', async () => {
     await threadToBranch('c', 'T')
     const nodes = await db.nodes.toArray()
@@ -237,7 +254,7 @@ describe('archive actions (db)', () => {
   it('exports kinds; importing a version 1 file derives branches', async () => {
     await db.nodes.update('b', { branch: true, archived: 7 })
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(4)
+    expect(f.version).toBe(5)
     expect(f.nodes.find((n: ChatNode) => n.id === 'b')).toMatchObject({ branch: true, archived: 7 })
     const id2 = await importConversation(JSON.stringify(f))
     expect((await db.nodes.where('conversationId').equals(id2).toArray()).filter((n) => n.archived)).toHaveLength(1)
@@ -297,7 +314,7 @@ describe('notes', () => {
   it('exports notes (version 3+) and imports them with new ids on the new nodes', async () => {
     await archiveNote('nc')
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(4)
+    expect(f.version).toBe(5)
     expect(f.notes.map((n: Note) => n.id).sort()).toEqual(['nb', 'nc', 'nd'])
 
     const id = await importConversation(JSON.stringify(f))

@@ -133,6 +133,11 @@ export interface ChatNode {
   archived?: number
   /** Main nodes only: the user's one-line label, shown first in the tree map's and the switcher's tips. */
   label?: string
+  /**
+   * First-turn main nodes only (`parentId` null): the system message sent before everything on the paths
+   * through this node. Absent = none sent. Part of the turn: changing it makes a new sibling, like an edit.
+   */
+  system?: string
   createdAt: number
   user: {
     text: string

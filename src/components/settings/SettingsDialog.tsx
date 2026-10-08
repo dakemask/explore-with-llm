@@ -9,7 +9,7 @@ import { namingParamKey, useSettings, type Theme } from '../../store/settings'
 import { ParamsControl } from '../chat/ParamsControl'
 import { useUi } from '../../store/ui'
 import { Dialog } from '../ui/Dialog'
-import { Label, Segmented } from '../ui/Field'
+import { Label, Segmented, Textarea } from '../ui/Field'
 import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/Menu'
 import { ProviderForm } from './ProviderForm'
 
@@ -144,7 +144,7 @@ function ProvidersTab() {
 
 function GeneralTab() {
   const t = useT()
-  const { lang, theme, setLang, setTheme } = useSettings()
+  const { lang, theme, setLang, setTheme, systemPrompt, setSystemPrompt } = useSettings()
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -173,6 +173,10 @@ function GeneralTab() {
       <div>
         <Label help={t('settings.naming.help')}>{t('settings.naming')}</Label>
         <NamingModelPicker />
+      </div>
+      <div>
+        <Label hint={t('settings.system.hint')}>{t('settings.system')}</Label>
+        <Textarea rows={3} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
       </div>
     </div>
   )

@@ -44,6 +44,11 @@ interface UiState {
   drafts: Record<string, SideDraft>
   /** Unsent text in the main input box by conversation id (kept while the app runs). */
   composerDrafts: Record<string, ComposerDraft>
+  /**
+   * The system message for a first turn not sent yet, by conversation id (`NEW_CHAT` = the not yet created
+   * one), once the user changed it; otherwise it starts from the settings' default.
+   */
+  systemDrafts: Record<string, string>
   settingsOpen: boolean
   settingsTab: 'providers' | 'general'
   /** Provider (and model) the providers tab should show when it opens. */
@@ -74,6 +79,8 @@ interface UiState {
   dropDraft: (thread: string) => void
   /** Keeps what the main input box holds as its conversation is left (nothing typed: forgets it). */
   saveComposerDraft: (key: string, text: string, images: ImageFile[]) => void
+  /** Sets (text) or forgets (null) the system message for `key`'s first turn. */
+  setSystemDraft: (key: string, text: string | null) => void
   setNaming: (key: string, on: boolean) => void
   setLeaving: (thread: string, on: boolean) => void
   /** Marks nodes as just made branches for a moment (`newBranches`). */
@@ -86,6 +93,7 @@ export const useUi = create<UiState>()((set) => ({
   expanded: null,
   drafts: {},
   composerDrafts: {},
+  systemDrafts: {},
   settingsOpen: false,
   settingsTab: 'providers',
   settingsFocus: null,
@@ -130,6 +138,13 @@ export const useUi = create<UiState>()((set) => ({
       if (text.trim() || images.length) composerDrafts[key] = { text, images }
       else delete composerDrafts[key]
       return { composerDrafts }
+    }),
+  setSystemDraft: (key, text) =>
+    set((s) => {
+      const systemDrafts = { ...s.systemDrafts }
+      if (text === null) delete systemDrafts[key]
+      else systemDrafts[key] = text
+      return { systemDrafts }
     }),
   setNaming: (key, on) =>
     set((s) => {

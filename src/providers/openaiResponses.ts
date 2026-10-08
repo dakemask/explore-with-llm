@@ -15,8 +15,11 @@ export const openaiResponses: ProtocolAdapter = {
 
   buildRequest(provider, model, messages, params) {
     const input: unknown[] = []
+    // The system message goes in `instructions`, the protocol's place for it.
+    const instructions = messages.find((m) => m.role === 'system')?.content
     for (const m of messages) {
       const { role, content, extra } = m
+      if (role === 'system') continue
       if (role === 'user') {
         input.push({ role, content: userContent(m, inputImage, 'input_text') })
         continue
@@ -35,11 +38,11 @@ export const openaiResponses: ProtocolAdapter = {
     return {
       url: joinUrl(provider.baseUrl, this.chatPath),
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` },
-      body: { model, input, ...params, stream: true },
+      body: { model, ...(instructions && { instructions }), input, ...params, stream: true },
     }
   },
 
-  reserved: ['model', 'input', 'stream'],
+  reserved: ['model', 'instructions', 'input', 'stream'],
 
   /** `fields` name output item types (`reasoning`…); `*` means every item that isn't the message. */
   echo(message, fields) {
