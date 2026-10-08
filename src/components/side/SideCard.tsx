@@ -94,7 +94,7 @@ export function SideCard({
   return (
     <>
       <header
-        onClick={collapseOnClick(onCollapse)}
+        {...collapseOnClick(onCollapse)}
         className="flex shrink-0 cursor-pointer items-center gap-1 border-b border-border py-2 pr-2 pl-4"
       >
         <h2 className="flex h-7 min-w-0 flex-1 items-center gap-2 text-[13.5px] font-semibold">

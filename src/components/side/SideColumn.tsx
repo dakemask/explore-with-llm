@@ -214,15 +214,29 @@ export function SideColumn({
   )
 }
 
+/** Where the last press on a header started, if it may collapse its card (one card is expanded at a time). */
+let headerPress: { x: number; y: number } | null = null
+
 /**
- * An expanded card's header collapses it when clicked, except on its buttons and inputs (a note's title
- * box). (React events bubble out of portals too: a click in the header's menu must not count, hence the
- * DOM `contains`.)
+ * Props for an expanded card's header: a click collapses the card, except on its buttons and inputs (a
+ * note's title box). The press must start there too and not drag: a text selection dragged out of the
+ * title box (or across the title) ends with a click on the header itself. (React events bubble out of
+ * portals too: a click in the header's menu must not count, hence the DOM `contains`.)
  */
 export function collapseOnClick(onCollapse: () => void) {
-  return (e: MouseEvent<HTMLElement>) => {
+  const onHeader = (e: MouseEvent<HTMLElement>) => {
     const target = e.target as Element
-    if (e.currentTarget.contains(target) && !target.closest('button, input')) onCollapse()
+    return e.currentTarget.contains(target) && !target.closest('button, input')
+  }
+  return {
+    onMouseDown: (e: MouseEvent<HTMLElement>) => {
+      headerPress = onHeader(e) ? { x: e.clientX, y: e.clientY } : null
+    },
+    onClick: (e: MouseEvent<HTMLElement>) => {
+      const press = headerPress
+      headerPress = null
+      if (press && onHeader(e) && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5) onCollapse()
+    },
   }
 }
 

@@ -96,8 +96,8 @@ export async function newChat(page) {
   await page.keyboard.press('Escape')
 }
 
-/** Collapses an expanded side / note card (locator) by clicking its header's title area. */
+/** Collapses an expanded side / note card (locator) by clicking its header's left padding (a note's title is an input). */
 export async function collapseCard(page, card) {
   const b = await card.locator('header').boundingBox()
-  await page.mouse.click(b.x + 60, b.y + b.height / 2)
+  await page.mouse.click(b.x + 8, b.y + b.height / 2)
 }

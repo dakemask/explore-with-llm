@@ -269,6 +269,7 @@ One line per check run, newest last (kept from 2026-10-09; earlier runs are note
 - 2026-10-09, suite trim (task 22) — full `run-all.mjs`, a rerun of the two failing suites, a full run again. App: none. Tests: 2, both from the trim itself — `tree` still used a removed helper; the 转为分支 check moved into `scroll-cards` clicked a card header above the screen (Playwright's `click()` scrolled it into view and looked like a 1500 px jump; took a debugging detour to tell it from an app bug). Fixed; the last full run passes (≈ 2.5 min).
 - 2026-10-09, task 23 — `pnpm test` + `pnpm build`, one cropped screenshot of a side card's and the main input box (light). App: none. Tests: none.
 - 2026-10-09, task 24 — `pnpm test` + `pnpm build`, `layout` suite (strip width changed; W5's 22 → 14), screenshots of side / note cards and highlights, light + dark. App: none. Tests: 1 — W5 asserted the old strip width (updated with the change).
+- 2026-10-09, fix: a drag released on a card header no longer collapses it — `pnpm test` + `pnpm build`, a one-off browser script (drag out of the note title / across a side title: stays; plain click: collapses), `scroll-cards` + `focus` suites. App: none. Tests: 1 — `collapseCard` (lib.mjs) clicked where a note's title box now is; it clicks the header's left padding now.
 
 ## Engineering principles
 
