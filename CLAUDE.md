@@ -178,6 +178,7 @@ What users see and can do, and why. These rules are deliberate: don't change one
 
 - Images (main chat, side questions, editing a user message): attach button, paste (only when the clipboard has no plain text, so copied spreadsheet cells still paste as text), or drop — onto the whole chat column / side card, or onto the message editor. Shown as thumbnails above the user bubble (click → full-size viewer). Sent before the text in each protocol's native shape (openai-chat `image_url` data URL, Responses `input_image`, Anthropic base64 `image` block); an image-only message has no text part; messages without images stay plain strings. Kept byte for byte when PNG/JPEG/GIF/WebP ≤ 5 MB and ≤ 8000 px a side (Anthropic's limits, the strictest); otherwise converted to PNG or downscaled JPEG. No per-model "supports images" check — a model that can't see images returns the API's error.
 - Unsent text (and images) in the main input box stays with its conversation (owner, 2026-10-07): switching shows that conversation's own unsent text; the not-yet-created new chat has its own; in memory only, like side-question drafts (gone on reload). It used to carry over into the next conversation, where Enter sent it to the wrong one.
+- System message (owner agreed to Claude's proposal, accepted 2026-10-08): it belongs to the first turn — changing it (or the first message) makes a sibling of the first turn, retry keeps it. Settings › General "默认系统消息" (initially `You are a helpful assistant.`; empty = none sent) is what new conversations start from — a deliberate exception to "the app adds nothing to requests itself", switchable off. A quiet line "系统消息 · first line" (small faint text, no background), centered above the first message with a gap (and in the same spot in an empty chat, where it edits the one the first message will take, kept per conversation in memory); clicking it opens the first message's editor with a system box above the message (in an empty chat a small system-only dialog). The owner tried separate dialogs for the two and went back to one. Conversations from before (and imports of v1–4) show "无（不发送）": none was sent. Side questions use their path's; side cards don't show it; naming requests send none.
 - User messages and notes render as Markdown, with single newlines kept as line breaks.
 - No tool calling.
 
@@ -219,8 +220,6 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 - **Owner decides** the Open items above (names; success notifications when a case comes up).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
-- **11. Conversation list as a card** (no sidebar; new chat in the card, settings in the header) — built, owner to try.
-- **12. System message** — built, owner to try. Rules (owner agreed to Claude's proposal, 2026-10-08; move to Product decisions once accepted): the system message belongs to the first turn — changing it (or the first message) makes a sibling of the first turn, retry keeps it. Settings › General "默认系统消息" (initially `You are a helpful assistant.`; empty = none sent) is what new conversations start from — a deliberate exception to "the app adds nothing to requests itself", switchable off. A quiet line "系统消息 · first line" (small faint text, no background), centered above the first message with a gap (owner) (and in the same spot in an empty chat, where it edits the one the first message will take, kept per conversation in memory); clicking it opens the first message's editor with a system box above the message (in an empty chat a small system-only dialog). The owner tried separate dialogs for the two and went back to one (2026-10-08). Conversations from before (and imports of v1–4) show "无（不发送）": none was sent. Side questions use their path's; side cards don't show it; naming requests send none.
 
 ### Done
 
@@ -234,6 +233,8 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 8. Foundation pass (layering, floating positions, scrolling, focus, conversation switch, layout widths — see Engineering principles); collapsible, resizable side panes + floating input box; card ⋯ menus (8.1b.1); node labels + tree map help tip (8.1b.2). All accepted by the owner (2026-10-08).
 9. Docs cleanup (verification levels, this file reorganized, presets report rewritten; presets: 最大输出 on at the maximum, Claude effort = 投入程度) and parameter help (`help` per parameter; known small thing: a row's tip can briefly cover the panel header when the mouse crosses it). Accepted by the owner (2026-10-08).
 10. 转为分支 (side question → main nodes) + the "became a branch" dot animation. Accepted by the owner (2026-10-08).
+11. Conversation list as a card (no sidebar). Accepted by the owner (2026-10-08).
+12. System message on the first turn. Accepted by the owner (2026-10-08).
 
 ## Engineering principles
 
