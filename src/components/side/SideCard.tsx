@@ -8,7 +8,7 @@ import { useSwitchMotion } from '../../lib/switchMotion'
 import { useUi, type SideDraft } from '../../store/ui'
 import { Composer } from '../chat/Composer'
 import { MessageNode, Turn } from '../chat/MessageNode'
-import { ModelControls, useCurrentModel } from '../chat/ModelPicker'
+import { CurrentParams, ModelPicker, useCurrentModel } from '../chat/ModelPicker'
 import { useSiblings } from '../chat/SiblingSwitcher'
 import { useNodeActions } from '../chat/useNodeActions'
 import { Dots } from '../ui/Dots'
@@ -149,7 +149,8 @@ export function SideCard({
           initialText={draft && !root ? draft.text : ''}
           initialImages={draft && !root ? draft.images : undefined}
           onLeave={draft && !root ? (text, images) => saveDraft(thread, text, images) : undefined}
-          leading={<ModelControls />}
+          modelRow={<ModelPicker wide />}
+          leading={<CurrentParams />}
           dropTarget={dropTarget}
           regenerate={lacksReply(last) ? { onClick: ready ? () => actions.retry(last) : undefined } : undefined}
         />

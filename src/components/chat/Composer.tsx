@@ -14,6 +14,7 @@ export function Composer({
   disabled,
   placeholder,
   leading,
+  modelRow,
   initialText = '',
   initialImages,
   onLeave,
@@ -27,6 +28,8 @@ export function Composer({
   placeholder?: string
   /** Shown at the left of the bottom bar. */
   leading?: ReactNode
+  /** A row of its own above the bottom bar (side cards: the model picker, the bar is too narrow for it). */
+  modelRow?: ReactNode
   /** Text to start with (read on mount); the cursor goes after it. */
   initialText?: string
   initialImages?: ImageFile[]
@@ -111,6 +114,7 @@ export function Composer({
           placeholder={placeholder ?? t('chat.placeholder')}
           className="block max-h-60 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-relaxed placeholder:text-faint focus:outline-none"
         />
+        {modelRow && <div className="flex min-w-0 px-2.5">{modelRow}</div>}
         <div className="flex items-center gap-1 px-2.5 pb-2.5">
           <AttachButton onFiles={attachments.add} />
           <div className="min-w-0 flex-1">{leading}</div>

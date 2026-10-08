@@ -39,7 +39,14 @@ export function ModelControls() {
   )
 }
 
-export function ModelPicker() {
+/** The chosen model's parameters alone (side cards put the picker on a row of its own). */
+export function CurrentParams() {
+  const { provider, model } = useCurrentModel()
+  return provider && model ? <ParamsControl provider={provider} model={model} /> : null
+}
+
+/** `wide`: may take the whole row (side cards), not just up to 16 rem. */
+export function ModelPicker({ wide }: { wide?: boolean }) {
   const t = useT()
   const { providers, provider, model } = useCurrentModel()
   const setModel = useSettings((s) => s.setModel)
@@ -49,7 +56,12 @@ export function ModelPicker() {
   return (
     <MenuRoot>
       <MenuTrigger asChild>
-        <button className="flex h-8 max-w-64 min-w-0 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors hover:bg-hover data-[state=open]:bg-hover">
+        <button
+          className={clsx(
+            wide ? 'max-w-full' : 'max-w-64',
+            'flex h-8 min-w-0 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors hover:bg-hover data-[state=open]:bg-hover',
+          )}
+        >
           <span className="truncate">{model ?? t('chat.selectModel')}</span>
           {provider && <span className="truncate font-normal text-faint">{provider.name}</span>}
           <ChevronDown size={14} className="shrink-0 text-faint" />
