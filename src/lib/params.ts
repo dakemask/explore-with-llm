@@ -18,6 +18,8 @@ interface ParamBase {
   toggle: boolean
   defaultOn: boolean
   requires: Condition[]
+  /** Explanation shown on hover next to the name. */
+  help?: string
 }
 
 export type Param =
@@ -50,6 +52,7 @@ export interface ParamError {
     | 'params.err.default'
     | 'params.err.range'
     | 'params.err.requires'
+    | 'params.err.help'
     | 'params.err.requiresUnknown'
     | 'params.err.requiresValue'
     | 'params.err.cycle'
@@ -117,6 +120,8 @@ function build(json: unknown, reserved: string[]): ParamConfig {
     if (!name) throw new Fail({ key: 'params.err.name', vars: { n } })
     if (params.some((p) => p.name === name)) throw new Fail({ key: 'params.err.dupName', vars: { name } })
     const requires = parseRequires(raw.requires, name)
+    if (raw.help !== undefined && typeof raw.help !== 'string') throw new Fail({ key: 'params.err.help', vars: { name } })
+    const help = typeof raw.help === 'string' ? raw.help.trim() : ''
     const base: ParamBase = {
       name,
       body,
@@ -125,6 +130,7 @@ function build(json: unknown, reserved: string[]): ParamConfig {
       toggle: raw.toggle === true || requires.length > 0,
       defaultOn: raw.defaultOn !== false,
       requires,
+      ...(help && { help }),
     }
 
     let param: Param

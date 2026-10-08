@@ -49,6 +49,16 @@ describe('parseParamConfig', () => {
         { name: 'b', type: 'fixed', body: {}, requires: { a: 'x' } },
       ]),
     ).toBe('params.err.requiresValue')
+    expect(err([{ name: 'a', type: 'fixed', body: {}, help: 1 }])).toBe('params.err.help')
+  })
+
+  it('keeps a parameter help text, trimmed; blank means none', () => {
+    const [a, b] = config([
+      { name: 'a', type: 'fixed', body: {}, help: '  What it does.\nWhen to use it.  ' },
+      { name: 'b', type: 'fixed', body: {}, help: '   ' },
+    ]).params
+    expect(a.help).toBe('What it does.\nWhen to use it.')
+    expect('help' in b).toBe(false)
   })
 })
 

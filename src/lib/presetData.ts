@@ -24,7 +24,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "enabled",
           "disabled"
         ],
-        "default": "enabled"
+        "default": "enabled",
+        "help": "关闭后不思考，直接回答。"
       },
       {
         "name": "思考强度",
@@ -40,7 +41,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "high",
         "requires": {
           "思考": "enabled"
-        }
+        },
+        "help": "思考的深度。low 最快最省，max 想得最多。"
       },
       {
         "name": "最大输出",
@@ -53,7 +55,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1024,
         "default": 393216,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值：不思考 8K，思考 64K，max 强度 128K。"
       },
       {
         "type": "silent",
@@ -65,7 +68,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1M 上下文，最大输出 384K。默认开启思考（强度 high）。旧名 deepseek-v4-flash 目前也会转到这个模型。"
+    "notes": "1M 上下文，最大输出 384K。旧名 deepseek-v4-flash 目前也会转到这个模型。"
   },
   {
     "id": "openai-chat/deepseek-v4-pro",
@@ -86,7 +89,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "enabled",
           "disabled"
         ],
-        "default": "enabled"
+        "default": "enabled",
+        "help": "关闭后不思考，直接回答。"
       },
       {
         "name": "思考强度",
@@ -102,7 +106,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "high",
         "requires": {
           "思考": "enabled"
-        }
+        },
+        "help": "思考的深度。low 最快最省，max 想得最多。"
       },
       {
         "name": "最大输出",
@@ -115,7 +120,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1024,
         "default": 393216,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值：不思考 8K，思考 64K，max 强度 128K。"
       },
       {
         "type": "silent",
@@ -127,7 +133,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1M 上下文，最大输出 384K，不支持图片。默认开启思考（强度 high）。"
+    "notes": "1M 上下文，最大输出 384K，不支持图片。"
   },
   {
     "id": "openai-chat/gpt-5.6-sol",
@@ -150,7 +156,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "详细程度",
@@ -163,7 +170,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -176,7 +184,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -211,7 +220,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "详细程度",
@@ -224,7 +234,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -237,7 +248,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -272,7 +284,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "详细程度",
@@ -285,7 +298,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -298,7 +312,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -332,7 +347,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度，max 想得最多。这个模型不能关闭思考（没有 none）。"
       },
       {
         "name": "详细程度",
@@ -345,7 +361,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -358,7 +375,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -370,7 +388,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-6.1-sol",
@@ -392,7 +410,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度，max 想得最多。这个模型不能关闭思考（没有 none）。"
       },
       {
         "name": "详细程度",
@@ -405,7 +424,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -418,7 +438,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -430,7 +451,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": false,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
+    "notes": "1.05M 上下文，最大输出 128K。Chat Completions 不返回思考内容，也无法回传；需要思考摘要、Pro 模式时请用 Responses 协议。"
   },
   {
     "id": "openai-chat/gpt-6-sol",
@@ -453,7 +474,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "详细程度",
@@ -466,7 +488,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -479,7 +502,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -514,7 +538,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "详细程度",
@@ -527,7 +552,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -540,7 +566,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -577,7 +604,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "思考摘要",
@@ -597,7 +625,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "返回思考过程的摘要，可在对话里查看。关闭后不返回思考内容。"
       },
       {
         "name": "Pro 模式",
@@ -617,7 +646,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "更慢、更耗 token，适合最难的问题。"
       },
       {
         "name": "详细程度",
@@ -632,7 +662,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -645,7 +676,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -658,7 +690,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。别名 gpt-5.6 指向此模型。以无状态方式调用（store:false），加密思考随上下文回传。"
   },
   {
     "id": "openai-responses/gpt-5.6-terra",
@@ -683,7 +715,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "思考摘要",
@@ -703,7 +736,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "返回思考过程的摘要，可在对话里查看。关闭后不返回思考内容。"
       },
       {
         "name": "Pro 模式",
@@ -723,7 +757,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "更慢、更耗 token，适合最难的问题。"
       },
       {
         "name": "详细程度",
@@ -738,7 +773,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -751,7 +787,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -764,7 +801,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。"
   },
   {
     "id": "openai-responses/gpt-5.6-luna",
@@ -789,7 +826,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "思考摘要",
@@ -809,7 +847,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "返回思考过程的摘要，可在对话里查看。关闭后不返回思考内容。"
       },
       {
         "name": "Pro 模式",
@@ -829,7 +868,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "更慢、更耗 token，适合最难的问题。"
       },
       {
         "name": "详细程度",
@@ -844,7 +884,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -857,7 +898,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -870,7 +912,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。"
   },
   {
     "id": "openai-responses/gpt-6-astra",
@@ -894,7 +936,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度，max 想得最多。这个模型不能关闭思考（没有 none）。"
       },
       {
         "name": "思考摘要",
@@ -905,7 +948,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "返回思考过程的摘要，可在对话里查看。关闭后不返回思考内容。"
       },
       {
         "name": "Pro 模式",
@@ -916,7 +960,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": false,
+        "help": "更慢、更耗 token，适合最难的问题。"
       },
       {
         "name": "详细程度",
@@ -931,7 +976,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -944,7 +990,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -957,7 +1004,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。"
   },
   {
     "id": "openai-responses/gpt-6.1-sol",
@@ -981,7 +1028,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度，max 想得最多。这个模型不能关闭思考（没有 none）。"
       },
       {
         "name": "思考摘要",
@@ -992,7 +1040,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "返回思考过程的摘要，可在对话里查看。关闭后不返回思考内容。"
       },
       {
         "name": "Pro 模式",
@@ -1003,7 +1052,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": false,
+        "help": "更慢、更耗 token，适合最难的问题。"
       },
       {
         "name": "详细程度",
@@ -1018,7 +1068,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -1031,7 +1082,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -1044,7 +1096,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。不能关闭思考（无 none）。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。"
   },
   {
     "id": "openai-responses/gpt-6-sol",
@@ -1069,7 +1121,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "思考摘要",
@@ -1089,7 +1142,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "返回思考过程的摘要，可在对话里查看。关闭后不返回思考内容。"
       },
       {
         "name": "Pro 模式",
@@ -1109,7 +1163,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "更慢、更耗 token，适合最难的问题。"
       },
       {
         "name": "详细程度",
@@ -1124,7 +1179,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -1137,7 +1193,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -1150,7 +1207,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。已有更新的 GPT-6.1 Sol。以无状态方式调用（store:false），加密思考随上下文回传。"
   },
   {
     "id": "openai-responses/gpt-6-luna",
@@ -1175,7 +1232,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "思考的深度。none 不思考，max 想得最多。"
       },
       {
         "name": "思考摘要",
@@ -1195,7 +1253,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "返回思考过程的摘要，可在对话里查看。关闭后不返回思考内容。"
       },
       {
         "name": "Pro 模式",
@@ -1215,7 +1274,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "xhigh",
             "max"
           ]
-        }
+        },
+        "help": "更慢、更耗 token，适合最难的问题。"
       },
       {
         "name": "详细程度",
@@ -1230,7 +1290,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "medium",
           "high"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "回复正文写得多详细。"
       },
       {
         "name": "最大输出",
@@ -1243,7 +1304,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "step": 1000,
         "default": 128000,
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则用接口默认值。"
       },
       {
         "type": "silent",
@@ -1256,7 +1318,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。Pro 模式更慢、更耗 token。"
+    "notes": "1.05M 上下文，最大输出 128K。以无状态方式调用（store:false），加密思考随上下文回传。"
   },
   {
     "id": "anthropic/claude-fable-5-1",
@@ -1280,7 +1342,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。"
       },
       {
         "name": "思考显示",
@@ -1298,7 +1361,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "summarized",
           "omitted"
         ],
-        "default": "summarized"
+        "default": "summarized",
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "最大输出",
@@ -1309,12 +1373,13 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文）。思考始终开启（自适应）。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-opus-5-5",
@@ -1338,7 +1403,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "medium"
+        "default": "medium",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。"
       },
       {
         "name": "思考显示",
@@ -1356,7 +1422,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "summarized",
           "omitted"
         ],
-        "default": "summarized"
+        "default": "summarized",
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "最大输出",
@@ -1367,12 +1434,13 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文）。思考始终开启（自适应），默认投入程度 medium。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-sonnet-5-5",
@@ -1396,7 +1464,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。关闭思考时也有效。"
       },
       {
         "name": "关闭思考",
@@ -1414,7 +1483,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "medium",
             "high"
           ]
-        }
+        },
+        "help": "回答前不思考（发送 between_tools）。只能在投入程度 high 及以下使用。"
       },
       {
         "name": "思考显示",
@@ -1435,7 +1505,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "summarized",
         "requires": {
           "关闭思考": false
-        }
+        },
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "最大输出",
@@ -1446,12 +1517,13 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。“关闭思考”发送 between_tools（关闭前置思考），只能在投入程度 high 及以下使用。"
+    "notes": "1M 上下文，最大输出 128K。默认思考（自适应），可以关闭前置思考。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-fable-5",
@@ -1475,7 +1547,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。"
       },
       {
         "name": "思考显示",
@@ -1490,7 +1563,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "summarized",
           "omitted"
         ],
-        "default": "summarized"
+        "default": "summarized",
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "最大输出",
@@ -1501,11 +1575,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文）。思考始终开启（自适应）。已有更新的 Fable 5.1。"
+    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。已有更新的 Fable 5.1。"
   },
   {
     "id": "anthropic/claude-opus-5",
@@ -1529,7 +1604,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。关闭思考时也有效。"
       },
       {
         "name": "关闭思考",
@@ -1547,7 +1623,8 @@ export const PRESET_DATA: ModelPreset[] = [
             "medium",
             "high"
           ]
-        }
+        },
+        "help": "回答前不思考。只能在投入程度 high 及以下使用。"
       },
       {
         "name": "思考显示",
@@ -1565,7 +1642,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "summarized",
         "requires": {
           "关闭思考": false
-        }
+        },
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "最大输出",
@@ -1576,11 +1654,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。默认思考（自适应）；只有投入程度 high 及以下可以关闭思考。"
+    "notes": "1M 上下文，最大输出 128K。默认思考（自适应），可以关闭。"
   },
   {
     "id": "anthropic/claude-sonnet-5",
@@ -1604,7 +1683,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。关闭思考时也有效。"
       },
       {
         "name": "关闭思考",
@@ -1615,7 +1695,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": false
+        "defaultOn": false,
+        "help": "回答前不思考。"
       },
       {
         "name": "思考显示",
@@ -1633,7 +1714,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "summarized",
         "requires": {
           "关闭思考": false
-        }
+        },
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "最大输出",
@@ -1644,11 +1726,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。默认思考（自适应），可关闭。"
+    "notes": "1M 上下文，最大输出 128K。默认思考（自适应），可以关闭。"
   },
   {
     "id": "anthropic/claude-opus-4-8",
@@ -1666,7 +1749,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "自适应思考：模型自己决定要不要想、想多深。接口默认不思考，这里默认打开。"
       },
       {
         "name": "思考显示",
@@ -1683,7 +1767,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "summarized",
         "requires": {
           "思考": true
-        }
+        },
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "投入程度",
@@ -1700,7 +1785,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。关闭思考时也有效。"
       },
       {
         "name": "最大输出",
@@ -1711,11 +1797,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。"
+    "notes": "1M 上下文，最大输出 128K。"
   },
   {
     "id": "anthropic/claude-opus-4-7",
@@ -1733,7 +1820,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "自适应思考：模型自己决定要不要想、想多深。接口默认不思考，这里默认打开。"
       },
       {
         "name": "思考显示",
@@ -1750,7 +1838,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "summarized",
         "requires": {
           "思考": true
-        }
+        },
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "投入程度",
@@ -1767,7 +1856,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "xhigh",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。关闭思考时也有效。"
       },
       {
         "name": "最大输出",
@@ -1778,11 +1868,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。"
+    "notes": "1M 上下文，最大输出 128K。"
   },
   {
     "id": "anthropic/claude-opus-4-6",
@@ -1800,7 +1891,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "自适应思考：模型自己决定要不要想、想多深。接口默认不思考，这里默认打开。"
       },
       {
         "name": "思考显示",
@@ -1817,7 +1909,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "summarized",
         "requires": {
           "思考": true
-        }
+        },
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "投入程度",
@@ -1833,7 +1926,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "high",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。关闭思考时也有效。"
       },
       {
         "name": "最大输出",
@@ -1844,11 +1938,12 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。投入程度没有 xhigh。"
+    "notes": "1M 上下文，最大输出 128K。"
   },
   {
     "id": "anthropic/claude-sonnet-4-6",
@@ -1866,7 +1961,8 @@ export const PRESET_DATA: ModelPreset[] = [
           }
         },
         "toggle": true,
-        "defaultOn": true
+        "defaultOn": true,
+        "help": "自适应思考：模型自己决定要不要想、想多深。接口默认不思考，这里默认打开。"
       },
       {
         "name": "思考显示",
@@ -1883,7 +1979,8 @@ export const PRESET_DATA: ModelPreset[] = [
         "default": "summarized",
         "requires": {
           "思考": true
-        }
+        },
+        "help": "summarized：返回思考摘要，可在对话里查看。\nomitted：不返回思考内容，正文出得更快。"
       },
       {
         "name": "投入程度",
@@ -1899,7 +1996,8 @@ export const PRESET_DATA: ModelPreset[] = [
           "high",
           "max"
         ],
-        "default": "high"
+        "default": "high",
+        "help": "整个回复（思考和正文）愿意花多少力气。low 最快最省，max 最充分。关闭思考时也有效。"
       },
       {
         "name": "最大输出",
@@ -1910,10 +2008,11 @@ export const PRESET_DATA: ModelPreset[] = [
         "min": 1000,
         "max": 128000,
         "step": 1000,
-        "default": 128000
+        "default": 128000,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。Anthropic 官方接口要求必须发送。"
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。投入程度没有 xhigh。"
+    "notes": "1M 上下文，最大输出 128K。"
   }
 ]

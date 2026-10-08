@@ -77,7 +77,10 @@ function ParamRow({ r, onChange }: { r: ResolvedParam; onChange: (c: { on?: bool
   return (
     <div className="px-4 py-3">
       <div className="flex min-h-5 items-center gap-2">
-        <span className={clsx('min-w-0 flex-1 truncate text-[13px] font-medium', !active && 'text-muted')}>{p.name}</span>
+        <span className="flex min-w-0 flex-1 items-center gap-1">
+          <span className={clsx('min-w-0 truncate text-[13px] font-medium', !active && 'text-muted')}>{p.name}</span>
+          {p.help && <HelpTip content={<span className="whitespace-pre-line">{p.help}</span>} />}
+        </span>
         {p.toggle ? (
           <Switch checked={active} onChange={(on) => onChange({ on })} disabled={!available} label={p.name} />
         ) : (

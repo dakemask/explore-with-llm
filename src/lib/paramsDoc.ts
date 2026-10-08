@@ -26,7 +26,8 @@ const exampleZh = `[
     "step": 1000,
     "default": 8000,
     "toggle": true,
-    "defaultOn": false
+    "defaultOn": false,
+    "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。"
   },
   {
     "type": "silent",
@@ -38,6 +39,10 @@ const exampleEn = exampleZh
   .replace('"思考强度"', '"Effort"')
   .replace(/"思考"/g, '"Thinking"')
   .replace('"最大输出"', '"Max output"')
+  .replace(
+    '"回复（含思考）最多生成多少 token。只是上限，按实际生成计费。"',
+    '"The most tokens a reply (thinking included) may produce. Only a cap: billing counts what is produced."',
+  )
 
 const zh = `# 模型参数配置格式
 
@@ -68,6 +73,7 @@ const zh = `# 模型参数配置格式
 | \`toggle\` | 前三种 | 否 | \`true\` 表示带开关（可选参数）；默认 \`false\`，有 \`requires\` 时总是带开关 |
 | \`defaultOn\` | 前三种 | 否 | 可开关时默认是否打开；默认 \`true\` |
 | \`requires\` | 前三种 | 否 | 依赖，见下文 |
+| \`help\` | 前三种 | 否 | 参数说明，显示在参数名旁的问号悬停提示里；可以用 \`\\n\` 换行 |
 
 ## 依赖
 
@@ -92,7 +98,7 @@ const zh = `# 模型参数配置格式
 
 - 按配置顺序合并。多个参数写进同一个对象时逐层合并，同一个键后面的覆盖前面的。
 - 协议自己设置的字段不能使用：OpenAI Chat Completions 和 Anthropic Messages 的 \`model\`、\`messages\`、\`stream\`；OpenAI Responses 的 \`model\`、\`input\`、\`stream\`。
-- Anthropic Messages 协议要求每个请求都带 \`max_tokens\`，配置里必须提供它（例如数字范围型或静默发送型），否则不能发送。
+- 应用不检查接口要求的必填字段。比如 Anthropic 官方接口要求每个请求都带 \`max_tokens\`，配置里应该提供它（例如数字范围型或静默发送型），否则会收到接口的报错；其他服务商的 Anthropic 协议接口不一定要求。
 - 应用自己不会添加任何参数。比如想在流式回复中拿到 token 用量，需要自己加上对应字段（见下面示例的最后一项）。
 
 ## 示例
@@ -135,6 +141,7 @@ The config is a JSON array; each item describes one parameter. It must be strict
 | \`toggle\` | first three | no | \`true\` gives it a switch (an optional parameter). Default \`false\`; always \`true\` when it has \`requires\` |
 | \`defaultOn\` | first three | no | Whether a switchable parameter starts on. Default \`true\` |
 | \`requires\` | first three | no | Dependencies, see below |
+| \`help\` | first three | no | An explanation of the parameter, shown on hover over the question mark next to its name; \`\\n\` breaks lines |
 
 ## Dependencies
 
@@ -159,7 +166,7 @@ Dependencies may chain but not loop.
 
 - Items merge in config order. Parameters writing into the same object merge level by level; for the same key the later one wins.
 - Fields the protocol sets itself are off limits: \`model\`, \`messages\`, \`stream\` for OpenAI Chat Completions and Anthropic Messages; \`model\`, \`input\`, \`stream\` for OpenAI Responses.
-- Anthropic Messages requires \`max_tokens\` in every request, so the config must supply it (e.g. as a range or silent parameter); sending is blocked otherwise.
+- The app doesn't check fields an API requires. Anthropic's official API, for example, requires \`max_tokens\` in every request, so the config should supply it (e.g. as a range or silent parameter), or the API returns an error; other vendors serving the Anthropic protocol may not require it.
 - The app adds no parameters of its own. For example, to get token usage in streamed replies, add the field yourself (see the last item of the example).
 
 ## Example

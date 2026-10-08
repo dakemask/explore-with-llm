@@ -103,3 +103,4 @@ Parameters:
 - **No temperature control** (owner): fading out on reasoning models, and its rules are too vendor-specific.
 - **Headers** only where a documented feature needs a beta header.
 - Parameter names are Chinese and shown in the composer as they are.
+- **Where explanations go:** what one parameter does (its values, when it can't be used, the API default when it's off) is that parameter's `help`, shown on hover next to its name. The preset's `notes` keep only what concerns the model as a whole: context and output size, aliases, a newer model, protocol limits, stateless echo, the thinking-block safety net.
