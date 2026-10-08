@@ -448,17 +448,56 @@
 }
 /* On the hovered path the dots swell as the growing line reaches them (`--delay`). */
 .tree-node .core {
-  transition: transform 100ms ease-out;
-  transition-delay: var(--delay, 0ms);
+  transition:
+    transform 100ms ease-out var(--delay, 0ms),
+    fill 300ms ease;
   transform-box: fill-box;
   transform-origin: center;
 }
 .tree-node.lit .core {
   transform: scale(1.2);
 }
+/* Changes while the map is open: places glide (units, lines, the "current" ring and label, the tree's
+   centering offset while `.tree-glide`), colors fade, removed units fade out as ghosts. */
+.tree-node,
+.tree-moves {
+  transition: transform 300ms ease;
+}
+.tree-edge {
+  transition: d 300ms ease;
+}
+.tree-map-svg stop {
+  transition: stop-color 300ms ease;
+}
+.tree-glide {
+  transition: transform 300ms ease;
+}
+.tree-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+.tree-ghost {
+  animation: tree-out 250ms ease forwards;
+  pointer-events: none;
+}
+@keyframes tree-out {
+  to {
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .tree-node .core {
+  .tree-node,
+  .tree-node .core,
+  .tree-moves,
+  .tree-edge,
+  .tree-map-svg stop,
+  .tree-glide {
     transition: none;
+  }
+  .tree-ghost {
+    animation: none;
+    opacity: 0;
   }
 }
 

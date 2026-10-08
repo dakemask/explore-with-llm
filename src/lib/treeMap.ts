@@ -108,6 +108,31 @@ export function layoutTree(nodes: ChatNode[]): TreeLayout {
   }
 }
 
+/**
+ * Keys that keep a drawn unit the same element across relayouts, for animating changes: a unit takes the
+ * key of the unit that drew one of its nodes before (a lone attempt becoming a stack, a stack becoming the
+ * branch that was followed up), else its own id. `prev` = node id → key from the last call; returns unit
+ * id → key and the node id → key map for the next call.
+ */
+export function carryKeys(prev: Map<string, string>, layout: TreeLayout) {
+  const byUnit = new Map<string, string>()
+  const used = new Set<string>()
+  // Branch / node units first: a stack whose attempt became a branch hands its key to that branch.
+  const order = [...layout.units].sort((a, b) => (a.type === b.type ? 0 : a.type === 'node' ? -1 : 1))
+  for (const u of order) {
+    let key = u.nodes.map((n) => prev.get(n.id)).find((k) => k !== undefined && !used.has(k))
+    if (key === undefined) {
+      key = u.id
+      for (let i = 2; used.has(key); i++) key = `${u.id}#${i}`
+    }
+    used.add(key)
+    byUnit.set(u.id, key)
+  }
+  const byNode = new Map<string, string>()
+  for (const u of layout.units) for (const n of u.nodes) byNode.set(n.id, byUnit.get(u.id)!)
+  return { byUnit, byNode }
+}
+
 /** Unit ids from the top down to `unitId`. */
 export function routeTo(layout: TreeLayout, unitId: string): string[] {
   const ids: string[] = []

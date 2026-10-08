@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ROOT_KEY, type ChatNode } from './db'
-import { currentUnit, jumpSelection, layoutTree, routeTo, type TreeLayout } from './lib/treeMap'
+import { carryKeys, currentUnit, jumpSelection, layoutTree, routeTo, type TreeLayout } from './lib/treeMap'
 
 let clock = 0
 function node(id: string, parentId: string | null, extra: Partial<ChatNode> = {}): ChatNode {
@@ -146,5 +146,36 @@ describe('tree map current marker and jumps', () => {
     expect(jumpSelection(nodes, stack, { c: 'r1' }).target.id).toBe('r1')
     expect(jumpSelection(nodes, stack, {}).target.id).toBe('r2')
     expect(jumpSelection(nodes, stack, { c: 'gone' }).selection.c).toBe('r2')
+  })
+})
+
+describe('tree map keys across changes', () => {
+  /** Keys of `nodes`' layout after a first layout of `before`, by unit id. */
+  const keysAfter = (before: ChatNode[], nodes: ChatNode[]) => {
+    const first = carryKeys(new Map(), layoutTree(before))
+    return carryKeys(first.byNode, layoutTree(nodes)).byUnit
+  }
+
+  it('keeps a lone attempt as the stack it becomes', () => {
+    const a = br('a', null)
+    const r1 = node('r1', 'a')
+    const keys = keysAfter([a, r1], [a, r1, node('r2', 'a')])
+    expect(keys.get('stack:a')).toBe('r1')
+    expect(keys.get('a')).toBe('a')
+  })
+
+  it('hands a stack to the attempt followed up from it', () => {
+    const a = br('a', null)
+    const r1 = node('r1', 'a')
+    const r2 = node('r2', 'a')
+    const keys = keysAfter([a, r1, r2], [a, r1, { ...r2, branch: true }, node('f', 'r2')])
+    expect(keys.get('r2')).toBe('stack:a')
+    expect(keys.get('f')).toBe('f')
+  })
+
+  it('gives every unit its own key', () => {
+    const a = br('a', null)
+    const keys = keysAfter([a, node('r1', 'a')], [a, br('r1', 'a'), br('r2', 'a'), node('x', 'r1'), node('y', 'r2')])
+    expect(new Set(keys.values()).size).toBe(keys.size)
   })
 })

@@ -1,10 +1,10 @@
 // The tree map window (components/chat/TreeMap.tsx): where it opens, moving / resizing (kept inside the
 // viewport, remembered across reloads), staying open through jumps, "current" following the chat's scroll,
-// relayout when the tree grows, the mouse wheel scrolling sideways. Escape / outside
-// clicks: layers-suite; conversation switch: switch-suite. Copy this folder into the session scratchpad
+// changes while open (elements kept and animated, new units growing in, archived ones fading out), the
+// mouse wheel scrolling sideways. Escape / outside clicks: layers-suite; conversation switch: switch-suite. Copy this folder into the session scratchpad
 // (where playwright-core is installed) and run `node tree-suite.mjs` there, with `pnpm dev` on 5173 and
 // `PORT=8788 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
-import { open, openConversation, send, SC } from './lib.mjs'
+import { open, openConversation, send, SC, waitDone } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -118,13 +118,36 @@ await wait(900)
 check('J1 a click on a node jumps and the map stays open', await treeOpen())
 check('J1 "current" = the turn jumped to', (await current())?.includes('第 3 轮'), await current())
 
-// ---- R: the tree grows while open ----
+// ---- R: the tree changes while open, animated (each drawn unit keeps its element: data-key) ----
+const lastKey = () => page.locator(`${TREE} g[data-key]`).last().getAttribute('data-key')
+const moving = () => page.evaluate((T) => document.querySelector(`${T} svg[role=group]`).getAnimations({ subtree: true }).length, TREE)
 await page.evaluate((sc) => document.querySelector(sc).scrollTo(0, 1e6), SC)
 await wait(1500)
+const loneKey = await lastKey()
 await page.locator('[aria-label="重新生成"]').last().click()
-await page.locator('[aria-label="停止"]').waitFor({ state: 'detached', timeout: 30000 })
-await wait(600)
+await waitDone(page)
 check('R1 a retry at the end shows as a ×2 stack at once', (await page.locator(`${TREE} text`).filter({ hasText: '×2' }).count()) === 1)
+check('R1 … the same element as the lone attempt was (no regrowing)', (await lastKey()) === loneKey, { loneKey, now: await lastKey() })
+const keysBefore = await page.locator(`${TREE} g[data-key]`).evaluateAll((els) => els.map((e) => e.dataset.key))
+await page.locator('main > [data-main-composer] textarea').fill('追一轮')
+await page.locator('main > [data-main-composer] textarea').press('Enter')
+await wait(120)
+const animating = await moving()
+await waitDone(page)
+await wait(300)
+const keysAfter = await page.locator(`${TREE} g[data-key]`).evaluateAll((els) => els.map((e) => e.dataset.key))
+check('R2 a follow-up: the stack becomes the branch in place, one new unit', keysBefore.every((k) => keysAfter.includes(k)) && keysAfter.length === keysBefore.length + 1, { keysBefore, keysAfter })
+check('R2 … which grows in (animating right after sending)', animating > 0, animating)
+check('R2 … and nothing animates once it settled', (await moving()) === 0, await moving())
+await page.evaluate((sc) => document.querySelector(sc).scrollTo(0, 1e6), SC)
+await wait(1500)
+await page.locator(`${SC} [data-fork]`).last().getByRole('button', { name: '更多' }).click()
+await wait(300)
+await page.getByRole('menuitem', { name: '归档' }).click()
+await wait(60)
+const ghosts = await page.locator(`${TREE} .tree-ghost`).count()
+await wait(600)
+check('R3 archiving: the unit fades out as a ghost, then is gone', ghosts === 1 && (await page.locator(`${TREE} .tree-ghost`).count()) === 0 && (await page.locator(`${TREE} g[data-key]`).count()) === keysBefore.length, ghosts)
 
 // ---- S: wheel ----
 const area = () =>

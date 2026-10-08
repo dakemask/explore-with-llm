@@ -17,9 +17,10 @@ import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { branchColors, colorVar } from '../../lib/colors'
 import { plainLine } from '../../lib/anchor'
-import { currentUnit, layoutTree, routeTo, type MapUnit, type TreeLayout } from '../../lib/treeMap'
+import { carryKeys, currentUnit, layoutTree, routeTo, type MapUnit, type TreeLayout } from '../../lib/treeMap'
 import { childrenOf } from '../../lib/tree'
 import { useSettings, type TreeWindow } from '../../store/settings'
+import { useUi } from '../../store/ui'
 import { HelpTip, IconButton } from '../ui/Button'
 import { editLabel } from './labels'
 
@@ -204,26 +205,41 @@ export function TreeMap({
   const X = (u: MapUnit) => PAD + u.col * GX
   const Y = (u: MapUnit) => PAD + 16 + u.row * GY
 
+  // ---- changes animate: each drawn unit keeps its element across relayouts (`carryKeys`); places glide
+  // and colors fade (CSS transitions), new units grow from their parent, removed ones fade out as ghosts ----
+  const keyMemo = useRef(new Map<string, string>())
+  const keys = useMemo(() => {
+    const k = carryKeys(keyMemo.current, layout)
+    keyMemo.current = k.byNode
+    return k.byUnit
+  }, [layout])
+  const keyOf = (u: MapUnit) => keys.get(u.id)!
+  // Gradient ids by key (keys hold characters an id reference can't).
+  const gradIds = useRef(new Map<string, string>())
+  const gradId = (key: string) => {
+    let id = gradIds.current.get(key)
+    if (!id) gradIds.current.set(key, (id = `${uid}-g-${gradIds.current.size}`))
+    return id
+  }
+
+  // Every line runs from the parent's color into the unit's (one color where they're the same), so a color
+  // change fades along it; always a cubic curve, so a moved line's shape can glide.
   const edges = useMemo(() => {
-    const list: { id: string; d: string; stroke: string; gradient?: { x1: number; x2: number; from: string; to: string } }[] = []
+    const list: { id: string; key: string; d: string; x1: number; x2: number; from: string; to: string }[] = []
     for (const u of layout.units) {
       const parent = u.parent ? layout.byId.get(u.parent) : undefined
       if (!parent) continue
-      const c = colors.get(u.nodes[0].id) ?? 0
-      const pc = colors.get(parent.nodes[0].id) ?? 0
       const x1 = X(parent)
       const y1 = Y(parent)
       const x2 = X(u)
       const y2 = Y(u)
-      const d =
-        y1 === y2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} C${x1 + GX * 0.6} ${y1} ${x2 - GX * 0.6} ${y2} ${x2} ${y2}`
-      // Where the color changes, the line flows from the parent's color into the unit's.
-      if (pc !== c) {
-        list.push({ id: u.id, d, stroke: `url(#${uid}-g-${list.length})`, gradient: { x1, x2, from: colorVar(pc), to: colorVar(c) } })
-      } else list.push({ id: u.id, d, stroke: colorVar(c) })
+      const d = `M${x1} ${y1} C${x1 + GX * 0.6} ${y1} ${x2 - GX * 0.6} ${y2} ${x2} ${y2}`
+      const from = colorVar(colors.get(parent.nodes[0].id) ?? 0)
+      list.push({ id: u.id, key: keys.get(u.id)!, d, x1, x2, from, to: colorVar(colors.get(u.nodes[0].id) ?? 0) })
     }
     return list
-  }, [layout, colors, uid])
+  }, [layout, colors, keys])
+  const stroke = (key: string) => `url(#${gradId(key)})`
   const edgeById = useMemo(() => new Map(edges.map((e) => [e.id, e])), [edges])
   const labels = useMemo(() => new Map(nodes.flatMap((n) => (n.label ? [[n.id, n.label]] : []))), [nodes])
 
@@ -298,6 +314,33 @@ export function TreeMap({
   // scrolls just enough to bring it back (it never follows otherwise: the user may be looking elsewhere).
   const scrollRef = useRef<HTMLDivElement>(null)
   const opened = useRef(false)
+  // The tree sits centered in the map's area; the svg fills it, so a grown tree's new center glides too.
+  const [area, setArea] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const read = () => setArea({ w: el.clientWidth, h: el.clientHeight })
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const SW = Math.max(W, area.w)
+  const SH = Math.max(H, area.h)
+  const offset = { x: (SW - W) / 2, y: (SH - H) / 2 }
+  // The centering offset glides only right after the tree changed shape (not while the window is resized).
+  const shape = layout.units.map((u) => `${keyOf(u)}@${u.col},${u.row}`).join(' ')
+  const [shapeShown, setShapeShown] = useState(shape)
+  const [glide, setGlide] = useState(false)
+  if (shapeShown !== shape) {
+    setShapeShown(shape)
+    setGlide(true)
+  }
+  useEffect(() => {
+    if (!glide) return
+    const timer = setTimeout(() => setGlide(false), 350)
+    return () => clearTimeout(timer)
+  }, [glide, shape])
   useLayoutEffect(() => {
     const el = scrollRef.current
     const u = current ? layout.byId.get(current) : undefined
@@ -305,8 +348,8 @@ export function TreeMap({
     const svg = svgRef.current!.getBoundingClientRect()
     const box = el.getBoundingClientRect()
     // The unit's place in the scrolled content.
-    const ux = svg.left - box.left + el.scrollLeft + X(u)
-    const uy = svg.top - box.top + el.scrollTop + Y(u)
+    const ux = svg.left - box.left + el.scrollLeft + offset.x + X(u)
+    const uy = svg.top - box.top + el.scrollTop + offset.y + Y(u)
     if (!opened.current) {
       opened.current = true
       el.scrollLeft = ux - el.clientWidth / 2
@@ -373,8 +416,62 @@ export function TreeMap({
   // (A hovered route can outlive its units for a render when the tree changes underneath.)
   const litRoute = lit?.route.filter((id) => layout.byId.has(id)) ?? []
   const litIds = lit ? new Map(lit.route.map((id, i) => [id, lit.delays[i]])) : undefined
+  const fresh = useUi((s) => s.newBranches)
+
+  // What was drawn last time, by key: new keys grow in from their parent, gone ones become ghosts.
+  type Drawn = { x: number; y: number; color: string; d?: string }
+  const drawn = useRef<Map<string, Drawn> | null>(null)
+  const [ghosts, setGhosts] = useState<(Drawn & { key: string })[]>([])
+  useLayoutEffect(() => {
+    const now = new Map<string, Drawn>()
+    for (const u of layout.units) {
+      now.set(keyOf(u), {
+        x: X(u),
+        y: Y(u),
+        color: colorVar(colors.get(u.nodes[0].id) ?? 0),
+        d: edges.find((e) => e.id === u.id)?.d,
+      })
+    }
+    const before = drawn.current
+    drawn.current = now
+    if (!before || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const svg = svgRef.current!
+    const ease = { duration: 300, easing: 'ease-out' }
+    for (const u of layout.units) {
+      const key = keyOf(u)
+      if (before.has(key)) continue
+      const parent = u.parent ? layout.byId.get(u.parent) : undefined
+      const [px, py] = parent ? [X(parent), Y(parent)] : [X(u), Y(u)]
+      svg.querySelector(`[data-key="${CSS.escape(key)}"]`)?.animate(
+        [
+          { transform: `translate(${px}px, ${py}px) scale(0.3)`, opacity: 0 },
+          { transform: `translate(${X(u)}px, ${Y(u)}px) scale(1)`, opacity: 1 },
+        ],
+        ease,
+      )
+      svg.querySelector(`[data-edge-key="${CSS.escape(key)}"]`)?.animate(
+        [
+          { strokeDasharray: '1 1', strokeDashoffset: 1 },
+          { strokeDasharray: '1 1', strokeDashoffset: 0 },
+        ],
+        ease,
+      )
+    }
+    const gone = [...before].filter(([key]) => !now.has(key)).map(([key, g]) => ({ key, ...g }))
+    if (gone.length) setGhosts((list) => [...list.filter((g) => !now.has(g.key)), ...gone])
+  }, [layout, colors, edges])
+  useEffect(() => {
+    if (!ghosts.length) return
+    const timer = setTimeout(() => setGhosts([]), 300)
+    return () => clearTimeout(timer)
+  }, [ghosts])
+
   const currentLabel = t('tree.current')
   const pillW = Math.max(34, currentLabel.length * 6.5 + 16)
+  const currentAt = (() => {
+    const u = current ? layout.byId.get(current) : undefined
+    return u && { x: X(u), y: Y(u) }
+  })()
   const pill = useMemo(() => {
     const u = current ? layout.byId.get(current) : undefined
     return u && pillSpot(layout, u, X, Y, pillW, W, H)
@@ -384,106 +481,115 @@ export function TreeMap({
     <div ref={scrollRef} className="flex min-h-0 flex-1 overflow-auto">
       <svg
         ref={svgRef}
-        width={W}
-        height={H}
-        viewBox={`0 0 ${W} ${H}`}
+        width={SW}
+        height={SH}
+        viewBox={`0 0 ${SW} ${SH}`}
         role="group"
         aria-label={t('tree.label')}
-        className="m-auto block shrink-0 font-sans"
+        className="tree-map-svg block shrink-0 font-sans"
       >
         <defs>
-          {edges.map(
-            (e, i) =>
-              e.gradient && (
-                <linearGradient
-                  key={e.id}
-                  id={`${uid}-g-${i}`}
-                  gradientUnits="userSpaceOnUse"
-                  x1={e.gradient.x1}
-                  y1={0}
-                  x2={e.gradient.x2}
-                  y2={0}
-                >
-                  <stop offset={0.1} style={{ stopColor: e.gradient.from }} />
-                  <stop offset={0.9} style={{ stopColor: e.gradient.to }} />
-                </linearGradient>
-              ),
-          )}
+          {edges.map((e) => (
+            <linearGradient key={e.key} id={gradId(e.key)} gradientUnits="userSpaceOnUse" x1={e.x1} y1={0} x2={e.x2} y2={0}>
+              <stop offset={0.1} style={{ stopColor: e.from }} />
+              <stop offset={0.9} style={{ stopColor: e.to }} />
+            </linearGradient>
+          ))}
           <mask id={`${uid}-reveal`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
             <path ref={maskRef} fill="none" stroke="#fff" strokeWidth={30} strokeLinecap="round" />
           </mask>
         </defs>
-        <g>
-          {edges.map((e) => (
-            <path
-              key={e.id}
-              data-edge={e.id}
-              d={e.d}
-              fill="none"
-              style={{ stroke: e.stroke }}
-              strokeWidth={2}
-              strokeLinecap="round"
-            />
+        <g className={clsx(glide && 'tree-glide')} style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}>
+          {ghosts.map((g) => (
+            <g key={g.key} className="tree-ghost">
+              {g.d && <path d={g.d} fill="none" style={{ stroke: g.color }} strokeWidth={2} strokeLinecap="round" />}
+              <circle cx={g.x} cy={g.y} r={5} style={{ fill: g.color }} />
+            </g>
           ))}
-        </g>
-        <g mask={`url(#${uid}-reveal)`}>
-          {litRoute.slice(1).map((id) => {
-            const e = edgeById.get(id)
-            if (!e) return null
-            return <path key={id} d={e.d} fill="none" style={{ stroke: e.stroke }} strokeWidth={4.5} strokeLinecap="round" />
-          })}
-        </g>
-        <g>
-          {layout.units.map((u) => {
-            const c = colorVar(colors.get(u.nodes[0].id) ?? 0)
-            const here = u.id === current
-            const delay = litIds?.get(u.id)
-            return (
-              <g
-                key={u.id}
-                className={clsx('tree-node', delay !== undefined && 'lit')}
-                style={{ '--delay': `${delay ?? 0}ms` } as CSSProperties}
-                transform={`translate(${X(u)} ${Y(u)})`}
-                role="button"
-                tabIndex={0}
-                aria-label={label(u)}
-                aria-current={here || undefined}
-                onClick={() => onJump(u)}
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  if (u.type === 'node') void editLabel({ id: u.nodes[0].id, label: labels.get(u.nodes[0].id) }, t)
-                }}
-                onKeyDown={(e) => onKey(e, u)}
-                onMouseEnter={() => highlight(u.id)}
-                onMouseMove={(e) => showTip(e.clientX, e.clientY, u)}
-                onMouseLeave={unhighlight}
-                onFocus={(e) => {
-                  highlight(u.id)
-                  const r = e.currentTarget.getBoundingClientRect()
-                  showTip(r.right, r.bottom, u)
-                }}
-                onBlur={unhighlight}
-              >
-                <circle className="halo" r={11} />
-                <circle className="core" r={5} style={{ fill: c }} />
-                {u.type === 'stack' && (
-                  <text x={10} y={4} fontSize={10.5} style={{ fill: 'var(--c-muted)' }}>
-                    ×{u.nodes.length}
-                  </text>
-                )}
-                {here && <circle r={9.5} fill="none" style={{ stroke: 'var(--c-text)' }} strokeWidth={2} />}
-              </g>
-            )
-          })}
-        </g>
-        {pill && (
-          <g transform={`translate(${pill.x} ${pill.y})`} pointerEvents="none">
-            <rect x={-pillW / 2} y={-8.5} width={pillW} height={17} rx={8.5} style={{ fill: 'var(--c-text)' }} />
-            <text y={4} textAnchor="middle" fontSize={10.5} fontWeight={600} style={{ fill: 'var(--c-surface)' }}>
-              {currentLabel}
-            </text>
+          <g>
+            {edges.map((e) => (
+              <path
+                key={e.key}
+                data-edge={e.id}
+                data-edge-key={e.key}
+                className="tree-edge"
+                d={e.d}
+                pathLength={1}
+                fill="none"
+                style={{ stroke: stroke(e.key), d: `path("${e.d}")` } as CSSProperties}
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            ))}
           </g>
-        )}
+          <g mask={`url(#${uid}-reveal)`}>
+            {litRoute.slice(1).map((id) => {
+              const e = edgeById.get(id)
+              if (!e) return null
+              return <path key={id} d={e.d} fill="none" style={{ stroke: stroke(e.key) }} strokeWidth={4.5} strokeLinecap="round" />
+            })}
+          </g>
+          <g>
+            {layout.units.map((u) => {
+              const c = colorVar(colors.get(u.nodes[0].id) ?? 0)
+              const here = u.id === current
+              const delay = litIds?.get(u.id)
+              return (
+                <g
+                  key={keyOf(u)}
+                  data-key={keyOf(u)}
+                  className={clsx('tree-node', delay !== undefined && 'lit')}
+                  style={{ '--delay': `${delay ?? 0}ms`, transform: `translate(${X(u)}px, ${Y(u)}px)` } as CSSProperties}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={label(u)}
+                  aria-current={here || undefined}
+                  onClick={() => onJump(u)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    if (u.type === 'node') void editLabel({ id: u.nodes[0].id, label: labels.get(u.nodes[0].id) }, t)
+                  }}
+                  onKeyDown={(e) => onKey(e, u)}
+                  onMouseEnter={() => highlight(u.id)}
+                  onMouseMove={(e) => showTip(e.clientX, e.clientY, u)}
+                  onMouseLeave={unhighlight}
+                  onFocus={(e) => {
+                    highlight(u.id)
+                    const r = e.currentTarget.getBoundingClientRect()
+                    showTip(r.right, r.bottom, u)
+                  }}
+                  onBlur={unhighlight}
+                >
+                  <circle className="halo" r={11} />
+                  {/* Just became a branch: the switcher's double ripple, in its color. */}
+                  {u.type === 'node' && fresh[u.nodes[0].id] && (
+                    <circle className="tree-ripple anim-branch-ring" r={5} style={{ fill: c }} />
+                  )}
+                  <circle className="core" r={5} style={{ fill: c }} />
+                  {u.type === 'stack' && (
+                    <text x={10} y={4} fontSize={10.5} style={{ fill: 'var(--c-muted)' }}>
+                      ×{u.nodes.length}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+          </g>
+          {/* "Current": ring + label, gliding to the turn it moves to. */}
+          {currentAt && (
+            <g className="tree-moves" style={{ transform: `translate(${currentAt.x}px, ${currentAt.y}px)` }} pointerEvents="none">
+              <circle r={9.5} fill="none" style={{ stroke: 'var(--c-text)' }} strokeWidth={2} />
+            </g>
+          )}
+          {pill && (
+            <g className="tree-moves" style={{ transform: `translate(${pill.x}px, ${pill.y}px)` }} pointerEvents="none">
+              <rect x={-pillW / 2} y={-8.5} width={pillW} height={17} rx={8.5} style={{ fill: 'var(--c-text)' }} />
+              <text y={4} textAnchor="middle" fontSize={10.5} fontWeight={600} style={{ fill: 'var(--c-surface)' }}>
+                {currentLabel}
+              </text>
+            </g>
+          )}
+        </g>
       </svg>
       {tip && <TreeTip ref={tipRef} unit={tip} labels={labels} />}
     </div>
