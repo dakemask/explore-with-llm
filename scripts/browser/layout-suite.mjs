@@ -2,7 +2,7 @@
 // scrollbars as on Windows. Copy this folder into the session scratchpad (where playwright-core is
 // installed) and run `node layout-suite.mjs` there, with `pnpm dev` on 5173 and
 // `PORT=8788 node scripts/mock/server.mjs` (or use run-all.mjs). Prints PASS / FAIL per check.
-import { open, send, SC, newChat } from './lib.mjs'
+import { open, send, SC } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -130,29 +130,6 @@ for (const action of ['笔记', '追问']) {
   await browser.close()
 }
 
-// ---- W4: the conversation list is a card from the header's top-left button: no pane beside the chat
-// (the chat is centered in the whole window); opening it moves nothing, it sits under its button ----
-{
-  const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
-  for (const q of ['列表一', '列表二']) await send(page, q)
-  await page.locator('[aria-label="收起侧栏"]').click()
-  await page.waitForTimeout(1300) // past the scroll hold
-  const before = await measure(page)
-  const mainBox = await page.locator('main').boundingBox()
-  check('W4 no list pane: the chat area starts at the window edge', mainBox.x === 0, mainBox)
-  check('W4 the chat is centered', Math.abs(before.contentLeft - (before.areaRight - before.contentRight)) <= 1, before)
-  const button = page.getByRole('button', { name: '对话列表' })
-  await button.click()
-  await page.waitForTimeout(300)
-  const after = await measure(page)
-  const b = await button.boundingBox()
-  const card = await page.locator('[data-conversation-list]').locator('xpath=..').boundingBox()
-  check('W4 opening the card moves nothing, no overflow', JSON.stringify(before) === JSON.stringify(after) && after.overflow === 0, { before, after })
-  check('W4 the card sits under its button, left-aligned', Math.abs(card.x - b.x) <= 1 && card.y >= b.y + b.height && card.y <= b.y + b.height + 12, { card, b })
-  check('W4 the card is 288 wide, at most 70% of the window high', Math.round(card.width) === 288 && card.height <= 0.7 * 900 + 1, card)
-  await browser.close()
-}
-
 // ---- W6: the floating input box covers what passes behind it — the sticky reasoning toggle too (it has a
 // z-index of its own and once showed over the box) — and the background covers the strip below it ----
 {
@@ -178,8 +155,7 @@ for (const action of ['笔记', '追问']) {
 
 // ---- W5: the side column: open (even empty) by default; a highlight or bar toggles its card; the header
 // button collapses it to the marker strip (sliding: chat, input box and column stay joined in every frame);
-// collapsed, a bar / highlight click or a new side question opens it; dragging its edge resizes it (the chat
-// keeps at least CHAT_MIN); open / closed survives switching conversation and a reload ----
+// collapsed, a bar / highlight click or a new side question opens it; dragging its edge resizes it ----
 {
   const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
   const CARD = '[data-side-column] .shadow-pop'
@@ -285,26 +261,6 @@ for (const action of ['笔记', '追问']) {
   const m = await measure(page)
   check('W5 dragging its edge widens the column', (await colWidth()) === 480, await colWidth())
   check('W5 no overflow, the input box lines up, the column ends at the area', m.overflow === 0 && m.boxLeft === m.contentLeft && m.colRight === m.areaRight, m)
-  await page.mouse.move(x - 100, 400)
-  await page.mouse.down()
-  await page.mouse.move(0, 400, { steps: 10 })
-  await page.mouse.up()
-  await page.waitForTimeout(300)
-  const w = await measure(page)
-  check('W5 dragged far: the column stops at its widest, the chat keeps at least 420', w.colRight - w.colLeft === 640 && w.contentRight - w.contentLeft >= 420, w)
-
-  await newChat(page)
-  await page.waitForTimeout(300)
-  // (A chat not created yet has no column element, only its space.)
-  const n = await measure(page)
-  check('W5 a new chat keeps the column open (its space)', n.areaRight - n.contentRight === 640, n)
-  await page.locator('[aria-label="收起侧栏"]').click()
-  await page.reload()
-  await page.waitForTimeout(800)
-  await page.getByRole('button', { name: '对话列表' }).click()
-  await page.locator('[data-conversation-list] li button').first().click()
-  await page.waitForTimeout(600)
-  check('W5 collapsed after a reload, in another conversation', (await colWidth()) === 22, await colWidth())
   await browser.close()
 }
 

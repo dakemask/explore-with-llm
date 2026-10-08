@@ -1,4 +1,4 @@
-// Side / note cards, switching conversation and the floating input box (Product decisions › Scrolling).
+// Side / note cards, switching conversation, the floating input box and 转为分支 (Product decisions › Scrolling).
 // Part 2 of the scroll suites.
 // Copy this folder into the session scratchpad (where playwright-core is installed) and run
 // `node scroll-cards-suite.mjs` there (or `node run-all.mjs scroll` for all scroll parts), with `pnpm dev` on 5173 and
@@ -159,6 +159,39 @@ for (let i = 0; i < 6; i++) await page.keyboard.press('Backspace')
 await page.waitForTimeout(400)
 const shrink = await unwatch(page)
 check('IB deleting them again pulls nothing up', shrink.total >= 0 && shrink.maxStep <= 1, shrink)
+
+// ---- BR: 转为分支 from the last turn, at the end (following): nothing on screen moves, the thread continues
+// the chat below without being followed ----
+await newChat(page)
+await start(page, 'BR')
+await waitDone(page)
+await page.waitForTimeout(1300)
+// A paragraph on screen at the end, so the card opens fully on screen (`click()` on its ⋯ would scroll a header
+// above the screen into view — a move the test made, not the app).
+const brParas = page.locator(`${SC} [data-turn]`).first().locator('[data-anchor-root]:not([data-anchor-target]) > div > p')
+const brTops = await brParas.evaluateAll((ps) => ps.map((p) => p.getBoundingClientRect().top))
+const brPara = await brParas.nth(brTops.findIndex((t) => t > 150 && t < 550)).boundingBox()
+await page.mouse.move(brPara.x + 2, brPara.y + 12)
+await page.mouse.down()
+await page.mouse.move(brPara.x + 120, brPara.y + 12, { steps: 5 })
+await page.mouse.up()
+await page.waitForTimeout(300)
+await page.getByRole('button', { name: '追问' }).click()
+await page.waitForTimeout(600)
+await page.locator(`${CARD} textarea`).press('End')
+await page.keyboard.type('侧边 BR')
+await page.keyboard.press('Enter')
+await waitDone(page)
+await setScroll(page, SC, 1e7)
+await page.waitForTimeout(300)
+const brUser = await page.locator(`${SC} [data-turn]`).first().boundingBox()
+await watch(page, brUser.x + brUser.width - 30, Math.max(brUser.y, 60) + 10)
+await page.locator(`${CARD} header`).getByRole('button', { name: '更多' }).click()
+await page.waitForTimeout(200)
+await page.getByRole('menuitem', { name: '转为分支' }).click()
+await page.waitForTimeout(1000)
+const br = await unwatch(page)
+check('BR 转为分支: the thread continues the chat, nothing on screen moved, not followed', (await page.locator(`${SC} [data-turn]`).count()) === 2 && br.maxStep === 0 && br.total === 0, br)
 
 console.log(failures ? `${failures} FAILED` : 'ALL PASS')
 await browser.close()

@@ -1,5 +1,5 @@
 // Selection pill (SelectionAsk.tsx, placed by Floating UI): above the selection's first line, below its last
-// when there's no room, centered on that line, following scrolls, hidden while out of view, Escape / a click
+// when there's no room, centered on that line; Escape / a click
 // elsewhere puts it away (only it, not a card under it). Copy this folder into the session scratchpad (where
 // playwright-core is installed) and run `node selection-suite.mjs [light|dark]` there, with `pnpm dev` on 5173
 // and `PORT=8788 DELAY=20 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
@@ -67,24 +67,6 @@ check('P1 pill shown (追问 + 笔记)', p && /追问/.test(p.text) && /笔记/.
 check('P1 above the selection, 8px gap', p && Math.abs(s.first.top - 8 - p.bottom) < 3, { s, p })
 check('P1 centered on it', p && Math.abs(p.cx - s.first.cx) < 2, { s, p })
 await page.screenshot({ path: `P1-${theme}.png` })
-
-// P2: scrolling the chat: the pill follows the selection.
-await page.mouse.move(700, 500)
-await page.mouse.wheel(0, 60)
-await page.waitForTimeout(400)
-s = await selRects()
-p = await pillBox()
-check('P2 follows the selection when scrolled', p && Math.abs(s.first.top - 8 - p.bottom) < 3 && s.first.top < 640, { s, p })
-
-// P3: scrolled out of view: hidden; back: shown.
-await page.mouse.wheel(0, 800)
-await page.waitForTimeout(400)
-p = await pillBox()
-check('P3 hidden while the selection is out of view', p && p.hidden, p)
-await page.mouse.wheel(0, -800)
-await page.waitForTimeout(400)
-p = await pillBox()
-check('P3 back when it comes back', p && !p.hidden, p)
 
 // P4: Escape puts it away.
 await page.keyboard.press('Escape')

@@ -9,7 +9,7 @@ import { connect } from 'node:net'
 
 const project = process.env.PROJECT ?? 'D:/download/project/explore-with-llm-ver2'
 const all = readdirSync('.').filter((f) => f.endsWith('-suite.mjs')).map((f) => f.replace('-suite.mjs', ''))
-// A name also picks its parts: `scroll` = scroll-stream, scroll-cards, scroll-branch.
+// A name also picks its parts: `scroll` = scroll-stream, scroll-cards.
 const suites = process.argv.length > 2 ? all.filter((n) => process.argv.slice(2).some((a) => n === a || n.startsWith(`${a}-`))) : all
 
 const listening = (port) =>

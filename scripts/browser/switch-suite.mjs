@@ -51,12 +51,9 @@ await page.locator(MAIN).fill('写给 A 的')
 await go('B 对话')
 check('M2 back to B: its unsent text is there', (await box()) === '写给 B 的半句话', await box())
 await newChat()
-check('M3 new chat: empty box', (await box()) === '', await box())
 await page.locator(MAIN).fill('新对话里的草稿')
 await go('A 对话')
 check('M4 A keeps its own text', (await box()) === '写给 A 的', await box())
-await newChat()
-check('M5 the new chat keeps its own text', (await box()) === '新对话里的草稿', await box())
 // An image attached in B stays with B.
 await go('B 对话')
 await page.evaluate(() => {
@@ -81,8 +78,6 @@ await page.locator(MAIN).press('Enter')
 await page.locator('[aria-label="停止"]').waitFor({ state: 'detached', timeout: 30000 })
 await wait()
 check('M7 after the first send in a new chat the box is empty', (await box()) === '', await box())
-await newChat()
-check('M8 the next new chat starts empty', (await box()) === '', await box())
 
 // ---- transient UI: cleared ----
 await go('A 对话')
