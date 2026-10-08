@@ -1,7 +1,7 @@
 // Runs browser suites side by side (each in its own Chrome, so their IndexedDBs don't meet) and prints a
 // summary. Copy this folder into the session scratchpad (where playwright-core is installed) and run
 // `node run-all.mjs [suite …]` there (names without `-suite.mjs`; all by default), with `pnpm dev` on 5173.
-// Starts the mock on 8788 (DELAY=20, as the scroll suite needs) unless one is already listening there, and
+// Starts the mock on 8788 (DELAY=20, as the scroll suites need) unless one is already listening there, and
 // stops it again. Set PROJECT to the project folder if it isn't D:/download/project/explore-with-llm-ver2.
 import { spawn } from 'node:child_process'
 import { readdirSync } from 'node:fs'
@@ -9,7 +9,8 @@ import { connect } from 'node:net'
 
 const project = process.env.PROJECT ?? 'D:/download/project/explore-with-llm-ver2'
 const all = readdirSync('.').filter((f) => f.endsWith('-suite.mjs')).map((f) => f.replace('-suite.mjs', ''))
-const suites = process.argv.length > 2 ? process.argv.slice(2) : all
+// A name also picks its parts: `scroll` = scroll-stream, scroll-cards, scroll-branch.
+const suites = process.argv.length > 2 ? all.filter((n) => process.argv.slice(2).some((a) => n === a || n.startsWith(`${a}-`))) : all
 
 const listening = (port) =>
   new Promise((res) => {

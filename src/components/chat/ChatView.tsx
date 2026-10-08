@@ -106,7 +106,10 @@ export function ChatView() {
     scroll.unpin()
     setLeaving(thread, true)
     // (Its card stays faded until it's gone from the data, see `useSideQuestions`; unless nothing was done.)
-    setTimeout(() => void threadToBranch(id, thread).then((done) => done || setLeaving(thread, false)), LEAVE_MS + 60)
+    const convert = () => void threadToBranch(id, thread).then((done) => done || setLeaving(thread, false))
+    // The timer starts once the fade has been painted: started at once, a busy page (slow frames) removed the
+    // card while it was still mostly visible.
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(convert, LEAVE_MS + 60)))
   }
   const [picker, setPicker] = useState<{
     x: number
