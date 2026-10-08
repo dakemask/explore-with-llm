@@ -1266,7 +1266,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "series": "Claude",
     "params": [
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1314,7 +1314,7 @@ export const PRESET_DATA: ModelPreset[] = [
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文）。思考始终开启（自适应）。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-opus-5-5",
@@ -1324,7 +1324,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "series": "Claude",
     "params": [
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1372,7 +1372,7 @@ export const PRESET_DATA: ModelPreset[] = [
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应），默认强度 medium。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文）。思考始终开启（自适应），默认投入程度 medium。历史中的思考块若校验不通过，接口会丢掉它们照常回答，而不是报错（需要附带的 beta 头）。"
   },
   {
     "id": "anthropic/claude-sonnet-5-5",
@@ -1382,7 +1382,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "series": "Claude",
     "params": [
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1409,7 +1409,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "toggle": true,
         "defaultOn": false,
         "requires": {
-          "思考强度": [
+          "投入程度": [
             "low",
             "medium",
             "high"
@@ -1451,7 +1451,7 @@ export const PRESET_DATA: ModelPreset[] = [
     ],
     "echoReasoning": true,
     "headers": "anthropic-beta: thinking-binding-controls-2026-08-01",
-    "notes": "1M 上下文，最大输出 128K。“关闭思考”发送 between_tools（关闭前置思考），只能在 high 及以下强度使用。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。“关闭思考”发送 between_tools（关闭前置思考），只能在投入程度 high 及以下使用。"
   },
   {
     "id": "anthropic/claude-fable-5",
@@ -1461,7 +1461,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "series": "Claude",
     "params": [
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1505,7 +1505,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。思考始终开启（自适应）。已有更新的 Fable 5.1。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文）。思考始终开启（自适应）。已有更新的 Fable 5.1。"
   },
   {
     "id": "anthropic/claude-opus-5",
@@ -1515,7 +1515,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "series": "Claude",
     "params": [
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1542,7 +1542,7 @@ export const PRESET_DATA: ModelPreset[] = [
         "toggle": true,
         "defaultOn": false,
         "requires": {
-          "思考强度": [
+          "投入程度": [
             "low",
             "medium",
             "high"
@@ -1580,7 +1580,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。默认思考（自适应）；只有 high 及以下强度可以关闭思考。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。默认思考（自适应）；只有投入程度 high 及以下可以关闭思考。"
   },
   {
     "id": "anthropic/claude-sonnet-5",
@@ -1590,7 +1590,7 @@ export const PRESET_DATA: ModelPreset[] = [
     "series": "Claude",
     "params": [
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1648,7 +1648,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。默认思考（自适应），可关闭。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。默认思考（自适应），可关闭。"
   },
   {
     "id": "anthropic/claude-opus-4-8",
@@ -1686,7 +1686,7 @@ export const PRESET_DATA: ModelPreset[] = [
         }
       },
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1715,7 +1715,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。"
   },
   {
     "id": "anthropic/claude-opus-4-7",
@@ -1753,7 +1753,7 @@ export const PRESET_DATA: ModelPreset[] = [
         }
       },
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1782,7 +1782,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。"
   },
   {
     "id": "anthropic/claude-opus-4-6",
@@ -1820,7 +1820,7 @@ export const PRESET_DATA: ModelPreset[] = [
         }
       },
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1848,7 +1848,7 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。强度没有 xhigh。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。投入程度没有 xhigh。"
   },
   {
     "id": "anthropic/claude-sonnet-4-6",
@@ -1886,7 +1886,7 @@ export const PRESET_DATA: ModelPreset[] = [
         }
       },
       {
-        "name": "思考强度",
+        "name": "投入程度",
         "type": "choice",
         "body": {
           "output_config": {
@@ -1914,6 +1914,6 @@ export const PRESET_DATA: ModelPreset[] = [
       }
     ],
     "echoReasoning": true,
-    "notes": "1M 上下文，最大输出 128K。API 默认不思考，这里默认打开自适应思考。强度没有 xhigh。"
+    "notes": "1M 上下文，最大输出 128K。投入程度影响整个回复（思考和正文），关闭思考时也有效。API 默认不思考，这里默认打开自适应思考。投入程度没有 xhigh。"
   }
 ]

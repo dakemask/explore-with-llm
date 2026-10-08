@@ -56,24 +56,25 @@ Sources: https://platform.claude.com/docs/en/about-claude/models/overview, https
 
 About the sources:
 - Every model here: 1M context (no beta header), up to 128K output, all active. On these models, if input + `max_tokens` exceeds the context, the request is still accepted and stops with `model_context_window_exceeded` if it gets there.
-- What each model does with each `thinking` value (the thinking page's per-model table):
+- What each model does with each `thinking` value (the thinking page's per-model table; 400 = the request is rejected):
 
-  | Model | No `thinking` / `adaptive` | `disabled` | `between_tools` | Effort levels | Default effort |
+  | Model | No `thinking` field | `adaptive` | `disabled` | Effort levels | Default effort |
   |---|---|---|---|---|---|
-  | Fable 5.1, Opus 5.5, Fable 5 | adaptive (always on) | 400 | 400 | all five | Opus 5.5 `medium`, others `high` |
-  | Sonnet 5.5 | adaptive | 400 | up-front thinking off, at `high` effort or below | all five | `high` |
-  | Opus 5 | adaptive | thinking off, at `high` effort or below | 400 | all five | `high` |
-  | Sonnet 5 | adaptive | thinking off | 400 | all five | `high` |
-  | Opus 4.8, Opus 4.7 | off / adaptive | thinking off | 400 | all five | `high` |
-  | Opus 4.6, Sonnet 4.6 | off / adaptive | thinking off | 400 | no `xhigh` | `high` |
+  | Fable 5.1, Opus 5.5, Fable 5 | adaptive | adaptive | 400 (can't be turned off) | all five | Opus 5.5 `medium`, others `high` |
+  | Sonnet 5.5 | adaptive | adaptive | 400 (`between_tools` turns up-front thinking off, at effort ≤ `high`) | all five | `high` |
+  | Opus 5 | adaptive | adaptive | off, at effort ≤ `high` (400 at `xhigh` / `max`) | all five | `high` |
+  | Sonnet 5 | adaptive | adaptive | off | all five | `high` |
+  | Opus 4.8, Opus 4.7 | **off** | adaptive | off | all five | `high` |
+  | Opus 4.6, Sonnet 4.6 | **off** | adaptive | off | no `xhigh` | `high` |
 
-- Effort "affects **all tokens** in the response" (text, tool calls, and thinking when active) and "works whether or not thinking is enabled". On Opus 5 the docs add that effort controls thinking volume, not visible response length.
+  `between_tools` is a 400 on every other model here. In every cell the reply text is produced; the thinking setting only decides whether Claude thinks before it. Effort and the thinking setting are chosen independently, apart from the two "effort ≤ `high`" limits above.
+- Effort "affects **all tokens** in the response" (text, tool calls, and thinking when active) and "works whether or not thinking is enabled". With adaptive thinking it also sets how readily and how deeply Claude thinks; at low effort it may skip thinking on simple problems. On Opus 5 the docs add that effort controls thinking volume, not visible response length. Thinking tokens count toward `max_tokens`.
 - `display` works with any thinking mode, is invalid with `disabled`, and defaults to `omitted` (no thinking text) on 4.7 and later, `summarized` on 4.6 and earlier.
 - Preserved thinking (Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5 check it): a thinking block stays valid only while the `system` prompt, `tools` and every message before it are unchanged. Changing request parameters outside those (effort, `max_tokens`, `thinking.display`, …) doesn't count, nor does appending messages. A failing block gives a 400 by default for accounts created on or after 2026-08-31 (older accounts only when `block_binding` is sent); with `block_binding.prefix_mismatch_behavior: "drop_block"` (beta header `thinking-binding-controls-2026-08-01`) the API drops it and every later block from that request, unbilled, answers without that reasoning, and lists them in the response's `input_transformations`. Blocks from a model the target can't read are dropped silently on every account. Sonnet 5.5 (and Haiku 5.5) blocks only work in the account that produced them.
 - Previous thinking blocks are kept as input by default on Opus 4.5+ and Sonnet 4.6+ (so echoing them matters on every model here).
 
 Parameters:
-- 思考强度: `output_config.effort`, the model's levels, default = the API's default. Not tied to the thinking switch, since effort applies with thinking off too.
+- 投入程度: `output_config.effort`, the model's levels, default = the API's default. Named 投入程度, not 思考强度 as for DeepSeek / GPT (owner, 2026-10-08), since it governs the whole reply, not only thinking; the notes say so. Not tied to the thinking switch, since effort applies with thinking off too.
 - 思考显示: `thinking.display` `summarized` / `omitted`, default `summarized` (the app shows reasoning; on 4.7+ the API would hide it). On 4.6 `summarized` is already the API default, so sending it changes nothing. Only while thinking is on (it's invalid with `disabled`).
 - Thinking switch, per model:
   - Fable 5.1, Opus 5.5, Fable 5: none (can't be turned off); `thinking.type: "adaptive"` is sent with 思考显示.
