@@ -29,7 +29,7 @@ model `mock-chat` streams plain reasoning + markdown/code/math, `mock-think` str
 
 Regression suites live in `scripts/browser/*-suite.mjs` (`scroll-stream`, `scroll-cards`, `scroll-branch` — the scroll suites, split to run side by side, helpers in `scroll-lib.mjs` —, `layers`, `selection`, `focus`, `switch`, `layout`; what each guards: its header); `run-all.mjs` there runs them side by side and starts / stops the mock itself (all ≈ 2 min; `node run-all.mjs scroll` runs the three scroll parts).
 
-Full runs (owner, 2026-10-08: checks took too long): the full `run-all.mjs` runs every 4 tasks (last: task 13; next due with task 17) or before the owner tries several at once, not before each task. Note each full run in Done. If a full run finds a break, find which recent commit caused it.
+Full runs (owner, 2026-10-08: checks took too long): the full `run-all.mjs` runs every 4 tasks (last: after task 13; next due with task 17) or before the owner tries several at once, not before each task. Note each full run in Done. If a full run finds a break, find which recent commit caused it.
 
 How much to check depends on whether a change touches a shared concern, not on how big it looks (owner, 2026-10-08: full checks for tiny tasks were too slow; the foundations now make small additions predictable). The level comes from the same assessment as Engineering principles › Before building:
 - Always `pnpm test` + `pnpm build` (unit tests were once left broken because only the browser suites were rerun).
@@ -125,7 +125,7 @@ What users see and can do, and why. These rules are deliberate: don't change one
 
 ### Main view, colors and navigation
 
-- Main view: linear chat of the active path. Turns are split by a thin separator. No color bars beside the turns (removed by the owner, 2026-10-08: their information was mostly in the switcher already — dots at every fork, grey for attempts — and they raised the red-first-turn and contrast questions; the owner has another idea). Branch colors show in the switcher dots and the tree map.
+- Main view: linear chat of the active path. Each turn (user message + reply; the first also its system message) sits in a thin rounded frame, 12 px outside the text (lined up with the input box's edges; text width unchanged), 16 px apart, 12 px under the reply footer (owner, 2026-10-08: one node = one frame, made clearer; replaced the thin separator between turns). Side cards keep separators between turns (narrow, already a frame). Message footer buttons (copy / edit / retry / details / model / ⋯) are always shown, main chat and side cards (owner, 2026-10-08; were hover-only). No color bars beside the turns (removed by the owner, 2026-10-08: their information was mostly in the switcher already — dots at every fork, grey for attempts — and they raised the red-first-turn and contrast questions; the owner has another idea). Branch colors show in the switcher dots and the tree map.
 - Colors ("rainbow flow"): 7 colors on a ring (red, orange, yellow, green, cyan, blue, violet; yellow-green dropped as too close), each at its own lightness. A segment runs from one fork to the next; a fork = ≥ 2 branches (one branch + attempts is not a fork, the branch keeps the color). At a fork the branches take the next colors along the ring in creation order (first = parent + 1, …), so colors change only below forks — accepting that a line's lower part recolors when a second branch appears. Attempts are always grey, a lone one too (owner, 2026-10-07: the parent's color made a fresh reply look settled). Rejected: equal-lightness 8-color jump, hue-interval splitting.
 - Sibling switcher: right end of the reply footer of any node with ≥ 2 non-archived siblings — always visible, also while streaming (a row of its own), error replies included (the footer row under the error box). Main nodes: one dot per branch in its color (oldest first, the shown one ringed; tip = the node's label in bold if it has one, then user message first line → reply first line, so same-text retries differ); then, after a divider, the attempts: a single attempt is one more grey dot; several are a grey stack — showing a branch, the stack is "×n" and jumps to the newest attempt; showing an attempt, the stack is ringed with ‹n/m› among the attempts. Side nodes: plain ‹n/m› over all versions.
 - Tree map: header button (GitBranch, tip 树图) toggles a panel dropping down under the chat header over the chat (full column width, height = tree, ≤ 50vh, scrolls both ways).
@@ -222,7 +222,6 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 - **Owner decides** the Open items above (names; success notifications when a case comes up).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
-- **13. Turn frames** — built, owner to try. Rules (owner, 2026-10-08; move to Product decisions once accepted): in the main chat each turn (user message + reply; the first also its system message) sits in a thin rounded frame, 12 px outside the text (lined up with the input box's edges; text width unchanged), frames 16 px apart, 12 px under the reply footer; the thin separator between turns is gone. Message footer buttons (copy / edit / retry / details / model / ⋯) always shown, main chat and side cards (owner, 2026-10-08; were hover-only). Side cards keep their separators (narrow, already a frame). Full run: all suites pass.
 
 ### Done
 
@@ -238,6 +237,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 10. 转为分支 (side question → main nodes) + the "became a branch" dot animation. Accepted by the owner (2026-10-08).
 11. Conversation list as a card (no sidebar). Accepted by the owner (2026-10-08).
 12. System message on the first turn. Accepted by the owner (2026-10-08).
+13. Turn frames + footer buttons always shown. Accepted by the owner (2026-10-08). Full run after it: all pass (scroll-stream had found the reply by a hover-only class; now `data-reply`).
 
 ## Engineering principles
 

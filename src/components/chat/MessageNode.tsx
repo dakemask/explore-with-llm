@@ -107,7 +107,8 @@ export const MessageNode = memo(function MessageNode({
         images={node.user.images}
         onEdit={canSend ? () => setEditingUser('user') : undefined}
       />
-      <div>
+      {/* data-reply: the reply part (scripts find it by this). */}
+      <div data-reply>
         {hasReasoning(thinking) && <Reasoning view={thinking} live={streaming && !content} />}
         {editing && (
           <AssistantEditDialog initial={node.assistant.content} onClose={() => setEditing(false)} onSave={saveEdit} />

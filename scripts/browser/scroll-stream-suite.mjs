@@ -29,13 +29,13 @@ const forksS = await page.locator(`${SC} [data-fork]`).count()
 await start(page, 'S')
 // (the reply's text has started and still streams: the view follows it)
 await page.waitForFunction(
-  ({ sc, n }) => document.querySelectorAll(`${sc} [data-fork]`)[n]?.querySelector('.group\\/assistant p') && document.querySelector('[aria-label="停止"]'),
+  ({ sc, n }) => document.querySelectorAll(`${sc} [data-fork]`)[n]?.querySelector('[data-reply] p') && document.querySelector('[aria-label="停止"]'),
   { sc: SC, n: forksS },
   { timeout: 20000 },
 )
 const sp = await page.evaluate((sc) => {
   const box = document.querySelector(sc).getBoundingClientRect()
-  const ps = [...document.querySelectorAll(`${sc} .group\\/assistant p`)]
+  const ps = [...document.querySelectorAll(`${sc} [data-reply] p`)]
   const p = ps.map((p) => p.getBoundingClientRect()).find((r) => r.top > box.top + 20 && r.bottom < box.bottom - 200 && r.width > 200)
   return p && { x: p.x, y: p.y, w: p.width }
 }, SC)
