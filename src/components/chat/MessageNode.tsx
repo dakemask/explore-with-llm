@@ -148,19 +148,32 @@ export const MessageNode = memo(function MessageNode({
   )
 })
 
-/** One turn (user message + reply) in a list: a thin separator above it (except the first). */
+/**
+ * One turn (user message + reply, a first turn's system message too) in a list. Main chat (`framed`): a thin
+ * rounded frame around it, drawn 12 px outside the text so the text keeps its width (owner: one node = one
+ * frame). Side cards: a thin separator above it (except the first) — a card is narrow and a frame itself.
+ */
 export function Turn({
   id,
   first,
+  framed,
   children,
 }: {
   /** The node id, as `data-turn` (the tree map finds turns in the chat by it). */
   id?: string
   first: boolean
+  framed?: boolean
   children: ReactNode
 }) {
   return (
-    <div data-turn={id} className={clsx(!first && 'mt-8 border-t border-border pt-8')}>
+    <div
+      data-turn={id}
+      className={clsx(
+        framed
+          ? ['-mx-3 rounded-xl border border-border px-3 pt-4 pb-1', !first && 'mt-6']
+          : !first && 'mt-8 border-t border-border pt-8',
+      )}
+    >
       {children}
     </div>
   )

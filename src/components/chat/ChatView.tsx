@@ -389,7 +389,7 @@ export function ChatView() {
               ) : (
                 <div>
                   {path.map((n, i) => (
-                    <Turn key={n.id} id={n.id} first={i === 0}>
+                    <Turn key={n.id} id={n.id} first={i === 0} framed>
                       <MessageNode
                         node={n}
                         siblings={siblings.get(n.id)}

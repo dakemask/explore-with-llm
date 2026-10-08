@@ -29,7 +29,7 @@ model `mock-chat` streams plain reasoning + markdown/code/math, `mock-think` str
 
 Regression suites live in `scripts/browser/*-suite.mjs` (`scroll-stream`, `scroll-cards`, `scroll-branch` — the scroll suites, split to run side by side, helpers in `scroll-lib.mjs` —, `layers`, `selection`, `focus`, `switch`, `layout`; what each guards: its header); `run-all.mjs` there runs them side by side and starts / stops the mock itself (all ≈ 2 min; `node run-all.mjs scroll` runs the three scroll parts).
 
-Full runs (owner, 2026-10-08: checks took too long): the full `run-all.mjs` runs every 4 tasks (last: task 10; next due with task 13) or before the owner tries several at once, not before each task. Note each full run in Done. If a full run finds a break, find which recent commit caused it.
+Full runs (owner, 2026-10-08: checks took too long): the full `run-all.mjs` runs every 4 tasks (last: task 13; next due with task 17) or before the owner tries several at once, not before each task. Note each full run in Done. If a full run finds a break, find which recent commit caused it.
 
 How much to check depends on whether a change touches a shared concern, not on how big it looks (owner, 2026-10-08: full checks for tiny tasks were too slow; the foundations now make small additions predictable). The level comes from the same assessment as Engineering principles › Before building:
 - Always `pnpm test` + `pnpm build` (unit tests were once left broken because only the browser suites were rerun).
@@ -222,6 +222,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 - **Owner decides** the Open items above (names; success notifications when a case comes up).
 - **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
+- **13. Turn frames** — built, owner to try. Rules (owner, 2026-10-08; move to Product decisions once accepted): in the main chat each turn (user message + reply; the first also its system message) sits in a thin rounded frame, 12 px outside the text (lined up with the input box's edges; text width unchanged), frames 24 px apart; the thin separator between turns is gone. Side cards keep their separators (narrow, already a frame). Full run: all suites pass.
 
 ### Done
 
