@@ -82,6 +82,13 @@ export async function hoverAt(page, loc) {
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
 }
 
+/** Opens a conversation from the conversation list card (opening the card first); `title` = its list text. */
+export async function openConversation(page, title) {
+  const list = page.locator('[data-conversation-list]')
+  if (!(await list.count())) await page.getByRole('button', { name: '对话列表' }).click()
+  await list.getByText(title).first().click()
+}
+
 /** Collapses an expanded side / note card (locator) by clicking its header's title area. */
 export async function collapseCard(page, card) {
   const b = await card.locator('header').boundingBox()

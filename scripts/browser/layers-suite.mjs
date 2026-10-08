@@ -1,5 +1,5 @@
 // Escape / outside-click layering (ui/Layer.tsx): one Escape closes only the topmost open thing — tree map,
-// expanded side card / note card, menus, dialogs, a pinned help tip. Copy this folder into the session
+// expanded side card / note card, the conversation list card, menus, dialogs, a pinned help tip. Copy this folder into the session
 // scratchpad (where playwright-core is installed) and run `node layers-suite.mjs` there, with `pnpm dev` on
 // 5173 and `PORT=8788 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
 import { open, send, SC } from './lib.mjs'
@@ -152,6 +152,54 @@ const head = await page.locator(`${CARD} header`).boundingBox()
 await page.mouse.click(head.x + 60, head.y + head.height / 2)
 await wait()
 check('N3 a click on the card header collapses it', !(await cardOpen()))
+
+// ---- K: the conversation list card ----
+const LIST = '[data-conversation-list]'
+const listOpen = async () => (await page.locator(LIST).count()) > 0
+const listButton = page.getByRole('button', { name: '对话列表' })
+// (The card itself is a role=dialog.)
+const realDialog = async () => (await page.locator('[role=dialog]:not(:has([data-conversation-list]))').count()) > 0
+await listButton.click()
+await wait()
+check('K1 the button opens the card', await listOpen())
+await listButton.click()
+await wait()
+check('K1 the button closes it again', !(await listOpen()))
+await listButton.click()
+await wait()
+await page.locator(`${LIST} li button`).first().click()
+await wait()
+check('K2 picking a conversation leaves it open', await listOpen())
+await page.locator(`${LIST} li`).first().hover()
+await page.locator(`${LIST} li`).first().getByRole('button', { name: 'More' }).click()
+await wait()
+check('K3 card + an item menu open', (await listOpen()) && (await menuOpen()))
+await esc()
+check('K3 Escape closes only the menu', (await listOpen()) && !(await menuOpen()))
+await page.locator(`${LIST} li`).first().hover()
+await page.locator(`${LIST} li`).first().getByRole('button', { name: 'More' }).click()
+await wait()
+await page.getByRole('menuitem', { name: '重命名' }).click()
+await wait()
+check('K4 rename dialog over the card', (await listOpen()) && (await realDialog()))
+await esc()
+check('K4 Escape closes only the dialog', (await listOpen()) && !(await realDialog()))
+await page.locator(`${LIST} li`).first().hover()
+await page.locator(`${LIST} li`).first().getByRole('button', { name: 'More' }).click()
+await wait()
+await page.getByRole('menuitem', { name: '查看归档' }).click()
+await wait()
+await page.mouse.click(1380, 450) // on the dialog's overlay
+await wait()
+check('K5 a click outside the archive dialog closes it, the card stays', (await listOpen()) && !(await realDialog()))
+await esc()
+check('K6 then Escape closes the card', !(await listOpen()))
+await listButton.click()
+await wait()
+await page.mouse.click(700, 450)
+await wait()
+check('K7 a click outside closes the card', !(await listOpen()))
+await park()
 
 // ---- H: pinned help tip in a dialog ----
 await page.getByRole('button', { name: '设置' }).click()

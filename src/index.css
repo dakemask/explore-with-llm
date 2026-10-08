@@ -15,7 +15,6 @@
 :root {
   --c-bg: #fbfbfa;
   --c-surface: #ffffff;
-  --c-sidebar: #f4f4f2;
   --c-subtle: #efefec;
   --c-hover: rgb(0 0 0 / 0.045);
   --c-active: rgb(0 0 0 / 0.075);
@@ -63,7 +62,6 @@
 .dark {
   --c-bg: #1a1a19;
   --c-surface: #222221;
-  --c-sidebar: #151514;
   --c-subtle: #2a2a28;
   --c-hover: rgb(255 255 255 / 0.05);
   --c-active: rgb(255 255 255 / 0.085);
@@ -109,7 +107,6 @@
 @theme inline {
   --color-bg: var(--c-bg);
   --color-surface: var(--c-surface);
-  --color-sidebar: var(--c-sidebar);
   --color-subtle: var(--c-subtle);
   --color-hover: var(--c-hover);
   --color-active: var(--c-active);

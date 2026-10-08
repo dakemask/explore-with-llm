@@ -2,7 +2,7 @@
 // conversation. Copy this folder into the session scratchpad (where playwright-core is installed) and run
 // `node switch-suite.mjs` there, with `pnpm dev` on 5173 and `PORT=8788 node scripts/mock/server.mjs`.
 // Prints PASS / FAIL per check.
-import { open, send, SC } from './lib.mjs'
+import { open, openConversation, send, SC } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -18,7 +18,9 @@ const TREE = '[data-tree-map]'
 const box = () => page.locator(MAIN).inputValue()
 const thumbs = () => page.locator('main > [data-main-composer] img').count()
 const go = async (title) => {
-  await page.getByRole('button', { name: title }).first().click()
+  await openConversation(page, title)
+  await wait()
+  await page.keyboard.press('Escape') // (the list card stays open after picking)
   await wait()
 }
 const newChat = async () => {

@@ -1,38 +1,75 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Archive, Download, FileUp, MoreHorizontal, PanelLeftClose, Pencil, Settings, SquarePen, Trash2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { Archive, Download, FileUp, MessagesSquare, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { db, type Conversation } from '../../db'
 import { useT } from '../../i18n'
 import { deleteConversation, renameConversation } from '../../lib/chat'
-import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { download, exportConversation, importConversation } from '../../lib/transfer'
-import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { IconButton } from '../ui/Button'
 import { Dots } from '../ui/Dots'
 import { confirmDialog, promptDialog } from '../ui/Dialog'
-import { ResizeHandle } from '../ui/ResizeHandle'
-import { notifyError } from '../ui/Toast'
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../ui/Menu'
+import { PopoverContent, PopoverRoot, PopoverTrigger } from '../ui/Popover'
+import { notifyError } from '../ui/Toast'
 import { ArchiveDialog } from './ArchiveDialog'
 
-export function Sidebar() {
+/**
+ * The conversation list: a card dropping down from the chat header's top-left button (owner, 2026-10-08:
+ * no sidebar). Picking a conversation leaves it open; Escape, a click outside and the button close it.
+ * Focus moving out (opening a conversation focuses its input box; a dialog from an item's menu) doesn't.
+ */
+export function ConversationList() {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const card = useRef<HTMLDivElement>(null)
+  return (
+    <PopoverRoot open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <IconButton label={t('pane.list')} active={open}>
+          <MessagesSquare size={17} />
+        </IconButton>
+      </PopoverTrigger>
+      <PopoverContent
+        ref={card}
+        side="bottom"
+        align="start"
+        className="flex w-72 flex-col overflow-hidden! max-h-[min(70vh,var(--radix-popover-content-available-height))]!"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          card.current?.focus({ preventScroll: true })
+        }}
+        onFocusOutside={(e) => e.preventDefault()}
+        // Closing hands focus back to the button only if it was still in the card (not if the user went on to
+        // type in the conversation it opened).
+        onCloseAutoFocus={(e) => {
+          const active = document.activeElement
+          if (active && active !== document.body && !card.current?.contains(active)) e.preventDefault()
+        }}
+      >
+        <List />
+      </PopoverContent>
+    </PopoverRoot>
+  )
+}
+
+function List() {
   const t = useT()
   const conversations = useLiveQuery(() => db.conversations.orderBy('updatedAt').reverse().toArray(), [])
   const currentId = useUi((s) => s.conversationId)
   const setConversation = useUi((s) => s.setConversation)
-  const openSettings = useUi((s) => s.openSettings)
-  const pane = useSettings((s) => s.panes.list)
-  const setPane = useSettings((s) => s.setPane)
-  const [dragging, setDragging] = useState(false)
 
   const startOfToday = new Date().setHours(0, 0, 0, 0)
   const today = conversations?.filter((c) => c.updatedAt >= startOfToday) ?? []
   const earlier = conversations?.filter((c) => c.updatedAt < startOfToday) ?? []
 
-  // The conversation record is created lazily on the first message.
-  const newChat = () => setConversation(null)
+  // Opens showing the current conversation.
+  const nav = useRef<HTMLElement>(null)
+  const loaded = !!conversations
+  useEffect(() => {
+    nav.current?.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest' })
+  }, [loaded])
 
   const fileInput = useRef<HTMLInputElement>(null)
   const importFile = async (file: File) => {
@@ -43,84 +80,33 @@ export function Sidebar() {
     }
   }
 
-  // Opening / closing slides the edge (the list keeps its width and is clipped); dragging follows the mouse.
   return (
-    <div
-      className={clsx('relative h-full shrink-0', !dragging && 'transition-[width] duration-200 ease-out motion-reduce:transition-none')}
-      style={{ width: pane.open ? pane.width : 0 }}
-    >
-      <aside inert={!pane.open} className="h-full overflow-hidden">
-        <div className="flex h-full flex-col border-r border-border bg-sidebar" style={{ width: pane.width }}>
-          <div className="flex h-14 shrink-0 items-center gap-2.5 pr-3 pl-4">
-            <img src="./favicon.svg" alt="" className="size-6" />
-            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">{t('app.name')}</span>
-            <IconButton label={t('pane.listClose')} onClick={() => setPane('list', { open: false })}>
-              <PanelLeftClose size={17} />
-            </IconButton>
-          </div>
-
-          <div className="flex gap-2 px-3 pb-2">
-            <button
-              onClick={newChat}
-              className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-[13px] font-medium shadow-xs transition-colors hover:bg-hover"
-            >
-              <SquarePen size={15} className="text-muted" />
-              {t('sidebar.newChat')}
-            </button>
-            <IconButton
-              label={t('conv.import')}
-              onClick={() => fileInput.current?.click()}
-              className="size-9! rounded-lg border border-border bg-surface shadow-xs"
-            >
-              <FileUp size={15} />
-            </IconButton>
-            <input
-              ref={fileInput}
-              type="file"
-              accept=".json,application/json"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                e.target.value = ''
-                if (file) void importFile(file)
-              }}
-            />
-          </div>
-
-          <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-            {conversations && conversations.length === 0 && (
-              <div className="px-2 py-8 text-center text-[13px] text-faint">{t('sidebar.empty')}</div>
-            )}
-            <Group label={t('sidebar.today')} items={today} currentId={currentId} onSelect={setConversation} />
-            <Group label={t('sidebar.earlier')} items={earlier} currentId={currentId} onSelect={setConversation} />
-          </nav>
-
-          <div className="shrink-0 border-t border-border p-3">
-            <button
-              onClick={() => openSettings()}
-              className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-[13px] text-muted transition-colors hover:bg-hover hover:text-text"
-            >
-              <Settings size={16} />
-              {t('sidebar.settings')}
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {pane.open && (
-        <ResizeHandle
-          label={t('pane.listResize')}
-          edge="left"
-          width={pane.width}
-          min={PANE_MIN.list}
-          max={PANE_MAX.list}
-          onResize={(width) => setPane('list', { width })}
-          onReset={() => setPane('list', { width: PANE_DEFAULT.list })}
-          onDragging={setDragging}
-          className="-right-1"
+    <>
+      <div className="flex shrink-0 items-center gap-2 border-b border-border py-1.5 pr-1.5 pl-4">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{t('pane.list')}</span>
+        <IconButton label={t('conv.import')} size="sm" onClick={() => fileInput.current?.click()}>
+          <FileUp size={15} />
+        </IconButton>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) void importFile(file)
+          }}
         />
-      )}
-    </div>
+      </div>
+      <nav ref={nav} data-conversation-list className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        {conversations && conversations.length === 0 && (
+          <div className="px-2 py-8 text-center text-[13px] text-faint">{t('sidebar.empty')}</div>
+        )}
+        <Group label={t('sidebar.today')} items={today} currentId={currentId} onSelect={setConversation} />
+        <Group label={t('sidebar.earlier')} items={earlier} currentId={currentId} onSelect={setConversation} />
+      </nav>
+    </>
   )
 }
 
@@ -137,7 +123,7 @@ function Group({
 }) {
   if (items.length === 0) return null
   return (
-    <div className="mt-3 first:mt-1">
+    <div className="mt-2">
       <div className="px-2 pb-1 text-[11px] font-medium tracking-wide text-faint">{label}</div>
       <ul className="space-y-px">
         {items.map((c) => (
@@ -177,6 +163,7 @@ function ConversationItem({
     <li className="group relative">
       <button
         onClick={() => onSelect(conv.id)}
+        aria-current={active || undefined}
         className={clsx(
           'flex h-8 w-full items-center rounded-md pr-8 pl-2.5 text-left text-[13px] transition-colors',
           active ? 'bg-active font-medium text-text' : 'text-muted hover:bg-hover hover:text-text',

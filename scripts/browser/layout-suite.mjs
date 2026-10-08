@@ -130,82 +130,26 @@ for (const action of ['笔记', '追问']) {
   await browser.close()
 }
 
-// ---- W4: the conversation list: dragging its edge resizes it (within its limits) and leaves the text on screen
-// where it is; collapsing it (header button) recenters the chat; both are remembered over a reload ----
+// ---- W4: the conversation list is a card from the header's top-left button: no pane beside the chat
+// (the chat is centered in the whole window); opening it moves nothing, it sits under its button ----
 {
   const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
-  for (const q of ['列表一', '列表二', '列表三']) await send(page, q)
-  await page.locator('[aria-label="收起侧栏"]').click() // (the chat is then centered)
+  for (const q of ['列表一', '列表二']) await send(page, q)
+  await page.locator('[aria-label="收起侧栏"]').click()
   await page.waitForTimeout(1300) // past the scroll hold
-  const listWidth = async () => ((await page.locator('aside').count()) ? Math.round((await page.locator('aside').boundingBox()).width) : 0)
-  const topText = () =>
-    page.evaluate((SC) => {
-      const sc = document.querySelector(SC)
-      const r = sc.getBoundingClientRect()
-      const el = [...sc.querySelectorAll('.prose p, .prose li, .prose pre')].find((e) => e.getBoundingClientRect().bottom > r.top + 20)
-      return { text: el.textContent.slice(0, 20), off: Math.round(el.getBoundingClientRect().top - r.top) }
-    }, SC)
-  await page.evaluate((SC) => {
-    const sc = document.querySelector(SC)
-    sc.scrollTop = sc.scrollHeight / 2
-  }, SC)
-  await page.waitForTimeout(200)
-  const before = await topText()
-  const handle = page.locator('[role="separator"][aria-label="调整对话列表宽度"]')
-  const hb = await handle.boundingBox()
-  const x = hb.x + hb.width / 2
-  await page.mouse.move(x, 400)
-  await page.mouse.down()
-  await page.mouse.move(x + 100, 400, { steps: 10 })
-  await page.mouse.up()
+  const before = await measure(page)
+  const mainBox = await page.locator('main').boundingBox()
+  check('W4 no list pane: the chat area starts at the window edge', mainBox.x === 0, mainBox)
+  check('W4 the chat is centered', Math.abs(before.contentLeft - (before.areaRight - before.contentRight)) <= 1, before)
+  const button = page.getByRole('button', { name: '对话列表' })
+  await button.click()
   await page.waitForTimeout(300)
-  const after = await topText()
-  const m = await measure(page)
-  check('W4 dragging the list edge widens it', (await listWidth()) === 356, await listWidth())
-  check('W4 the text on screen stays where it was', before.text === after.text && Math.abs(before.off - after.off) <= 1, { before, after })
-  check('W4 no overflow, the input box lines up', m.overflow === 0 && m.boxLeft === m.contentLeft && m.boxRight === m.contentRight, m)
-  await page.mouse.move(x + 100, 400)
-  await page.mouse.down()
-  await page.mouse.move(x + 900, 400, { steps: 5 })
-  await page.mouse.up()
-  check('W4 the list stops at its widest', (await listWidth()) === 420, await listWidth())
-  // In every painted frame of the slide, the chat is centered in the area (it once showed a frame at its
-  // old place: re-laid out a frame late). Read in an observer made after the app's, see W3.
-  const offCenter = async (button) => {
-    await page.evaluate((SC) => {
-      const sc = document.querySelector(SC)
-      const read = () => {
-        const a = sc.getBoundingClientRect()
-        const c = sc.firstElementChild.firstElementChild.getBoundingClientRect()
-        return Math.round(Math.abs(c.left - a.left - (a.left + sc.clientWidth - c.right)))
-      }
-      window.__frames = []
-      let cur = null
-      const ro = new ResizeObserver(() => cur && (cur.v = read()))
-      ro.observe(sc)
-      ro.observe(sc.firstElementChild)
-      const tick = () => {
-        cur = { v: read() }
-        window.__frames.push(cur)
-        if (window.__frames.length < 30) requestAnimationFrame(tick)
-        else ro.disconnect()
-      }
-      requestAnimationFrame(tick)
-    }, SC)
-    await page.locator(`[aria-label="${button}"]`).click()
-    await page.waitForTimeout(700)
-    return Math.max(...(await page.evaluate(() => window.__frames.map((f) => f.v))))
-  }
-  const slideOff = await offCenter('收起对话列表')
-  check('W4 collapsing: the chat stays centered in every frame', slideOff <= 1, slideOff)
-  const c = await measure(page)
-  check('W4 collapsed: no list, the chat is centered', (await listWidth()) === 0 && Math.abs(c.contentLeft - (c.areaRight - c.contentRight)) <= 1, c)
-  await page.reload()
-  await page.waitForTimeout(800)
-  check('W4 collapsed after a reload', (await listWidth()) === 0)
-  const slideOn = await offCenter('展开对话列表')
-  check('W4 expanding: the chat stays centered in every frame', slideOn <= 1, slideOn)
-  check('W4 expanded at the width it had', (await listWidth()) === 420, await listWidth())
+  const after = await measure(page)
+  const b = await button.boundingBox()
+  const card = await page.locator('[data-conversation-list]').locator('xpath=..').boundingBox()
+  check('W4 opening the card moves nothing, no overflow', JSON.stringify(before) === JSON.stringify(after) && after.overflow === 0, { before, after })
+  check('W4 the card sits under its button, left-aligned', Math.abs(card.x - b.x) <= 1 && card.y >= b.y + b.height && card.y <= b.y + b.height + 12, { card, b })
+  check('W4 the card is 288 wide, at most 70% of the window high', Math.round(card.width) === 288 && card.height <= 0.7 * 900 + 1, card)
   await browser.close()
 }
 
@@ -349,7 +293,7 @@ for (const action of ['笔记', '追问']) {
   const w = await measure(page)
   check('W5 dragged far: the column stops at its widest, the chat keeps at least 420', w.colRight - w.colLeft === 640 && w.contentRight - w.contentLeft >= 420, w)
 
-  await page.locator('aside button', { hasText: '新对话' }).click()
+  await page.getByRole('button', { name: '新对话' }).click()
   await page.waitForTimeout(300)
   // (A chat not created yet has no column element, only its space.)
   const n = await measure(page)
@@ -357,7 +301,8 @@ for (const action of ['笔记', '追问']) {
   await page.locator('[aria-label="收起侧栏"]').click()
   await page.reload()
   await page.waitForTimeout(800)
-  await page.locator('aside nav li button').first().click()
+  await page.getByRole('button', { name: '对话列表' }).click()
+  await page.locator('[data-conversation-list] li button').first().click()
   await page.waitForTimeout(600)
   check('W5 collapsed after a reload, in another conversation', (await colWidth()) === 22, await colWidth())
   await browser.close()

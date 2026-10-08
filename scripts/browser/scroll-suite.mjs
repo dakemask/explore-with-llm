@@ -1,7 +1,7 @@
 // Streaming scroll scenarios (Product decisions › Scrolling), incl. 转为分支 (BR: fades, nothing moves). Copy this folder into the session scratchpad (where
 // playwright-core is installed) and run `node scroll-suite.mjs` there, with `pnpm dev` on 5173 and
 // `PORT=8788 DELAY=20 node scripts/mock/server.mjs`. Prints PASS / FAIL per check.
-import { open, waitDone, SC, SP, state, setScroll, clickAt, hoverAt, topIn, collapseCard } from './lib.mjs'
+import { open, waitDone, SC, SP, state, setScroll, clickAt, hoverAt, topIn, collapseCard, openConversation } from './lib.mjs'
 
 let failures = 0
 const check = (name, ok, info) => {
@@ -262,7 +262,8 @@ await page.getByRole('button', { name: '新对话' }).click()
 await page.waitForTimeout(600)
 const empty = await page.getByText('开始一段新的探索').boundingBox()
 check('N new conversation: composer in place, empty state on screen', (await composerTop()) === cTop && !!empty && empty.y > 56 && empty.y < 794 && (await state(page)).scrollTop === 0, { leaving, now: await state(page), composer: await composerTop(), emptyY: empty?.y })
-await page.locator('aside').getByText('先来一轮').first().click()
+await openConversation(page, '先来一轮')
+await page.keyboard.press('Escape')
 await page.waitForTimeout(800)
 const back = await state(page)
 check('N back to the conversation: at its end, no blank', back.max - back.scrollTop < 2 && back.pad === '0' && (await composerTop()) === cTop, back)

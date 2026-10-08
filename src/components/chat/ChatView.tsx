@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { GitBranch, KeyRound, PanelLeftOpen, PanelRightClose, PanelRightOpen, Sparkles, SquarePen } from 'lucide-react'
+import { GitBranch, KeyRound, PanelRightClose, PanelRightOpen, Settings, Sparkles, SquarePen } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
@@ -33,6 +33,7 @@ import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
 import { useSiblings } from './SiblingSwitcher'
 import { TreeMapPanel } from './TreeMap'
+import { ConversationList } from '../layout/ConversationList'
 import { useNodeActions } from './useNodeActions'
 
 export function ChatView() {
@@ -47,7 +48,6 @@ export function ChatView() {
   const leaving = useUi((s) => s.leaving)
   const { providers, provider, model, ready } = useCurrentModel()
   const naming = useUi((s) => !!conversationId && !!s.naming[conversationId])
-  const listOpen = useSettings((s) => s.panes.list.open)
   const column = useSettings((s) => s.panes.column)
   const setPane = useSettings((s) => s.setPane)
 
@@ -255,16 +255,15 @@ export function ChatView() {
   return (
     <main ref={mainRef} className="relative flex h-full min-w-0 flex-1 flex-col bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-        {!listOpen && (
-          <div className="anim-fade -mr-1 flex items-center gap-1">
-            <IconButton label={t('pane.listOpen')} onClick={() => setPane('list', { open: true })}>
-              <PanelLeftOpen size={17} />
-            </IconButton>
-            <IconButton label={t('sidebar.newChat')} onClick={() => setConversation(null)}>
-              <SquarePen size={16} />
-            </IconButton>
-          </div>
-        )}
+        <div className="-mr-1 flex items-center gap-1">
+          <ConversationList />
+          <IconButton label={t('sidebar.newChat')} onClick={() => setConversation(null)}>
+            <SquarePen size={16} />
+          </IconButton>
+          <IconButton label={t('sidebar.settings')} onClick={() => openSettings()}>
+            <Settings size={16} />
+          </IconButton>
+        </div>
         <div className="flex min-w-0 flex-1 items-center px-2 text-sm font-medium">
           {naming ? <Dots label={t('naming.pending')} /> : <span className="truncate">{conversation?.title}</span>}
         </div>

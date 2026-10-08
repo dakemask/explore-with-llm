@@ -1,15 +1,12 @@
 import { useSettings } from '../store/settings'
 
 const zh = {
-  'app.name': 'Explore with LLM',
   'sidebar.newChat': '新对话',
   'sidebar.empty': '还没有对话',
   'sidebar.settings': '设置',
   'sidebar.today': '今天',
   'sidebar.earlier': '更早',
-  'pane.listClose': '收起对话列表',
-  'pane.listOpen': '展开对话列表',
-  'pane.listResize': '调整对话列表宽度',
+  'pane.list': '对话列表',
   'pane.columnClose': '收起侧栏',
   'pane.columnOpen': '展开侧栏',
   'pane.columnResize': '调整侧栏宽度',
@@ -293,15 +290,12 @@ const zh = {
 type Key = keyof typeof zh
 
 const en: Record<Key, string> = {
-  'app.name': 'Explore with LLM',
   'sidebar.newChat': 'New chat',
   'sidebar.empty': 'No conversations yet',
   'sidebar.settings': 'Settings',
   'sidebar.today': 'Today',
   'sidebar.earlier': 'Earlier',
-  'pane.listClose': 'Hide conversations',
-  'pane.listOpen': 'Show conversations',
-  'pane.listResize': 'Resize the conversation list',
+  'pane.list': 'Conversations',
   'pane.columnClose': 'Hide side column',
   'pane.columnOpen': 'Show side column',
   'pane.columnResize': 'Resize the side column',

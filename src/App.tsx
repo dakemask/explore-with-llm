@@ -2,7 +2,6 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { useEffect } from 'react'
 import { ChatView } from './components/chat/ChatView'
 import { DetailDialog } from './components/detail/DetailDialog'
-import { Sidebar } from './components/layout/Sidebar'
 import { SettingsDialog } from './components/settings/SettingsDialog'
 import { DialogHost } from './components/ui/Dialog'
 import { ToastHost } from './components/ui/Toast'
@@ -32,7 +31,6 @@ export function App() {
       {/* overflow-hidden: anything animating past the right edge would make Windows show a horizontal
           scrollbar for a moment and the whole page jump. */}
       <div className="flex h-full overflow-hidden">
-        <Sidebar />
         <ChatView />
       </div>
       {panel && <DetailDialog key={panel.nodeId} nodeId={panel.nodeId} />}

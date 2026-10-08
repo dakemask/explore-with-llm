@@ -5,7 +5,7 @@ import { PANE_DEFAULT } from '../lib/panes'
 import type { ParamChoice } from '../lib/params'
 
 export type Theme = 'system' | 'light' | 'dark'
-export type Pane = 'list' | 'column'
+export type Pane = 'column'
 
 interface SettingsState {
   lang: Lang
@@ -20,7 +20,7 @@ interface SettingsState {
   paramChoices: Record<string, Record<string, ParamChoice>>
   /** Model that names conversations and side questions (`lib/naming.ts`); null = no automatic naming. */
   namingModel: { providerId: string; model: string } | null
-  /** The conversation list (left) and the side-question column (right): open, and width in px (`lib/panes.ts`). */
+  /** The side-question column: open, and width in px (`lib/panes.ts`). */
   panes: Record<Pane, { open: boolean; width: number }>
   setPane: (pane: Pane, patch: Partial<{ open: boolean; width: number }>) => void
   setLang: (lang: Lang) => void
@@ -47,7 +47,7 @@ export const useSettings = create<SettingsState>()(
       model: null,
       paramChoices: {},
       namingModel: null,
-      panes: { list: { open: true, width: PANE_DEFAULT.list }, column: { open: true, width: PANE_DEFAULT.column } },
+      panes: { column: { open: true, width: PANE_DEFAULT.column } },
       setPane: (pane, patch) => set((s) => ({ panes: { ...s.panes, [pane]: { ...s.panes[pane], ...patch } } })),
       setLang: (lang) => set({ lang }),
       setTheme: (theme) => set({ theme }),
