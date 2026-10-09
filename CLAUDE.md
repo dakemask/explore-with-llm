@@ -11,6 +11,7 @@ Parts of this file are a trial in effect until 2026-10-10 (UTC+8). Which parts, 
 - There is a list of tasks (see Tasks; mostly independent, some depend on others). The owner and Claude pick one, and tasks can be added at any time.
 - When a task is built and checked (see Verifying changes), update Tasks (status: built, owner to try) and commit; the owner tries it in the browser; then it's accepted and its rules move into Product decisions (with why, and who decided).
 - One task at a time, the owner trying it before the next, even with subagents. Briefs for anything touching a shared concern must say "only through its owner" and include scenarios where features act together (streaming + switching + cards). Review in motion, not just screenshots. Before a big feature, walk through failure / empty / streaming / Escape cases with the owner. (Owner's lessons from step 6.)
+- No separate polish list (owner, 2026-10-10): polish comes from what the owner notices on the page and asks to adjust, as it has since step 7.
 
 ## Commands
 
@@ -123,7 +124,7 @@ button: collapse them with `collapseCard` (lib.mjs, clicks the header).
 
 What users see and can do, and why. These rules are deliberate: don't change one without the owner, and write the new rule and its reason back here. Unmarked rules were decided by the owner or accepted by the owner after trying them; "(Claude, unconfirmed)" marks choices the owner hasn't confirmed yet. Implementation notes live in Architecture.
 
-### Concepts (owner; names 尝试 / 分支 / 归档 not final)
+### Concepts (owner; names 尝试 / 分支 / 归档 final, 2026-10-10)
 
 - A main node's children are *attempts*, *branches*, *archived* nodes and side questions. Every new node (send, retry, edit user message, edit reply) is an attempt of its parent; an attempt that gets a follow-up or a side question becomes a branch; attempts can be made branches by hand ("设为分支"), never back. A side question can be turned into main nodes ("转为分支", below).
 - Attempts and branches can be archived (with their subtree) and restored to their former kind. Deleting happens only inside the archive (it deletes the subtree), apart from deleting a whole conversation. One archive per conversation.
@@ -226,14 +227,13 @@ What users see and can do, and why. These rules are deliberate: don't change one
 - Target: phones on Android Chrome; tablets not included. Features roughly complete, reshaped where the desktop form doesn't suit a phone. The desktop's behavior doesn't change: the phone layout applies only on narrow screens. One codebase: data, requests and rules are shared; only the layout and the touch-specific parts differ.
 - Data stays per browser: phone and computer don't share conversations or providers (export / import moves a conversation). Accepted by the owner.
 - Android's back gesture = Escape: closes the topmost open thing (side question / note sheet, tree map, dialog, menu…); with nothing open, it leaves the page as usual.
-- Side questions and notes: no column, no marker strip, no cascade of cards. The highlights stay in the text; tapping one opens it in a sheet rising from the bottom (about 90% of the screen; the strip of chat above it, or swiping down, closes it). No per-turn list of them for now (owner: not yet).
+- Side questions and notes: no column, no marker strip, no cascade of cards. The highlights stay in the text; tapping one opens it in a sheet rising from the bottom (about 90% of the screen, the strip of chat above it dimmed — owner, 2026-10-10: OK as tried; that strip, or swiping down, closes it). The 追问 / 笔记 pill sits below the selection, Chrome's own menu above it (owner, 2026-10-10: OK as tried). No per-turn list of them for now (owner: not yet).
 - Tree map: fixed to the top half of the screen (like the old drop-down panel before task 15), the chat below; no dragging or resizing. A tap on a node jumps, the map stays open. It stays when the keyboard comes up too (owner, 2026-10-09: it never covers the input box; the chat between them may get small).
 - Hover tips: a long press shows them (switcher dots, tree map nodes); question-mark help opens with a tap.
 - Sending: Enter makes a new line; only the send button sends.
 
 ### Open (owner decides)
 
-- The names 尝试 / 分支 / 归档.
 - Whether some future case should show a success notification — ask when one comes up.
 
 ## Tasks
@@ -242,9 +242,8 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 
 ### Open
 
-- **Owner decides** the Open items above (names; success notifications when a case comes up).
-- **Fresh walk-through** of the whole UI in the browser → a new polish list (step 7's original list wasn't kept).
-- **Phone trial version — in use** (owner, 2026-10-09: a quick one to use on a train; 2026-10-10: "效果可以", it stays; tasks 25–31 refine it from here rather than redo it). Narrow screens (≤ 640 px, `lib/phone.ts`): no side column / strip / its button (cards open in `side/PhoneSheet.tsx`, a sheet from the bottom, 90%; tapping above closes; tapping a highlight opens), tree map docked across the top (45%, no drag / resize; `TreeMapPanel docked`), Enter = new line (placeholder without the Enter hint), the selection pill appears once a selection rests 400 ms and sits below it, settings stacked (tabs in a row, provider list above the form), the keyboard resizes the page (`interactive-widget=resizes-content`). Not in it: back gesture, long-press tips, swipe-down on the sheet, touch scroll tuning. Deferred questions for the owner (Claude, unconfirmed): pill below the selection (Chrome's menu above) — keep?; the sheet's height and the dimmed strip above it.
+- **Owner decides** the Open item above (success notifications, when a case comes up).
+- **Phone trial version — in use** (owner, 2026-10-09: a quick one to use on a train; 2026-10-10: "效果可以", it stays; tasks 25–31 refine it from here rather than redo it). Narrow screens (≤ 640 px, `lib/phone.ts`): no side column / strip / its button (cards open in `side/PhoneSheet.tsx`, a sheet from the bottom, 90%; tapping above closes; tapping a highlight opens), tree map docked across the top (45%, no drag / resize; `TreeMapPanel docked`), Enter = new line (placeholder without the Enter hint), the selection pill appears once a selection rests 400 ms and sits below it, settings stacked (tabs in a row, provider list above the form), the keyboard resizes the page (`interactive-widget=resizes-content`). Not in it: back gesture, long-press tips, swipe-down on the sheet, touch scroll tuning.
 - Phone (Product decisions › Phone), in this order, one at a time — todo:
   25. Base layout: the narrow-screen switch, header, conversation list, chat, floating input box with the keyboard (Enter = new line), dialogs and settings fitting the screen. Set up checks on the owner's real phone (USB debugging).
   26. Scrolling rules under touch (momentum, Chrome's address bar, the keyboard) — `useAutoScroll`, large.
