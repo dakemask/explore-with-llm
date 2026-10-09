@@ -1,11 +1,12 @@
-import { db, type ChatNode, type Protocol, type RawChunk, type StoredRecord } from '../db'
+import { db, type Attempt, type ChatNode, type Protocol, type RawChunk, type StoredRecord } from '../db'
 import { aggregateStream } from '../providers'
 import { streamEvents } from './attempt'
 
 /**
- * A node's request and raw response, stored apart from the node (DB v7): reading a conversation reads neither.
- * The request (headers with the API key, body with image data as `[image:<id>]`) is read when the detail dialog
- * opens; the raw response only for a download. Both gzip-compressed with the browser's `CompressionStream`.
+ * A node's request, merged response and raw response, stored apart from the node (DB v7, v8): reading a
+ * conversation reads none of them. The request (headers with the API key, body with image data as
+ * `[image:<id>]`) and the merged response are read when the detail dialog opens; the raw response only for a
+ * download. Both gzip-compressed with the browser's `CompressionStream`.
  *
  * Every request carries the whole conversation before it, so its body is stored by pointers: each string equal
  * to a text on its path (an earlier node's `user.text` / `assistant.content`, or its own `user.text` — none
@@ -108,8 +109,91 @@ export async function saveRequest(node: ChatNode, req: RequestRecord, path: Chat
   await db.requests.put({ id: node.id, conversationId: node.conversationId, data })
 }
 
-export async function saveResponse(node: ChatNode, chunks: RawChunk[]) {
-  await db.responses.put({ id: node.id, conversationId: node.conversationId, data: await gzip(chunks) })
+/** Stores the raw response and its merged form (`attempt`: the node's final one, which the merged form points into). */
+export async function saveResponse(node: ChatNode, chunks: RawChunk[], attempt: Attempt) {
+  const row = { id: node.id, conversationId: node.conversationId }
+  await db.responses.put({ ...row, data: await gzip(chunks) })
+  await db.merged.put({ ...row, data: await gzip(packMerged(mergeChunks(attempt.protocol, chunks), attempt)) })
+}
+
+/**
+ * The merged response (all events combined, the shape of a non-streaming reply), read when the detail dialog
+ * shows it. Its long strings are mostly the reply's text and reasoning, already on the node: each one equal to
+ * `attempt.rawText`, `attempt.rawReasoning` or a string inside `attempt.message` is stored as a pointer to it
+ * (an attempt never changes; edited copies carry the source's). Verified like the request's.
+ */
+type MergedRef = [path: (string | number)[], source: 'rawText' | 'rawReasoning' | (string | number)[]]
+interface PackedMerged {
+  value: unknown
+  refs?: MergedRef[]
+}
+
+function attemptTexts(a: Attempt): Map<string, MergedRef[1]> {
+  const texts = new Map<string, MergedRef[1]>()
+  const add = (text: unknown, src: MergedRef[1]) => {
+    if (typeof text === 'string' && text.length >= MIN_REF && !texts.has(text)) texts.set(text, src)
+  }
+  add(a.rawText, 'rawText')
+  add(a.rawReasoning, 'rawReasoning')
+  const walk = (v: unknown, at: (string | number)[]) => {
+    if (typeof v === 'string') add(v, at)
+    else if (Array.isArray(v)) v.forEach((x, i) => walk(x, [...at, i]))
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, [...at, k])
+  }
+  walk(a.message, [])
+  return texts
+}
+
+const sourceText = (a: Attempt, src: MergedRef[1]): unknown =>
+  typeof src === 'string' ? a[src] : src.reduce<any>((o, k) => o?.[k], a.message)
+
+export function packMerged(value: unknown, a: Attempt): PackedMerged {
+  const texts = attemptTexts(a)
+  const refs: MergedRef[] = []
+  const walk = (v: unknown, at: (string | number)[]): unknown => {
+    if (typeof v === 'string') {
+      const src = at.length ? texts.get(v) : undefined
+      if (src === undefined) return v
+      refs.push([at, src])
+      return ''
+    }
+    if (Array.isArray(v)) return v.map((x, i) => walk(x, [...at, i]))
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, [...at, k])]))
+    return v
+  }
+  if (!texts.size) return { value }
+  const packed: PackedMerged = { value: walk(value, []), refs }
+  if (!refs.length) return { value }
+  return JSON.stringify(unpackMerged(packed, a)) === JSON.stringify(value) ? packed : { value }
+}
+
+export function unpackMerged(p: PackedMerged, a: Attempt): unknown {
+  if (!p.refs?.length) return p.value
+  const value = structuredClone(p.value) as Record<string | number, any>
+  for (const [path, src] of p.refs) {
+    const parent = path.slice(0, -1).reduce((o, k) => o[k], value)
+    const text = sourceText(a, src)
+    parent[path[path.length - 1]] = typeof text === 'string' ? text : ''
+  }
+  return value
+}
+
+/**
+ * The merged response of `node` (null: no raw response). Responses stored before it existed get theirs made
+ * from the raw response the first time it's asked for, and stored.
+ */
+export async function readMerged(node: ChatNode): Promise<unknown | null> {
+  const row = await db.merged.get(node.id)
+  if (row) return unpackMerged((await gunzip(row.data)) as PackedMerged, node.attempt)
+  const chunks = await loadResponse(node.id)
+  if (!chunks) return null
+  const value = mergeChunks(node.attempt.protocol, chunks)
+  await db.merged.put({ id: node.id, conversationId: node.conversationId, data: await gzip(packMerged(value, node.attempt)) })
+  return value
+}
+
+function mergeChunks(protocol: Protocol, chunks: RawChunk[]): unknown {
+  return merged(protocol, streamEvents(chunks).flatMap((e) => (e.json === undefined ? [] : [e.json])))
 }
 
 /** The request `node` sent, as sent (null: none stored). */
@@ -130,13 +214,14 @@ export async function loadResponse(nodeId: string): Promise<RawChunk[] | null> {
 
 /** Gives `to` (an edited copy) the records of `from`. Inside the caller's transaction. */
 export async function copyRecords(from: string, to: ChatNode) {
-  const [req, res] = await Promise.all([db.requests.get(from), db.responses.get(from)])
+  const [req, res, mer] = await Promise.all([db.requests.get(from), db.responses.get(from), db.merged.get(from)])
   if (req) await db.requests.put({ ...req, id: to.id, conversationId: to.conversationId })
   if (res) await db.responses.put({ ...res, id: to.id, conversationId: to.conversationId })
+  if (mer) await db.merged.put({ ...mer, id: to.id, conversationId: to.conversationId })
 }
 
 export async function deleteRecords(nodeIds: string[]) {
-  await Promise.all([db.requests.bulkDelete(nodeIds), db.responses.bulkDelete(nodeIds)])
+  await Promise.all([db.requests.bulkDelete(nodeIds), db.responses.bulkDelete(nodeIds), db.merged.bulkDelete(nodeIds)])
 }
 
 /**
@@ -174,7 +259,7 @@ export function splitNode(node: ChatNode, path: ChatNode[]): { node: ChatNode; r
   return { node: slim, ...(request && { request }), ...(chunks && { chunks }) }
 }
 
-/** The raw response of `node` as a .zip: the body as received, its events with arrival times, the merged reply. */
+/** The raw response of `node` as a .zip: the body as received, its events with arrival times. */
 export async function responseZip(node: ChatNode): Promise<{ name: string; blob: Blob } | null> {
   const chunks = await loadResponse(node.id)
   if (!chunks) return null
@@ -185,7 +270,6 @@ export async function responseZip(node: ChatNode): Promise<{ name: string; blob:
   const files: Record<string, Uint8Array> = {
     'response.txt': strToU8(raw),
     'events.json': json(events.map((e) => ({ t: e.t, ...(e.event && { event: e.event }), data: e.json ?? e.data }))),
-    'merged.json': json(merged(node.attempt.protocol, events.flatMap((e) => (e.json === undefined ? [] : [e.json])))),
   }
   const zip = zipSync(files)
   const d = new Date(node.attempt.startedAt)

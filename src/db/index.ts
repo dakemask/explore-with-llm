@@ -11,6 +11,7 @@ export const db = new Dexie('explore-with-llm') as Dexie & {
   notes: EntityTable<Note, 'id'>
   requests: EntityTable<StoredRecord, 'id'>
   responses: EntityTable<StoredRecord, 'id'>
+  merged: EntityTable<StoredRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -132,6 +133,19 @@ db.version(7)
     await tx.table('responses').bulkPut(responses)
     await tx.table('nodes').bulkPut(slim)
   })
+
+// v8: each raw response's merged form, shown in the detail dialog (`lib/records.ts`). Ones from before are made
+// when first shown.
+db.version(8).stores({
+  providers: 'id, createdAt',
+  conversations: 'id, updatedAt',
+  nodes: 'id, conversationId, parentId',
+  images: 'id, conversationId',
+  notes: 'id, conversationId, nodeId',
+  requests: 'id, conversationId, pending',
+  responses: 'id, conversationId, pending',
+  merged: 'id, conversationId',
+})
 
 /** Requests can't survive a reload; mark anything left streaming as aborted. */
 export async function recoverInterruptedNodes() {

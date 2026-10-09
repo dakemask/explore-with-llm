@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db, ROOT_KEY, type ChatNode } from './db'
 import { activePath, pathTo, threadPath } from './lib/tree'
 import { deleteArchived, deleteConversation, editAssistant, setLabel } from './lib/chat'
-import { gunzip, loadResponse, readRequest, saveRequest, saveResponse, type PackedRequest } from './lib/records'
+import { gunzip, loadResponse, readMerged, readRequest, saveRequest, saveResponse, type PackedRequest } from './lib/records'
 import { exportConversation, importConversation, REMOVED } from './lib/transfer'
 
 const KEY = 'sk-secret-key-1234567890'
@@ -43,7 +43,7 @@ const n2Body = {
 }
 
 beforeEach(async () => {
-  await Promise.all([db.conversations.clear(), db.nodes.clear(), db.images.clear(), db.providers.clear(), db.requests.clear(), db.responses.clear()])
+  await Promise.all([db.conversations.clear(), db.nodes.clear(), db.images.clear(), db.providers.clear(), db.requests.clear(), db.responses.clear(), db.merged.clear()])
   await db.providers.add({ id: 'p', name: 'P', protocol: 'openai-chat', baseUrl: 'http://x/v1', apiKey: KEY, models: ['m'], createdAt: 0 })
   await db.conversations.add({ id: 'c', title: 'T', createdAt: 0, updatedAt: 0, selectedChild: { [ROOT_KEY]: 'n1', n1: 'n3', th: 's1' } })
   const nodes = [
@@ -56,7 +56,7 @@ beforeEach(async () => {
   await db.nodes.bulkAdd(nodes)
   for (const n of nodes) {
     await saveRequest(n, { headers: HEADERS, body: n.id === 'n2' ? n2Body : imageBody }, pathTo(nodes, n.parentId ?? ''))
-    await saveResponse(n, [{ t: 1, text: 'data: {}' }])
+    await saveResponse(n, [{ t: 1, text: 'data: {}' }], n.attempt)
   }
   await db.images.add({ id: 'img1', conversationId: 'c', blob: new Blob([new Uint8Array([1, 2, 3, 250])], { type: 'image/png' }), mime: 'image/png', width: 1, height: 1, createdAt: 0 })
 })
@@ -83,18 +83,41 @@ describe('stored records', () => {
     expect((await readRequest((await db.requests.get('n2'))!, n2)).body).toEqual(body)
   })
 
+  it('stores the merged response by pointers into the attempt, and makes it for older responses when asked', async () => {
+    const reply = 'a reply long enough to be stored as a pointer into the attempt'
+    const chunks = [
+      { t: 1, text: `data: ${JSON.stringify({ id: 'x', choices: [{ index: 0, delta: { content: reply.slice(0, 10) } }] })}\n\n` },
+      { t: 2, text: `data: ${JSON.stringify({ id: 'x', choices: [{ index: 0, delta: { content: reply.slice(10) }, finish_reason: 'stop' }] })}\n\n` },
+    ]
+    const n1 = (await db.nodes.get('n1'))!
+    const attempt = { ...n1.attempt, rawText: reply }
+    await saveResponse(n1, chunks, attempt)
+    expect(JSON.stringify(await gunzip((await db.merged.get('n1'))!.data))).not.toContain(reply)
+    const shown = { ...n1, attempt }
+    const merged = (await readMerged(shown)) as { choices: { message: { content: string } }[] }
+    expect(merged.choices[0].message.content).toBe(reply)
+    // A response stored before merged ones existed: made from the raw response, then kept.
+    await db.merged.delete('n1')
+    expect(await readMerged(shown)).toEqual(merged)
+    expect(await db.merged.get('n1')).toBeDefined()
+    expect(await readMerged({ ...n1, id: 'none' })).toBeNull()
+  })
+
   it('an edited reply gets a copy of the records; deleting removes them', async () => {
     const n2 = (await db.nodes.get('n2'))!
     const id = await editAssistant(n2, 'edited')
     const copy = (await db.nodes.get(id))!
     expect((await readRequest((await db.requests.get(id))!, copy)).body).toEqual(n2Body)
     expect(await loadResponse(id)).toEqual([{ t: 1, text: 'data: {}' }])
+    expect(await db.merged.get(id)).toBeDefined()
     await deleteArchived('c', ['n2', id])
+    expect(await db.merged.bulkGet(['n2', id])).toEqual([undefined, undefined])
     expect(await db.requests.bulkGet(['n2', id])).toEqual([undefined, undefined])
     expect(await db.responses.bulkGet(['n2', id])).toEqual([undefined, undefined])
     await deleteConversation('c')
     expect(await db.requests.count()).toBe(0)
     expect(await db.responses.count()).toBe(0)
+    expect(await db.merged.count()).toBe(0)
   })
 })
 

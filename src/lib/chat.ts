@@ -40,12 +40,13 @@ export async function renameThread(conversationId: string, thread: string, title
 }
 
 export async function deleteConversation(id: string) {
-  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes, db.requests, db.responses], async () => {
+  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes, db.requests, db.responses, db.merged], async () => {
     const nodes = await db.nodes.where('conversationId').equals(id).toArray()
     for (const n of nodes) controllers.get(n.id)?.abort()
     await db.nodes.where('conversationId').equals(id).delete()
     await db.requests.where('conversationId').equals(id).delete()
     await db.responses.where('conversationId').equals(id).delete()
+    await db.merged.where('conversationId').equals(id).delete()
     await db.notes.where('conversationId').equals(id).delete()
     await db.conversations.delete(id)
     await db.images.where('conversationId').equals(id).delete()
@@ -228,23 +229,21 @@ async function runAttempt(
     if (flushTimer) clearTimeout(flushTimer)
     controllers.delete(node.id)
     const shown = visible()
-    if (rawChunks.length) await saveResponse(node, rawChunks)
-    await db.nodes.update(node.id, {
-      assistant: { content: shown.content, reasoning: shown.reasoning || undefined },
-      attempt: {
-        ...node.attempt,
-        ...patch,
-        rawText: content,
-        rawReasoning: reasoning || undefined,
-        finishReason,
-        usage,
-        firstTokenAt,
-        response,
-        responseSize: rawChunks.length ? responseSize(rawChunks) : undefined,
-        message: nativeReply(provider.protocol, rawChunks),
-        finishedAt: Date.now(),
-      },
-    })
+    const attempt: Attempt = {
+      ...node.attempt,
+      ...patch,
+      rawText: content,
+      rawReasoning: reasoning || undefined,
+      finishReason,
+      usage,
+      firstTokenAt,
+      response,
+      responseSize: rawChunks.length ? responseSize(rawChunks) : undefined,
+      message: nativeReply(provider.protocol, rawChunks),
+      finishedAt: Date.now(),
+    }
+    if (rawChunks.length) await saveResponse(node, rawChunks, attempt)
+    await db.nodes.update(node.id, { assistant: { content: shown.content, reasoning: shown.reasoning || undefined }, attempt })
     // The live text is dropped by the message once the stored node shows the reply is over (MessageNode).
   }
 
@@ -438,7 +437,7 @@ export async function restoreArchived(conversationId: string, nodeIds: string[])
  * to any more.
  */
 export async function deleteArchived(conversationId: string, nodeIds: string[]) {
-  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes, db.requests, db.responses], async () => {
+  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes, db.requests, db.responses, db.merged], async () => {
     const nodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
     const ids = subtreeIds(nodes, nodeIds)
     for (const id of ids) controllers.get(id)?.abort()
@@ -484,7 +483,7 @@ export async function editAssistant(node: ChatNode, content: string): Promise<st
     },
     attempt: node.attempt,
   }
-  await db.transaction('rw', [db.nodes, db.conversations, db.requests, db.responses], async () => {
+  await db.transaction('rw', [db.nodes, db.conversations, db.requests, db.responses, db.merged], async () => {
     await db.nodes.add(edited)
     await copyRecords(node.id, edited)
     await db.conversations.update(node.conversationId, { [`selectedChild.${forkKey(node)}`]: id })

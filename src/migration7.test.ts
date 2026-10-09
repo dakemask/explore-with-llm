@@ -32,7 +32,7 @@ it('DB v7 moves each request and raw response out of its node, then compresses t
   const { db } = await import('./db')
   const { compressPending, loadResponse, readRequest } = await import('./lib/records')
   await db.open()
-  expect(db.verno).toBe(7)
+  expect(db.verno).toBe(8)
   const [a, b] = await db.nodes.bulkGet(['a', 'b'])
   expect(a!.attempt).not.toHaveProperty('requestBody')
   expect(a!.attempt).not.toHaveProperty('rawChunks')

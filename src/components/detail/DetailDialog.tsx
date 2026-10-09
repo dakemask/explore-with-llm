@@ -8,7 +8,7 @@ import { db, type Attempt, type AttemptStatus, type ChatNode } from '../../db'
 import { useT, type TKey } from '../../i18n'
 import { foldHistory, formatMs, maskHeader, prettyJson, summarizeUsage } from '../../lib/attempt'
 import { replyVersions, selectBranch, type ReplyVersion } from '../../lib/chat'
-import { readRequest, responseZip, type RequestRecord } from '../../lib/records'
+import { readMerged, readRequest, responseZip, type RequestRecord } from '../../lib/records'
 import { download } from '../../lib/transfer'
 import { forkKey } from '../../lib/tree'
 import { useCopy } from '../../lib/hooks'
@@ -295,8 +295,12 @@ function ResponseTab({ node }: { node: ChatNode }) {
       {a.status === 'streaming' ? (
         <Note>{t('detail.streamingNote')}</Note>
       ) : streamed ? (
-        <Section title={t('detail.responseBody')} help={t('detail.downloadHint')}>
-          <DownloadButton node={node} />
+        <Section title={t('detail.responseBody')} help={t('detail.mergedHint')}>
+          <Merged node={node} />
+          <div className="mt-3 flex items-center gap-1">
+            <DownloadButton node={node} />
+            <HelpTip content={t('detail.downloadHint')} />
+          </div>
         </Section>
       ) : errBody ? (
         <Section title={t('detail.responseBody')}>
@@ -312,6 +316,27 @@ function ResponseTab({ node }: { node: ChatNode }) {
         </Section>
       ) : null}
     </div>
+  )
+}
+
+/** The merged response (`readMerged`), read when shown. */
+function Merged({ node }: { node: ChatNode }) {
+  const [text, setText] = useState<{ id: string; value: string }>()
+  useEffect(() => {
+    let live = true
+    readMerged(node).then(
+      (v) => live && setText({ id: node.id, value: v == null ? '' : JSON.stringify(v, null, 2) }),
+      (e) => live && setText({ id: node.id, value: String(e) }),
+    )
+    return () => {
+      live = false
+    }
+  }, [node])
+  if (!text || text.id !== node.id || !text.value) return null
+  return (
+    <CodeBox label="json" copyText={text.value} maxHeight="60vh" wrap>
+      <Json text={text.value} />
+    </CodeBox>
   )
 }
 

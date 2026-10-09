@@ -17,7 +17,7 @@ it('DB v6 adds the notes table and keeps everything else', async () => {
 
   const { db } = await import('./db')
   await db.open()
-  expect(db.verno).toBe(7)
+  expect(db.verno).toBe(8)
   expect(await db.nodes.get('a')).toMatchObject({ branch: true })
   expect(await db.conversations.count()).toBe(1)
   const anchor = { start: 0, end: 1, text: 'x' }
