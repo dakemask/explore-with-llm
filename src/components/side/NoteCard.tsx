@@ -6,7 +6,7 @@ import { archiveNote, deleteNote, noteFirstLine, saveNoteText, saveNoteTitle } f
 import { Markdown } from '../chat/Markdown'
 import { Button } from '../ui/Button'
 import { CardMenu, NoteMenuItems } from './CardMenu'
-import { collapseOnClick } from './SideColumn'
+import { collapseOnClick, HEADER_CLASS } from './SideColumn'
 
 /**
  * The expanded card of a note in the column: the rendered Markdown with an Edit button, or a plain editor
@@ -77,10 +77,10 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
     <>
       <header
         {...collapseOnClick(onCollapse)}
-        className="flex shrink-0 cursor-pointer items-center gap-1 border-b border-border py-2 pr-2 pl-4"
+        className={HEADER_CLASS}
       >
-        <div className="flex h-7 min-w-0 flex-1 items-center gap-2">
-          <NotebookPen size={14} className="shrink-0 text-node" />
+        <div className="flex h-full min-w-0 flex-1 items-center gap-2">
+          <NotebookPen size={13} className="shrink-0 text-node" />
           <input
             value={title}
             aria-label={t('note.titlePlaceholder')}
@@ -102,7 +102,7 @@ export function NoteCard({ note, onCollapse }: { note: Note; onCollapse: () => v
                 }
               }
             }}
-            className="h-7 min-w-0 flex-1 truncate bg-transparent text-[13.5px] font-semibold placeholder:font-normal placeholder:text-faint focus:outline-none"
+            className="h-full min-w-0 flex-1 truncate bg-transparent placeholder:text-faint focus:outline-none"
           />
         </div>
         {(text.trim() || title.trim()) && (

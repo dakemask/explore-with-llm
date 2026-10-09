@@ -17,7 +17,7 @@ const esc = async () => {
   await wait()
 }
 const TREE = '[data-tree-map]'
-const CARD = '[data-side-column] .shadow-pop'
+const CARD = '[data-side-column] [data-expanded]'
 const treeOpen = async () => (await page.locator(TREE).count()) > 0
 const cardOpen = async () => (await page.locator(CARD).count()) > 0
 const menuOpen = async () => (await page.locator('[role=menu]').count()) > 0

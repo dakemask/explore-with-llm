@@ -1,7 +1,7 @@
 // Helpers shared by the scroll suites (scroll-*-suite.mjs). Not a suite itself.
 import { SC } from './lib.mjs'
 
-export const CARD = '[data-side-column] .shadow-pop'
+export const CARD = '[data-side-column] [data-expanded]'
 /** The expanded side card's message area. */
 export const CS = `${CARD} .overflow-y-auto`
 

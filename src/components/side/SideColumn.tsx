@@ -1,6 +1,7 @@
 import clsx from 'clsx'
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, STRIP, type Span } from '../../lib/column'
+import { snapshot } from '../../lib/switchMotion'
 import { Tip } from '../ui/Button'
 import { Layer } from '../ui/Layer'
 
@@ -114,9 +115,12 @@ export function SideColumn({
       : null
   const cardHeight = useHeight(cardRef, open === null ? null : expanded)
   useWheelInside(cardRef, open === null ? null : expanded)
-  const hidden = new Set(
-    open === null ? [] : [expanded!, ...coveredCards(tops, open, open + cardHeight).map((i) => placed[i].id)],
-  )
+  const slots = Object.fromEntries(placed.map((it, i) => [it.id, tops[i]]))
+  const motion = useCardMotion(colRef, cardRef, { expanded, open, slots, leaving })
+  const hidden = new Set([
+    ...motion.returning,
+    ...(open === null ? [] : [expanded!, ...coveredCards(tops, open, open + cardHeight).map((i) => placed[i].id)]),
+  ])
   const { lanes, count } = markerLanes(placed.map((it) => spans[it.id]))
   const laneWidth = Math.min(6, (STRIP - 4) / Math.max(1, count))
   const extent =
@@ -171,7 +175,8 @@ export function SideColumn({
                 onMouseLeave={() => onHover([])}
                 className={clsx(
                   'group/card absolute right-1.5 flex items-center rounded-lg border bg-surface text-[13px] shadow-xs',
-                  'transition-[top,opacity,border-color,background-color] duration-200',
+                  // (The expanded one's goes at once: the card opens out of its place.)
+                  it.id === expanded ? 'transition-none' : 'transition-[top,opacity,border-color,background-color] duration-200',
                   lit ? 'border-border-strong' : 'border-border hover:border-border-strong',
                   (covered || leaving[it.id]) && 'pointer-events-none opacity-0',
                 )}
@@ -194,11 +199,11 @@ export function SideColumn({
 
       {open !== null && (
         <Layer
-          ref={cardRef}
+          ref={motion.ref}
           key={expanded}
           data-expanded={expanded}
           className={clsx(
-            'anim-fade absolute right-1.5 z-10 flex flex-col rounded-xl border border-border-strong bg-surface shadow-pop transition-[top,opacity] duration-200',
+            'absolute right-1.5 z-10 flex flex-col rounded-lg border border-border-strong bg-surface shadow-pop transition-[top,opacity] duration-200',
             leaving[expanded!] && 'pointer-events-none opacity-0',
           )}
           style={nodeStyle(colorOf(placed.find((it) => it.id === expanded)!.nodeId), { top: open, left: STRIP, height: cardLimit })}
@@ -213,6 +218,12 @@ export function SideColumn({
     </div>
   )
 }
+
+/**
+ * An expanded card's header: it looks like the collapsed card (owner, 2026-10-10), which expanding turns into
+ * it — with the card's top border, `CARD_HEIGHT` high; the same padding, icon and text.
+ */
+export const HEADER_CLASS = 'flex h-[35px] shrink-0 cursor-pointer items-center gap-2 border-b border-border pr-1 pl-3 text-[13px]'
 
 /** Where the last press on a header started, if it may collapse its card (one card is expanded at a time). */
 let headerPress: { x: number; y: number } | null = null
@@ -238,6 +249,112 @@ export function collapseOnClick(onCollapse: () => void) {
       if (press && onHeader(e) && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5) onCollapse()
     },
   }
+}
+
+const EASE = 'cubic-bezier(0.2, 0, 0, 1)'
+/** The card's header only (its height = a collapsed card's), with room for the shadow at the sides. */
+const HEADER = `inset(-24px -24px calc(100% - ${CARD_HEIGHT}px) -24px)`
+const WHOLE = 'inset(-24px)'
+const REDUCE = '(prefers-reduced-motion: reduce)'
+
+/**
+ * Runs an animation by frames, at most ~one frame's time (17 ms) per frame: one of the first frames after the
+ * card mounts or unmounts is long (~85 ms, its content settling), and a clock-driven animation lost its whole
+ * first step there. A slow frame now delays it slightly instead.
+ */
+function animate(el: HTMLElement, frames: Keyframe[], options: KeyframeAnimationOptions & { duration: number }) {
+  const anim = el.animate(frames, options)
+  anim.pause()
+  let t = 0
+  let last: number | null = null
+  let raf = 0
+  const tick = (now: number) => {
+    if (last !== null) t += Math.min(now - last, 17)
+    last = now
+    if (t >= options.duration) return void anim.finish()
+    anim.currentTime = t
+    raf = requestAnimationFrame(tick)
+  }
+  raf = requestAnimationFrame(tick)
+  return { anim, stop: () => (cancelAnimationFrame(raf), anim.cancel()) }
+}
+
+/**
+ * Expanding and collapsing (owner, 2026-10-10): the collapsed card and the expanded card's header look the
+ * same, so expanding reads as the collapsed card gliding to where the expanded card's top will be (when that
+ * isn't its place) and the card unfolding below it, ~0.25 s; collapsing plays it backwards a little faster,
+ * on a lifeless picture of the card (`snapshot`, taken as it goes), while its collapsed card waits hidden
+ * (`returning`) and then shows under the picture before that goes. Transform and clip only: layout,
+ * measurements and the scroll rules don't see it. Reduced motion: a fade in, nothing on collapsing.
+ */
+function useCardMotion(
+  col: RefObject<HTMLElement | null>,
+  card: RefObject<HTMLDivElement | null>,
+  now: { expanded: string | null; open: number | null; slots: Record<string, number>; leaving: Record<string, true> },
+) {
+  const latest = useRef(now)
+  latest.current = now
+  const [returning, setReturning] = useState<string[]>([])
+  const pictures = useRef(new Map<string, HTMLElement>())
+  const drop = useCallback((id: string) => {
+    pictures.current.get(id)?.remove()
+    pictures.current.delete(id)
+    setReturning((r) => (r.includes(id) ? r.filter((x) => x !== id) : r))
+  }, [])
+
+  // The card's element. Called with null while it's still in the page (React detaches refs before it removes
+  // elements): the moment to take its picture.
+  const ref = useCallback(
+    (el: HTMLDivElement | null) => {
+      const old = card.current
+      card.current = el
+      if (el || !old) return
+      const id = old.dataset.expanded
+      const { expanded, slots, leaving } = latest.current
+      // (Still expanded: StrictMode's pretend detach, or the column closing. Gone or fading out: nowhere to go.)
+      if (!id || id === expanded || leaving[id] || slots[id] === undefined || !col.current || matchMedia(REDUCE).matches) return
+      drop(id)
+      const dy = slots[id] - old.offsetTop
+      const { copy, scrolled } = snapshot(old)
+      copy.inert = true
+      copy.setAttribute('aria-hidden', 'true')
+      // Under an expanded card, over the collapsed ones.
+      Object.assign(copy.style, { zIndex: '9', pointerEvents: 'none', transition: 'none' })
+      col.current.append(copy)
+      scrolled()
+      pictures.current.set(id, copy)
+      setReturning((r) => [...r, id])
+      const still = Math.abs(dy) < 1
+      const frames = still
+        ? [{ clipPath: WHOLE }, { clipPath: HEADER }]
+        : [{ clipPath: WHOLE }, { clipPath: HEADER, transform: 'none', offset: 0.55 }, { clipPath: HEADER, transform: `translateY(${dy}px)` }]
+      const { anim } = animate(copy, frames.map((f) => ({ ...f, easing: EASE })), { duration: still ? 170 : 210, fill: 'forwards' })
+      anim.onfinish = () => {
+        if (pictures.current.get(id) !== copy) return
+        // Its collapsed card fades in under the picture, which then goes.
+        setReturning((r) => r.filter((x) => x !== id))
+        setTimeout(() => pictures.current.get(id) === copy && drop(id), 200)
+      }
+    },
+    [card, col, drop],
+  )
+
+  const opening = now.open === null ? null : now.expanded
+  useLayoutEffect(() => {
+    const el = card.current
+    if (!opening || !el) return
+    drop(opening)
+    if (matchMedia(REDUCE).matches) return animate(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 150 }).stop
+    const { slots, open } = latest.current
+    const dy = slots[opening] === undefined || open === null ? 0 : slots[opening] - open
+    const still = Math.abs(dy) < 1
+    const frames = still
+      ? [{ clipPath: HEADER }, { clipPath: WHOLE }]
+      : [{ clipPath: HEADER, transform: `translateY(${dy}px)` }, { clipPath: HEADER, transform: 'none', offset: 0.4 }, { clipPath: WHOLE }]
+    return animate(el, frames.map((f) => ({ ...f, easing: EASE })), { duration: still ? 200 : 250 }).stop
+  }, [opening, card, drop])
+
+  return { ref, returning }
 }
 
 /**

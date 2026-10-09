@@ -13,7 +13,7 @@ const check = (name, ok, info) => {
 const { browser, page } = await open({ model: 'mock-chat' })
 const wait = (ms = 400) => page.waitForTimeout(ms)
 const MAIN = 'main > [data-main-composer] textarea'
-const CARD = '[data-side-column] .shadow-pop'
+const CARD = '[data-side-column] [data-expanded]'
 const TREE = '[data-tree-map]'
 const box = () => page.locator(MAIN).inputValue()
 const thumbs = () => page.locator('main > [data-main-composer] img').count()

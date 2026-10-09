@@ -24,7 +24,7 @@ const expect = async (name, want) => {
   const got = await focused()
   check(name, got === want, got === want ? undefined : { got, want })
 }
-const CARD = '[data-side-column] .shadow-pop'
+const CARD = '[data-side-column] [data-expanded]'
 const stopGone = () => page.locator('[aria-label="停止"]').waitFor({ state: 'detached', timeout: 30000 })
 const hoverLast = async (scope = SC) => {
   await page.locator(`${scope} [data-turn]`).last().hover()

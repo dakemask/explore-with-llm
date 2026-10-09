@@ -120,7 +120,7 @@ for (const action of ['笔记', '追问']) {
   const tops = [...new Set(await page.evaluate(() => window.__frames.map((f) => f.v)))]
   const widthAfter = await page.evaluate((SC) => document.querySelector(SC).firstElementChild.firstElementChild.offsetWidth, SC)
   const fit = await page.evaluate((SC) => {
-    const c = document.querySelector('[data-side-column] .shadow-pop').getBoundingClientRect()
+    const c = document.querySelector('[data-side-column] [data-expanded]').getBoundingClientRect()
     const v = document.querySelector(SC).getBoundingClientRect()
     return { cardTop: Math.round(c.top), cardBottom: Math.round(c.bottom), viewTop: Math.round(v.top), viewBottom: Math.round(v.bottom) }
   }, SC)
@@ -158,7 +158,7 @@ for (const action of ['笔记', '追问']) {
 // collapsed, a bar / highlight click or a new side question opens it; dragging its edge resizes it ----
 {
   const { browser, page } = await open({ model: 'mock-chat', scrollbars: true })
-  const CARD = '[data-side-column] .shadow-pop'
+  const CARD = '[data-side-column] [data-expanded]'
   const cards = () => page.locator(CARD).count()
   const colWidth = () => page.evaluate(() => Math.round(document.querySelector('[data-side-column]').getBoundingClientRect().width))
   await send(page, '侧栏')

@@ -26,6 +26,24 @@ const WAIT_MS = 1500
 /** Attributes the app finds things by: a snapshot must never be found instead of the real thing. */
 const STRIP = ['id', 'data-turn', 'data-fork', 'data-node', 'data-switcher', 'data-reply', 'data-anchor-root', 'data-anchor-target', 'data-card', 'data-item', 'data-expanded', 'data-composer']
 
+/**
+ * A lifeless picture of `el` for an animation: a deep copy without the attributes the app finds things by
+ * and without entry animations. `scrolled` (after the copy is in the page) gives its insides `el`'s scroll
+ * positions (an expanded card's messages are scrolled: so is its picture).
+ */
+export function snapshot(el: HTMLElement) {
+  const copy = el.cloneNode(true) as HTMLElement
+  for (const node of [copy, ...copy.querySelectorAll<HTMLElement>('*')]) {
+    for (const name of STRIP) node.removeAttribute(name)
+    // (Entry animations would play again.)
+    for (const c of [...node.classList]) if (c.startsWith('anim-')) node.classList.remove(c)
+  }
+  const inner = [...el.querySelectorAll<HTMLElement>('*')]
+  const copies = [...copy.querySelectorAll<HTMLElement>('*')]
+  const tops = inner.flatMap((n, i) => (n.scrollTop ? [[copies[i], n.scrollTop] as const] : []))
+  return { copy, scrolled: () => tops.forEach(([n, top]) => (n.scrollTop = top)) }
+}
+
 /** The direction of a switch from `from` to its sibling `to`, by the switcher's order (branches, then attempts). */
 export function switchDir(nodes: ChatNode[], from: ChatNode, to: string) {
   const sibs = siblingsOf(nodes, from)
@@ -101,15 +119,11 @@ export function useSwitchMotion(
       overlay.inert = true
       // `clip`, not `hidden`: a hidden overflow would be a scroll container and break the sticky reasoning toggles.
       overlay.style.cssText = 'position:absolute;inset:0;overflow:clip;pointer-events:none'
-      const scrolled: [HTMLElement, number][] = []
+      const scrolled: (() => void)[] = []
       for (const el of els) {
         const r = el.getBoundingClientRect()
-        const copy = el.cloneNode(true) as HTMLElement
-        for (const node of [copy, ...copy.querySelectorAll<HTMLElement>('*')]) {
-          for (const name of STRIP) node.removeAttribute(name)
-          // (Entry animations would play again.)
-          for (const c of [...node.classList]) if (c.startsWith('anim-')) node.classList.remove(c)
-        }
+        const snap = snapshot(el)
+        const copy = snap.copy
         Object.assign(copy.style, {
           position: 'absolute',
           margin: '0',
@@ -122,13 +136,10 @@ export function useSwitchMotion(
           transition: 'none',
         })
         overlay.append(copy)
-        // An expanded card's messages are scrolled: so is its picture.
-        const inner = [...el.querySelectorAll<HTMLElement>('*')]
-        const copies = [...copy.querySelectorAll<HTMLElement>('*')]
-        if (el.dataset.expanded) inner.forEach((n, i) => n.scrollTop && scrolled.push([copies[i], n.scrollTop]))
+        if (el.dataset.expanded) scrolled.push(snap.scrolled)
       }
       wrapper.append(overlay)
-      for (const [el, top] of scrolled) el.scrollTop = top
+      for (const restore of scrolled) restore()
       s.overlay = overlay
       s.pending = { key, to, dir, overlay, top, timer: window.setTimeout(finish, WAIT_MS) }
     }

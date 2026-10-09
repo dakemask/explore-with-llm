@@ -15,7 +15,7 @@ import { useNodeActions } from '../chat/useNodeActions'
 import { Dots } from '../ui/Dots'
 import { confirmDialog } from '../ui/Dialog'
 import { CardMenu, SideMenuItems } from './CardMenu'
-import { collapseOnClick } from './SideColumn'
+import { collapseOnClick, HEADER_CLASS } from './SideColumn'
 
 /**
  * A side question's title: the user's or the naming model's, else the fallback; bouncing dots while it's
@@ -95,12 +95,12 @@ export function SideCard({
     <>
       <header
         {...collapseOnClick(onCollapse)}
-        className="flex shrink-0 cursor-pointer items-center gap-1 border-b border-border py-2 pr-2 pl-4"
+        className={HEADER_CLASS}
       >
-        <h2 className="flex h-7 min-w-0 flex-1 items-center gap-2 text-[13.5px] font-semibold">
-          <MessageSquareText size={14} className="shrink-0 text-node" />
+        <h2 className="flex min-w-0 flex-1 items-center gap-2 font-normal">
+          <MessageSquareText size={13} className="shrink-0 text-node" />
           <ThreadTitle thread={thread} conversation={conversation} fallback={fallback} />
-          {!root && <span className="shrink-0 text-[11px] font-normal text-faint">{t('side.draft')}</span>}
+          {!root && <span className="shrink-0 text-[11px] text-faint">{t('side.draft')}</span>}
         </h2>
         {root && (
           <CardMenu>
