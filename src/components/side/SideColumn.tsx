@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import { CARD_HEIGHT, coveredCards, markerLanes, stackCards, STRIP, type Span } from '../../lib/column'
 import { snapshot } from '../../lib/switchMotion'
 import { Tip } from '../ui/Button'
@@ -284,7 +285,7 @@ function animate(el: HTMLElement, frames: Keyframe[], options: KeyframeAnimation
  * same, so expanding reads as the collapsed card gliding to where the expanded card's top will be (when that
  * isn't its place) and the card unfolding below it, ~0.25 s; collapsing plays it backwards a little faster,
  * on a lifeless picture of the card (`snapshot`, taken as it goes), while its collapsed card waits hidden
- * (`returning`) and then shows under the picture before that goes. Transform and clip only: layout,
+ * (`returning`) and takes the picture's place in the frame it lands. Transform and clip only: layout,
  * measurements and the scroll rules don't see it. Reduced motion: a fade in, nothing on collapsing.
  */
 function useCardMotion(
@@ -331,9 +332,15 @@ function useCardMotion(
       const { anim } = animate(copy, frames.map((f) => ({ ...f, easing: EASE })), { duration: still ? 170 : 210, fill: 'forwards' })
       anim.onfinish = () => {
         if (pictures.current.get(id) !== copy) return
-        // Its collapsed card fades in under the picture, which then goes.
-        setReturning((r) => r.filter((x) => x !== id))
-        setTimeout(() => pictures.current.get(id) === copy && drop(id), 200)
+        // Swap at once: the picture still has the expanded card's look (⋯ shown, its shadow, a cut-off bottom),
+        // so its collapsed card shows without its fade, in the same frame the picture goes.
+        const real = col.current?.querySelector<HTMLElement>(`[data-card="${CSS.escape(id)}"]`)
+        if (real) real.style.transition = 'none'
+        flushSync(() => drop(id))
+        if (real) {
+          void real.offsetHeight
+          real.style.transition = ''
+        }
       }
     },
     [card, col, drop],

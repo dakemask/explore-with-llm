@@ -312,3 +312,4 @@ One line per check run, newest last (kept from 2026-10-09; earlier runs are note
 Everything was tested only against `pnpm mock`. Open points (details in `docs/presets-research.md`): browser CORS for DeepSeek / OpenAI; Responses echo keeps the native message item's `id` under `store:false` (may be rejected — fallback: drop the id); pro mode + streaming. If the owner reports an error, ask for the detail dialog's error text.
 
 OpenAI's official API is deliberately left unverified (owner: they hardly use it, its presets were added in passing, and a CORS block couldn't be worked around anyway). Don't push for testing it; fix only if the owner reports a problem.
+- 2026-10-10, task 32 fix (owner saw the collapse end on the expanded look for a moment) — `pnpm test` + `pnpm build` only; the owner checks it by eye (owner's choice). App: the closing picture lingered 0.2 s over the collapsed card's fade-in; now they swap in one frame. Tests: none run.
