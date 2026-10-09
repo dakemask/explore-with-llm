@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
+import { splitNode } from '../lib/records'
 import { deriveBranches } from '../lib/tree'
-import type { ChatNode, Conversation, ModelConfig, Note, Provider, StoredImage } from './types'
+import type { ChatNode, Conversation, ModelConfig, Note, Provider, StoredImage, StoredRecord } from './types'
 
 export const db = new Dexie('explore-with-llm') as Dexie & {
   providers: EntityTable<Provider, 'id'>
@@ -8,6 +9,8 @@ export const db = new Dexie('explore-with-llm') as Dexie & {
   nodes: EntityTable<ChatNode, 'id'>
   images: EntityTable<StoredImage, 'id'>
   notes: EntityTable<Note, 'id'>
+  requests: EntityTable<StoredRecord, 'id'>
+  responses: EntityTable<StoredRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -92,6 +95,43 @@ db.version(6).stores({
   images: 'id, conversationId',
   notes: 'id, conversationId, nodeId',
 })
+
+// v7: each node's request and raw response move to tables of their own (`lib/records.ts`), so reading a
+// conversation doesn't read them. Stored as plain JSON here (`pending`) and compressed after startup: the
+// upgrade can't await the browser's compression without its transaction ending.
+db.version(7)
+  .stores({
+    providers: 'id, createdAt',
+    conversations: 'id, updatedAt',
+    nodes: 'id, conversationId, parentId',
+    images: 'id, conversationId',
+    notes: 'id, conversationId, nodeId',
+    requests: 'id, conversationId, pending',
+    responses: 'id, conversationId, pending',
+  })
+  .upgrade(async (tx) => {
+    const nodes = (await tx.table('nodes').toArray()) as ChatNode[]
+    const requests: StoredRecord[] = []
+    const responses: StoredRecord[] = []
+    const slim: ChatNode[] = []
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const pathOf = (n: ChatNode) => {
+      const path: ChatNode[] = []
+      for (let p = n.parentId ? byId.get(n.parentId) : undefined; p; p = p.parentId ? byId.get(p.parentId) : undefined) path.unshift(p)
+      return path
+    }
+    for (const n of nodes) {
+      if (!n.attempt) continue
+      const parts = splitNode(n, pathOf(n))
+      slim.push(parts.node)
+      const row = (v: unknown): StoredRecord => ({ id: n.id, conversationId: n.conversationId, data: JSON.stringify(v), pending: 1 })
+      if (parts.request) requests.push(row(parts.request))
+      if (parts.chunks) responses.push(row(parts.chunks))
+    }
+    await tx.table('requests').bulkPut(requests)
+    await tx.table('responses').bulkPut(responses)
+    await tx.table('nodes').bulkPut(slim)
+  })
 
 /** Requests can't survive a reload; mark anything left streaming as aborted. */
 export async function recoverInterruptedNodes() {

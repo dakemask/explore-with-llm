@@ -77,8 +77,9 @@ export interface RawChunk {
 }
 
 /**
- * Snapshot of the single request this node was produced by, kept exactly as sent and received.
- * `requestHeaders` includes the API key; export strips it (`lib/transfer.ts`).
+ * Snapshot of the single request this node was produced by. Its bulk is stored apart (DB v7, `lib/records.ts`):
+ * the request's headers and body in `requests`, read when the detail dialog opens; the raw response in
+ * `responses`, read only for a download. What's here is read with the conversation.
  */
 export interface Attempt {
   status: AttemptStatus
@@ -87,13 +88,13 @@ export interface Attempt {
   protocol: Protocol
   model: string
   url: string
-  /** Missing on nodes created before raw capture existed. */
-  requestHeaders?: Record<string, string>
-  requestBody: unknown
   /** Status line and the response headers the browser lets us read (CORS hides the rest). */
   response?: { status: number; statusText: string; headers: Record<string, string> }
-  /** Successful (streamed) response body. Error bodies live in `error.body`. */
-  rawChunks?: RawChunk[]
+  /**
+   * Bytes of the successful (streamed) response body, stored in `responses` (absent: none). Error bodies live
+   * in `error.body`.
+   */
+  responseSize?: number
   startedAt: number
   /** When the first text or reasoning delta arrived. */
   firstTokenAt?: number
@@ -161,6 +162,17 @@ export interface ChatNode {
     at: number
   }
   attempt: Attempt
+}
+
+/**
+ * A node's stored request or raw response (tables `requests` / `responses`, keyed by node id): gzip-compressed
+ * JSON (`lib/records.ts`). A string = plain JSON not compressed yet (`pending`; DB v7 converts in two steps).
+ */
+export interface StoredRecord {
+  id: string
+  conversationId: string
+  data: Uint8Array | string
+  pending?: 1
 }
 
 /**

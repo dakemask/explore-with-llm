@@ -35,7 +35,6 @@ function node(protocol: Protocol, message: Record<string, unknown>): ChatNode {
       protocol,
       model: 'm',
       url: '',
-      requestBody: null,
       startedAt: 0,
       rawText: 'answer',
       message,

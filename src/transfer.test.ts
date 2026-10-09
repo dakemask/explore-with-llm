@@ -1,11 +1,14 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db, ROOT_KEY, type ChatNode } from './db'
-import { activePath, threadPath } from './lib/tree'
-import { setLabel } from './lib/chat'
+import { activePath, pathTo, threadPath } from './lib/tree'
+import { deleteArchived, deleteConversation, editAssistant, setLabel } from './lib/chat'
+import { gunzip, loadResponse, readRequest, saveRequest, saveResponse, type PackedRequest } from './lib/records'
 import { exportConversation, importConversation, REMOVED } from './lib/transfer'
 
 const KEY = 'sk-secret-key-1234567890'
+const HEADERS = { Authorization: `Bearer ${KEY}`, 'X-Custom': `also ${KEY}`, 'Content-Type': 'application/json' }
+const LONG = 'a question long enough to be stored as a pointer into the node'
 
 const node = (id: string, parentId: string | null, extra: Partial<ChatNode> = {}): ChatNode => ({
   id,
@@ -22,27 +25,77 @@ const node = (id: string, parentId: string | null, extra: Partial<ChatNode> = {}
     protocol: 'openai-chat',
     model: 'm',
     url: 'http://x/v1/chat/completions',
-    requestHeaders: { Authorization: `Bearer ${KEY}`, 'X-Custom': `also ${KEY}`, 'Content-Type': 'application/json' },
-    requestBody: { messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,[image:img1]' } }] }] },
-    rawChunks: [{ t: 1, text: 'data: {}' }],
+    responseSize: 8,
     startedAt: 0,
     rawText: `a ${id}`,
   },
   ...extra,
 })
 
+const imageBody = { messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,[image:img1]' } }] }] }
+/** n2's request: the context (n1, whose question is LONG) and its own question. */
+const n2Body = {
+  messages: [
+    { role: 'user', content: LONG },
+    { role: 'assistant', content: 'a n1' },
+    { role: 'user', content: 'q n2' },
+  ],
+}
+
 beforeEach(async () => {
-  await Promise.all([db.conversations.clear(), db.nodes.clear(), db.images.clear(), db.providers.clear()])
+  await Promise.all([db.conversations.clear(), db.nodes.clear(), db.images.clear(), db.providers.clear(), db.requests.clear(), db.responses.clear()])
   await db.providers.add({ id: 'p', name: 'P', protocol: 'openai-chat', baseUrl: 'http://x/v1', apiKey: KEY, models: ['m'], createdAt: 0 })
   await db.conversations.add({ id: 'c', title: 'T', createdAt: 0, updatedAt: 0, selectedChild: { [ROOT_KEY]: 'n1', n1: 'n3', th: 's1' } })
-  await db.nodes.bulkAdd([
-    node('n1', null, { user: { text: 'look', images: ['img1'] }, system: 'Be brief.' }),
+  const nodes = [
+    node('n1', null, { user: { text: LONG, images: ['img1'] }, system: 'Be brief.' }),
     node('n2', 'n1'),
     node('n3', 'n1', { edit: { from: 'n2', history: [{ content: 'a n2', at: 0 }], at: 1 }, label: '改过的版本' }),
     node('s1', 'n1', { kind: 'side', thread: 'th', anchor: { start: 0, end: 1, text: 'a' } }),
     node('s2', 's1', { kind: 'side', thread: 'th' }),
-  ])
+  ]
+  await db.nodes.bulkAdd(nodes)
+  for (const n of nodes) {
+    await saveRequest(n, { headers: HEADERS, body: n.id === 'n2' ? n2Body : imageBody }, pathTo(nodes, n.parentId ?? ''))
+    await saveResponse(n, [{ t: 1, text: 'data: {}' }])
+  }
   await db.images.add({ id: 'img1', conversationId: 'c', blob: new Blob([new Uint8Array([1, 2, 3, 250])], { type: 'image/png' }), mime: 'image/png', width: 1, height: 1, createdAt: 0 })
+})
+
+const decode = async (base64: string) => gunzip(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)))
+
+describe('stored records', () => {
+  it('stores a request by pointers and gives it back exactly as sent', async () => {
+    const row = (await db.requests.get('n2'))!
+    const packed = (await gunzip(row.data)) as PackedRequest
+    expect(packed.refs).toEqual([[['messages', 0, 'content'], 'n1', 'user']])
+    expect(JSON.stringify(packed)).not.toContain(LONG)
+    const n2 = (await db.nodes.get('n2'))!
+    expect(await readRequest(row, n2)).toEqual({ headers: HEADERS, body: n2Body })
+  })
+
+  it('makes only exact copies of a text pointers', async () => {
+    const n2 = (await db.nodes.get('n2'))!
+    const n1 = (await db.nodes.get('n1'))!
+    const body = { a: LONG, b: `${LONG} ` }
+    await saveRequest(n2, { body }, [n1])
+    const packed = (await gunzip((await db.requests.get('n2'))!.data)) as PackedRequest
+    expect(packed.refs).toEqual([[['a'], 'n1', 'user']])
+    expect((await readRequest((await db.requests.get('n2'))!, n2)).body).toEqual(body)
+  })
+
+  it('an edited reply gets a copy of the records; deleting removes them', async () => {
+    const n2 = (await db.nodes.get('n2'))!
+    const id = await editAssistant(n2, 'edited')
+    const copy = (await db.nodes.get(id))!
+    expect((await readRequest((await db.requests.get(id))!, copy)).body).toEqual(n2Body)
+    expect(await loadResponse(id)).toEqual([{ t: 1, text: 'data: {}' }])
+    await deleteArchived('c', ['n2', id])
+    expect(await db.requests.bulkGet(['n2', id])).toEqual([undefined, undefined])
+    expect(await db.responses.bulkGet(['n2', id])).toEqual([undefined, undefined])
+    await deleteConversation('c')
+    expect(await db.requests.count()).toBe(0)
+    expect(await db.responses.count()).toBe(0)
+  })
 })
 
 describe('conversation export / import', () => {
@@ -51,7 +104,10 @@ describe('conversation export / import', () => {
     expect(name).toMatch(/^T-\d{8}\.json$/)
     expect(json).not.toContain(KEY)
     const f = JSON.parse(json)
-    expect(f.nodes[0].attempt.requestHeaders).toEqual({ Authorization: REMOVED, 'X-Custom': `also ${REMOVED}`, 'Content-Type': 'application/json' })
+    expect(f.version).toBe(7)
+    const req = (await decode(f.records[0].request)) as PackedRequest
+    expect(JSON.stringify(req)).not.toContain(KEY)
+    expect(req.headers).toEqual({ Authorization: REMOVED, 'X-Custom': `also ${REMOVED}`, 'Content-Type': 'application/json' })
     expect(f.images[0].data).toBe(btoa(String.fromCharCode(1, 2, 3, 250)))
   })
 
@@ -61,6 +117,7 @@ describe('conversation export / import', () => {
     const b = await importConversation(json)
     expect(a).not.toBe(b)
     expect(await db.nodes.count()).toBe(15)
+    expect(await db.requests.count()).toBe(15)
 
     const conv = (await db.conversations.get(a))!
     const nodes = await db.nodes.where('conversationId').equals(a).toArray()
@@ -78,13 +135,34 @@ describe('conversation export / import', () => {
     const img = (await db.images.get(imageId))!
     expect(img.conversationId).toBe(a)
     expect([...new Uint8Array(await img.blob.arrayBuffer())]).toEqual([1, 2, 3, 250])
-    expect(JSON.stringify(path[0].attempt.requestBody)).toContain(`[image:${imageId}]`)
-    expect(path[0].attempt.rawChunks).toEqual([{ t: 1, text: 'data: {}' }])
+    const req = await readRequest((await db.requests.get(path[0].id))!, path[0])
+    expect(JSON.stringify(req.body)).toContain(`[image:${imageId}]`)
+    expect(await loadResponse(path[0].id)).toEqual([{ t: 1, text: 'data: {}' }])
+    // The pointer now points at the copy's own node.
+    const n2 = nodes.find((n) => n.assistant.content === 'a n2')!
+    expect((await readRequest((await db.requests.get(n2.id))!, n2)).body).toEqual(n2Body)
   })
 
-  it('exports version 5 and still imports versions 4 (no system messages) and 3 (no labels)', async () => {
+  it('imports version 6 (records inside the nodes), 4 (no system messages) and 3 (no labels)', async () => {
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(6)
+    for (const r of f.records) {
+      const n = f.nodes.find((x: ChatNode) => x.id === r.node)
+      const req = (await decode(r.request)) as PackedRequest
+      const full = await readRequest({ id: r.node, conversationId: 'c', data: JSON.stringify(req) }, n)
+      Object.assign(n.attempt, { requestHeaders: full.headers, requestBody: full.body, rawChunks: await decode(r.response) })
+      delete n.attempt.responseSize
+    }
+    delete f.records
+    f.version = 6
+    const v6 = await importConversation(JSON.stringify(f))
+    const nodes = await db.nodes.where('conversationId').equals(v6).toArray()
+    expect(nodes.every((n) => !('requestBody' in n.attempt) && n.attempt.responseSize === 8)).toBe(true)
+    const n2 = nodes.find((n) => n.assistant.content === 'a n2')!
+    const row = (await db.requests.get(n2.id))!
+    expect(((await gunzip(row.data)) as PackedRequest).refs).toHaveLength(1)
+    expect((await readRequest(row, n2)).body).toEqual(n2Body)
+    expect(await loadResponse(n2.id)).toEqual([{ t: 1, text: 'data: {}' }])
+
     f.version = 4
     for (const n of f.nodes) delete n.system
     const v4 = await importConversation(JSON.stringify(f))
@@ -107,6 +185,9 @@ describe('conversation export / import', () => {
     delete f.nodes[0].system
     f.nodes[1].parentId = 'missing'
     await expect(importConversation(JSON.stringify(f))).rejects.toThrow('broken message tree')
+    f.nodes[1].parentId = 'n1'
+    f.records[0].request = 'not gzip'
+    await expect(importConversation(JSON.stringify(f))).rejects.toThrow('bad record')
     expect(await db.conversations.count()).toBe(1)
   })
 })

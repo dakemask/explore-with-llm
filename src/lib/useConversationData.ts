@@ -59,7 +59,7 @@ export function useConversationData(id: string | null): ConversationData | undef
 
 /**
  * The new nodes, keeping each unchanged one's previous object (and the previous array if none changed). A
- * node's `attempt` (large: the raw request and response) is compared by what every write of it changes —
+ * node's `attempt` (can be large: the native reply, encrypted reasoning included) is compared by what every write of it changes —
  * `status`, `url` (the request is recorded), `finishedAt` (it ended) —; a new kind of attempt write must
  * change one of them too.
  */

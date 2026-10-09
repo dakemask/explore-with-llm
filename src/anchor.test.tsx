@@ -137,7 +137,6 @@ function node(id: string, parentId: string | null, createdAt: number, extra: Par
       protocol: 'openai-chat',
       model: 'm',
       url: '',
-      requestBody: null,
       startedAt: 0,
       rawText: '',
     },

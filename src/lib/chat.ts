@@ -15,6 +15,7 @@ import { getAdapter, modelConfig, modelParams, prepareChat, ProviderError, sendC
 import { paramKey, useSettings } from '../store/settings'
 import { streamEvents } from './attempt'
 import { loadPayloads, maskImages, pruneImages, saveImages, type ImageFile } from './images'
+import { copyRecords, deleteRecords, responseSize, saveRequest, saveResponse } from './records'
 import { splitThink } from './reasoning'
 import { useUi } from '../store/ui'
 import { afterReply, fallbackTitle, namingModel, needsName, titleKey } from './naming'
@@ -39,10 +40,12 @@ export async function renameThread(conversationId: string, thread: string, title
 }
 
 export async function deleteConversation(id: string) {
-  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes], async () => {
+  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes, db.requests, db.responses], async () => {
     const nodes = await db.nodes.where('conversationId').equals(id).toArray()
     for (const n of nodes) controllers.get(n.id)?.abort()
     await db.nodes.where('conversationId').equals(id).delete()
+    await db.requests.where('conversationId').equals(id).delete()
+    await db.responses.where('conversationId').equals(id).delete()
     await db.notes.where('conversationId').equals(id).delete()
     await db.conversations.delete(id)
     await db.images.where('conversationId').equals(id).delete()
@@ -145,7 +148,6 @@ export async function sendMessage(opts: {
     protocol: provider.protocol,
     model,
     url: '',
-    requestBody: null,
     startedAt: now,
     rawText: '',
   }
@@ -187,12 +189,13 @@ export async function sendMessage(opts: {
 
   if (promoted) useUi.getState().markBranches([promoted])
 
-  await runAttempt(node, provider, model, messages, payloads.values())
+  await runAttempt(node, path, provider, model, messages, payloads.values())
   await afterReply(nodeId)
 }
 
 async function runAttempt(
   node: ChatNode,
+  path: ChatNode[],
   provider: Provider,
   model: string,
   messages: ChatMessage[],
@@ -225,6 +228,7 @@ async function runAttempt(
     if (flushTimer) clearTimeout(flushTimer)
     controllers.delete(node.id)
     const shown = visible()
+    if (rawChunks.length) await saveResponse(node, rawChunks)
     await db.nodes.update(node.id, {
       assistant: { content: shown.content, reasoning: shown.reasoning || undefined },
       attempt: {
@@ -236,7 +240,7 @@ async function runAttempt(
         usage,
         firstTokenAt,
         response,
-        rawChunks: rawChunks.length ? rawChunks : undefined,
+        responseSize: rawChunks.length ? responseSize(rawChunks) : undefined,
         message: nativeReply(provider.protocol, rawChunks),
         finishedAt: Date.now(),
       },
@@ -249,7 +253,9 @@ async function runAttempt(
     const params = modelParams(provider, model, paramChoices[paramKey(provider.id, model)])
     if (!params.ok) throw new ProviderError(translate(lang, 'params.invalid'))
     const req = prepareChat(provider, model, messages, params.body)
-    node.attempt = { ...node.attempt, url: req.url, requestHeaders: req.headers, requestBody: maskImages(req.body, images) }
+    // Recorded before the node says it was sent, so details opened from then on find it.
+    await saveRequest(node, { headers: req.headers, body: maskImages(req.body, images) }, path)
+    node.attempt = { ...node.attempt, url: req.url }
     await db.nodes.update(node.id, { attempt: node.attempt })
 
     const startedAt = node.attempt.startedAt
@@ -432,11 +438,12 @@ export async function restoreArchived(conversationId: string, nodeIds: string[])
  * to any more.
  */
 export async function deleteArchived(conversationId: string, nodeIds: string[]) {
-  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes], async () => {
+  await db.transaction('rw', [db.conversations, db.nodes, db.images, db.notes, db.requests, db.responses], async () => {
     const nodes = await db.nodes.where('conversationId').equals(conversationId).toArray()
     const ids = subtreeIds(nodes, nodeIds)
     for (const id of ids) controllers.get(id)?.abort()
     await db.nodes.bulkDelete([...ids])
+    await deleteRecords([...ids])
     await db.notes.where('nodeId').anyOf([...ids]).delete()
     const conv = await db.conversations.get(conversationId)
     if (conv) {
@@ -453,7 +460,7 @@ export async function deleteArchived(conversationId: string, nodeIds: string[]) 
 
 /**
  * Edits `node`'s reply: a new sibling (same fork, thread and anchor) with the edited text and no
- * reasoning, carrying a copy of the source's request and response, and shown in its place.
+ * reasoning, carrying a copy of the source's request and response (records included), and shown in its place.
  */
 export async function editAssistant(node: ChatNode, content: string): Promise<string> {
   const now = Date.now()
@@ -477,8 +484,9 @@ export async function editAssistant(node: ChatNode, content: string): Promise<st
     },
     attempt: node.attempt,
   }
-  await db.transaction('rw', db.nodes, db.conversations, async () => {
+  await db.transaction('rw', [db.nodes, db.conversations, db.requests, db.responses], async () => {
     await db.nodes.add(edited)
+    await copyRecords(node.id, edited)
     await db.conversations.update(node.conversationId, { [`selectedChild.${forkKey(node)}`]: id })
     await db.conversations.update(node.conversationId, { updatedAt: now })
   })

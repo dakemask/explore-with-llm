@@ -2,30 +2,24 @@ import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import hljs from 'highlight.js/lib/core'
 import jsonLang from 'highlight.js/lib/languages/json'
-import { AlertCircle, Check, ChevronsDownUp, Copy, ChevronsUpDown, Eye, EyeOff, Info } from 'lucide-react'
+import { AlertCircle, Check, ChevronsDownUp, Copy, ChevronsUpDown, Download, Eye, EyeOff, Info } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { db, type Attempt, type AttemptStatus, type ChatNode } from '../../db'
 import { useT, type TKey } from '../../i18n'
-import {
-  foldHistory,
-  formatMs,
-  maskHeader,
-  prettyJson,
-  streamEvents,
-  summarizeUsage,
-  type TimedEvent,
-} from '../../lib/attempt'
+import { foldHistory, formatMs, maskHeader, prettyJson, summarizeUsage } from '../../lib/attempt'
 import { replyVersions, selectBranch, type ReplyVersion } from '../../lib/chat'
+import { readRequest, responseZip, type RequestRecord } from '../../lib/records'
+import { download } from '../../lib/transfer'
 import { forkKey } from '../../lib/tree'
 import { useCopy } from '../../lib/hooks'
-import { aggregateStream } from '../../providers'
 import { Markdown } from '../chat/Markdown'
 import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { CodeBox, codeBoxAction } from '../ui/CodeBox'
 import { Segmented } from '../ui/Field'
-import { HelpTip } from '../ui/Button'
+import { Button, HelpTip } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
+import { notifyError } from '../ui/Toast'
 
 hljs.registerLanguage('json', jsonLang)
 
@@ -66,7 +60,7 @@ export function DetailDialog({ nodeId }: { nodeId: string }) {
             />
           </div>
           <div key={current} className="anim-fade">
-            {current === 'request' && <RequestTab attempt={node.attempt} />}
+            {current === 'request' && <RequestTab node={node} />}
             {current === 'response' && <ResponseTab node={node} />}
             {current === 'error' && <ErrorTab attempt={node.attempt} />}
             {current === 'versions' && <VersionsTab node={node} />}
@@ -161,15 +155,44 @@ function useNow(active: boolean) {
 
 // ---------- Tabs ----------
 
-function RequestTab({ attempt: a }: { attempt: Attempt }) {
+/**
+ * The request `node` sent, read from its record (`lib/records.ts`) when shown. `undefined` while reading,
+ * null when none is stored.
+ */
+function useRequest(node: ChatNode): RequestRecord | null | undefined {
+  const row = useLiveQuery(async () => (await db.requests.get(node.id)) ?? null, [node.id])
+  const [request, setRequest] = useState<{ row: unknown; value: RequestRecord | null }>()
+  useEffect(() => {
+    if (row === undefined) return
+    let live = true
+    if (row === null) setRequest({ row, value: null })
+    else
+      readRequest(row, node).then(
+        (value) => live && setRequest({ row, value }),
+        (e) => {
+          console.error(e)
+          if (live) setRequest({ row, value: null })
+        },
+      )
+    return () => {
+      live = false
+    }
+  }, [row, node])
+  return request && request.row === row ? request.value : undefined
+}
+
+function RequestTab({ node }: { node: ChatNode }) {
   const t = useT()
+  const a = node.attempt
   const [reveal, setReveal] = useState(false)
   const [unfolded, setUnfolded] = useState(false)
-  const headers = a.requestHeaders
-  const body = useMemo(() => (a.requestBody == null ? '' : JSON.stringify(a.requestBody, null, 2)), [a.requestBody])
-  const fold = useMemo(() => foldHistory(a.requestBody), [a.requestBody])
+  const request = useRequest(node)
+  const headers = request?.headers
+  const body = useMemo(() => (request?.body == null ? '' : JSON.stringify(request.body, null, 2)), [request])
+  const fold = useMemo(() => foldHistory(request?.body), [request])
 
   if (!a.url) return <Note>{t('detail.notSent')}</Note>
+  if (request === undefined) return null
   const entries = Object.entries(headers ?? {})
   const hasSecret = entries.some(([k, v]) => maskHeader(k, v) !== v)
   const headText = [`POST ${a.url}`, ...entries.map(([k, v]) => `${k}: ${v}`)].join('\n')
@@ -237,35 +260,17 @@ function RequestTab({ attempt: a }: { attempt: Attempt }) {
   )
 }
 
-type StreamView = 'events' | 'merged' | 'raw'
-/** Remembered across panel openings within a session. */
-let lastStreamView: StreamView = 'merged'
-
 function ResponseTab({ node }: { node: ChatNode }) {
   const t = useT()
   const a = node.attempt
-  const [view, setViewState] = useState<StreamView>(lastStreamView)
-  const setView = (v: StreamView) => setViewState((lastStreamView = v))
-
-  const events = useMemo(() => (a.rawChunks ? streamEvents(a.rawChunks) : null), [a.rawChunks])
-  const merged = useMemo(() => {
-    if (!events) return ''
-    try {
-      const payloads = events.filter((e) => e.json !== undefined).map((e) => e.json)
-      return JSON.stringify(aggregateStream(a.protocol, payloads), null, 2)
-    } catch (e) {
-      return String(e)
-    }
-  }, [events, a.protocol])
-  const raw = useMemo(() => a.rawChunks?.map((c) => c.text).join('') ?? '', [a.rawChunks])
-
   const r = a.response
   const headText = r
     ? [`HTTP ${r.status} ${r.statusText}`.trim(), ...Object.entries(r.headers).map(([k, v]) => `${k}: ${v}`)].join('\n')
     : ''
-  const errBody = !events && a.error?.body
+  const streamed = !!a.responseSize
+  const errBody = !streamed && a.error?.body
   const prettyErr = errBody ? prettyJson(errBody) : null
-  const legacy = !r && !events && a.status !== 'streaming' && a.error?.code !== 'network'
+  const legacy = !r && !streamed && a.status !== 'streaming' && a.error?.code !== 'network'
 
   return (
     <div className="space-y-5">
@@ -289,34 +294,9 @@ function ResponseTab({ node }: { node: ChatNode }) {
 
       {a.status === 'streaming' ? (
         <Note>{t('detail.streamingNote')}</Note>
-      ) : events ? (
-        <Section title={t('detail.responseBody')}>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5">
-              <Segmented<StreamView>
-                value={view}
-                onChange={setView}
-                options={[
-                  { value: 'events', label: t('detail.view.events') },
-                  { value: 'merged', label: t('detail.view.merged') },
-                  { value: 'raw', label: t('detail.view.raw') },
-                ]}
-              />
-              <HelpTip content={t(`detail.viewHint.${view}`)} />
-            </div>
-            <span className="text-xs text-faint tabular-nums">{t('detail.eventsCount', { n: events.length })}</span>
-          </div>
-          {view === 'events' && <EventList events={events} raw={raw} />}
-          {view === 'merged' && (
-            <CodeBox label="json" copyText={merged} maxHeight="60vh" wrap>
-              <Json text={merged} />
-            </CodeBox>
-          )}
-          {view === 'raw' && (
-            <CodeBox label="text/event-stream" copyText={raw} maxHeight="60vh" wrap>
-              {raw}
-            </CodeBox>
-          )}
+      ) : streamed ? (
+        <Section title={t('detail.responseBody')} help={t('detail.downloadHint')}>
+          <DownloadButton node={node} />
         </Section>
       ) : errBody ? (
         <Section title={t('detail.responseBody')}>
@@ -335,39 +315,31 @@ function ResponseTab({ node }: { node: ChatNode }) {
   )
 }
 
-const EVENT_PAGE = 200
-
-/**
- * Single-line JSON with spaces between tokens, so long lines wrap between tokens rather than inside words.
- * Only structural newlines exist in the output (string contents escape theirs), so values are untouched.
- */
-function oneLineJson(v: unknown) {
-  return JSON.stringify(v, null, 1).replace(/\n\s*/g, ' ')
-}
-
-function EventList({ events, raw }: { events: TimedEvent[]; raw: string }) {
+/** Downloads the raw response as a .zip (`responseZip`). */
+function DownloadButton({ node }: { node: ChatNode }) {
   const t = useT()
-  const [all, setAll] = useState(false)
-  const shown = all ? events : events.slice(0, EVENT_PAGE)
+  const [busy, setBusy] = useState(false)
+  const size = node.attempt.responseSize ?? 0
+  const save = async () => {
+    setBusy(true)
+    try {
+      const zip = await responseZip(node)
+      if (!zip) throw new Error(t('detail.downloadMissing'))
+      download(zip.name, zip.blob)
+    } catch (e) {
+      notifyError(t('detail.downloadFailed'), (e as Error)?.message ?? String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
-    <CodeBox label="sse" copyText={raw} maxHeight="60vh" wrap bodyClassName="!p-0 text-[12px]">
-      {shown.map((e, i) => (
-        <span key={i} className="flex gap-3 border-b border-border px-3 py-1.5 last:border-b-0">
-          <span className="w-12 shrink-0 text-right text-faint tabular-nums">+{e.t}</span>
-          <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-            {e.event && <span className="text-muted">event: {e.event} </span>}
-            {e.json !== undefined ? <Json text={oneLineJson(e.json)} /> : e.data}
-          </span>
-        </span>
-      ))}
-      {!all && events.length > EVENT_PAGE && (
-        <span className="flex justify-center p-2">
-          <button onClick={() => setAll(true)} className="font-sans text-xs text-accent hover:text-accent-hover">
-            {t('detail.showAll', { n: events.length })}
-          </button>
-        </span>
-      )}
-    </CodeBox>
+    <Button onClick={save} disabled={busy} className="gap-1.5">
+      <Download size={14} />
+      {t('detail.download')}
+      <span className="font-normal text-faint tabular-nums">
+        {size < 1024 ? `${size} B` : `${(size / 1024).toFixed(size < 10240 ? 1 : 0)} KB`}
+      </span>
+    </Button>
   )
 }
 

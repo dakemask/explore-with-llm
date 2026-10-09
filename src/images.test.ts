@@ -26,7 +26,7 @@ const earlier: ChatNode = {
   createdAt: 0,
   user: { text: 'look', images: ['a'] },
   assistant: { content: 'a cat' },
-  attempt: { status: 'done', providerId: 'p', providerName: 'P', protocol: 'openai-chat', model: 'm', url: '', requestBody: null, startedAt: 0, rawText: 'a cat' },
+  attempt: { status: 'done', providerId: 'p', providerName: 'P', protocol: 'openai-chat', model: 'm', url: '', startedAt: 0, rawText: 'a cat' },
 }
 
 function body(protocol: Protocol, text = 'and this?') {

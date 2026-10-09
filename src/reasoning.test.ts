@@ -36,7 +36,6 @@ function node(message: Record<string, unknown> | undefined, extra: Partial<ChatN
       protocol: 'openai-chat',
       model: 'm',
       url: '',
-      requestBody: null,
       startedAt: 0,
       rawText: 'answer',
       message,

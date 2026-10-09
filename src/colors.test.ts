@@ -19,7 +19,6 @@ function node(id: string, parentId: string | null, extra: Partial<ChatNode> = {}
       protocol: 'openai-chat',
       model: 'm',
       url: '',
-      requestBody: null,
       startedAt: 0,
       rawText: '',
     },

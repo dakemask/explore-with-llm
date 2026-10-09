@@ -16,6 +16,9 @@ import {
   threadRoots,
 } from './lib/tree'
 import { exportConversation, importConversation } from './lib/transfer'
+import { readRequest } from './lib/records'
+
+const sentBody = async (n: ChatNode) => (await readRequest((await db.requests.get(n.id))!, n)).body as { system?: string }
 
 function node(id: string, parentId: string | null, createdAt: number, extra: Partial<ChatNode> = {}): ChatNode {
   return {
@@ -33,7 +36,6 @@ function node(id: string, parentId: string | null, createdAt: number, extra: Par
       protocol: 'openai-chat',
       model: 'm',
       url: '',
-      requestBody: null,
       startedAt: 0,
       rawText: '',
     },
@@ -203,7 +205,7 @@ describe('archive actions (db)', () => {
     await sendMessage({ conversationId: 'c', parentId: null, text: 'hi', provider, model: 'm', system: 'Be brief.' })
     const root = (await db.nodes.toArray()).find((n) => n.user.text === 'hi')!
     expect(root.system).toBe('Be brief.')
-    expect((root.attempt.requestBody as { system?: string }).system).toBe('Be brief.')
+    expect((await sentBody(root)).system).toBe('Be brief.')
     await resend(root, 'hi', [], provider, 'm')
     await resend(root, 'hi', [], provider, 'm', '')
     const versions = (await db.nodes.toArray()).filter((n) => n.user.text === 'hi')
@@ -212,7 +214,7 @@ describe('archive actions (db)', () => {
     await sendMessage({ conversationId: 'c', parentId: root.id, text: 'more', provider, model: 'm' })
     const more = (await db.nodes.toArray()).find((n) => n.user.text === 'more')!
     expect(more.system).toBeUndefined()
-    expect((more.attempt.requestBody as { system?: string }).system).toBe('Be brief.')
+    expect((await sentBody(more)).system).toBe('Be brief.')
   })
 
   it('turns a side question into main nodes under its node, keeping the view', async () => {
@@ -254,12 +256,12 @@ describe('archive actions (db)', () => {
   it('exports kinds; importing a version 1 file derives branches', async () => {
     await db.nodes.update('b', { branch: true, archived: 7 })
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(6)
+    expect(f.version).toBe(7)
     expect(f.nodes.find((n: ChatNode) => n.id === 'b')).toMatchObject({ branch: true, archived: 7 })
     const id2 = await importConversation(JSON.stringify(f))
     expect((await db.nodes.where('conversationId').equals(id2).toArray()).filter((n) => n.archived)).toHaveLength(1)
 
-    const { notes: _n, ...noNotes } = f
+    const { notes: _n, records: _r, ...noNotes } = f
     const v1 = { ...noNotes, version: 1, nodes: f.nodes.map(({ branch: _b, archived: _a, ...n }: ChatNode) => n) }
     const id1 = await importConversation(JSON.stringify(v1))
     const nodes = await db.nodes.where('conversationId').equals(id1).toArray()
@@ -314,7 +316,7 @@ describe('notes', () => {
   it('exports notes (version 3+) and imports them with new ids on the new nodes', async () => {
     await archiveNote('nc')
     const f = JSON.parse((await exportConversation('c')).json)
-    expect(f.version).toBe(6)
+    expect(f.version).toBe(7)
     expect(f.notes.map((n: Note) => n.id).sort()).toEqual(['nb', 'nc', 'nd'])
 
     const id = await importConversation(JSON.stringify(f))
@@ -329,7 +331,7 @@ describe('notes', () => {
     expect(on(byText['note nd'])).toBe('u-d')
     expect(byText['note nc'].archived).toBeTypeOf('number')
 
-    const { notes: _n, ...v2 } = { ...f, version: 2 }
+    const { notes: _n, records: _r, ...v2 } = { ...f, version: 2 }
     const id2 = await importConversation(JSON.stringify(v2))
     expect(await db.notes.where('conversationId').equals(id2).count()).toBe(0)
 
