@@ -1,6 +1,7 @@
-// Switch animations (lib/switchMotion.ts, task 19): switching versions slides the turn's body and everything
-// below it sideways (direction by the switcher's order), the old content leaving as a snapshot overlay that is
-// never found as the real thing, and is gone afterwards; the attempts' arrows open /
+// Switch animations (lib/switchMotion.ts, task 19): switching versions slides the turn — in the main chat its
+// frame with it, the header staying (task 33) — and everything below it sideways (direction by the switcher's
+// order), the old content leaving as a snapshot overlay (and the old frame as one of its own) that is never
+// found as the real thing, and is gone afterwards; the attempts' arrows open /
 // fold; tree map jumps slide to a sibling, fade to a cousin; while streaming, with an expanded card, between very
 // different lengths, in a side card, interrupted by another click or a conversation switch, and with reduced
 // motion. Copy this folder into the session scratchpad (where playwright-core is installed) and run
@@ -37,8 +38,14 @@ await page.evaluate(() => {
     if (this.closest('main')) {
       if (this.closest('[data-tree-map]')) return a
       const what = this.hasAttribute('inert')
-        ? 'overlay'
-        : this.matches('[data-node-body]')
+        ? this.hasAttribute('data-frame-copy')
+          ? 'frameCopy'
+          : 'overlay'
+        : this.matches('[data-node-header]')
+          ? 'header'
+          : this.matches('[data-framed]') && !kf.some((k) => 'opacity' in k)
+            ? 'frame'
+            : this.matches('[data-node-body]')
           ? 'body'
           : this.matches('[data-item]')
             ? 'bar'
@@ -63,7 +70,7 @@ const startRec = () =>
       const sw = [...sc.querySelectorAll('[data-switcher]')].at(-1)
       const turns = [...sc.querySelectorAll('[data-turn]')].map((t) => t.dataset.turn)
       rec.frames.push({
-        overlays: document.querySelectorAll('main [inert][aria-hidden]').length,
+        overlays: document.querySelectorAll('main [inert][aria-hidden]:not([data-frame-copy])').length,
         overlayCard: !!document.querySelector('main [inert][aria-hidden] .shadow-pop'),
         dupTurns: turns.length !== new Set(turns).size,
         forks: sc.querySelectorAll('[data-fork]').length,
@@ -83,7 +90,7 @@ const stopRec = () =>
     return {
       frames: f.length,
       maxOverlays: Math.max(...f.map((x) => x.overlays)),
-      endOverlays: document.querySelectorAll('main [inert][aria-hidden]').length,
+      endOverlays: document.querySelectorAll('main [inert][aria-hidden]:not([data-frame-copy])').length,
       overlayCard: f.some((x) => x.overlayCard),
       dup: f.some((x) => x.dupTurns || x.forks !== x.turns),
       wide: f.some((x) => x.wide),
@@ -99,6 +106,21 @@ const switchBy = async (click, ms = 700) => {
   return stopRec()
 }
 const of = (r, what) => r.anims.filter((a) => a.what === what)
+/**
+ * Where the main chat's switched turn came in from: its frame slides (from ±40), its header moves back just as
+ * much (stays), its body only fades (it moves with the frame); the snapshot and the old frame leave the other
+ * way. null if that isn't what happened.
+ */
+const slide = (r) => {
+  const frame = of(r, 'frame')[0]
+  const header = of(r, 'header')[0]
+  const body = of(r, 'body')[0]
+  const out = of(r, 'overlay')[0]
+  const copy = of(r, 'frameCopy')[0]
+  if (!frame || !header || !body || !out || !copy) return null
+  const d = frame.from
+  return header.from === -d && body.from === 0 && out.to === -d && copy.to === -d ? d : null
+}
 
 // ---- setup: two turns, the second with three attempts (3 / 3 shown) ----
 await send(page, 'T1')
@@ -109,13 +131,13 @@ await wait(1500)
 
 // ---- S: sideways between siblings, the snapshot leaving the other way; nothing else moves ----
 let r = await switchBy(() => switcher().getByRole('button', { name: '上一个尝试' }).click())
-check('S1 ‹: the new body comes in from the left, the snapshot leaves to the right', of(r, 'body').length === 1 && of(r, 'body')[0].from === -40 && of(r, 'overlay')[0]?.to === 40, r.anims)
+check('S1 ‹: the new turn (frame and body, not its header) comes in from the left, the snapshot leaves to the right', of(r, 'body').length === 1 && slide(r) === -40, r.anims)
 check('S1 the snapshot is gone afterwards, never two at once', r.maxOverlays === 1 && r.endOverlays === 0, r)
 check('S1 the snapshot is never found as the real thing (no duplicate turns / forks)', !r.dup)
 check('S1 the switcher stays in place, no sideways page overflow', r.swMove !== null && r.swMove <= 1 && !r.wide, { swMove: r.swMove, wide: r.wide })
 check('S1 now 2 / 3', (await switcher().textContent()).includes('2 / 3'))
 r = await switchBy(() => switcher().getByRole('button', { name: '下一个尝试' }).click())
-check('S2 ›: from the right', of(r, 'body')[0]?.from === 40 && of(r, 'overlay')[0]?.to === -40, r.anims)
+check('S2 ›: from the right', slide(r) === 40, r.anims)
 check('S2 now 3 / 3, nothing left semi-transparent', (await switcher().textContent()).includes('3 / 3') && (await lastTurn().locator('[data-node-body]').evaluate((el) => getComputedStyle(el).opacity)) === '1')
 
 // ---- R: a second click in the middle of the first animation: one snapshot at a time, ends where clicked last ----
@@ -132,10 +154,10 @@ await lastTurn().locator('[data-switcher]').locator('..').getByRole('button', { 
 await page.getByRole('menuitem', { name: '设为分支' }).click()
 await wait(1500)
 r = await switchBy(() => switcher().getByRole('button', { name: /个尝试$/ }).click())
-check('G1 branch → attempts: from the right', of(r, 'body')[0]?.from === 40, r.anims)
+check('G1 branch → attempts: from the right', slide(r) === 40, r.anims)
 check('G1 the arrows are open, the ×n gone', /1 \/ 2|2 \/ 2/.test(await switcher().textContent()) && !(await switcher().textContent()).includes('×'), await switcher().textContent())
 r = await switchBy(() => switcher().locator('button').first().click())
-check('G2 attempts → branch: from the left', of(r, 'body')[0]?.from === -40, r.anims)
+check('G2 attempts → branch: from the left', slide(r) === -40, r.anims)
 check('G2 the arrows folded away, ×2 back', (await switcher().textContent()).trim() === '×2', await switcher().textContent())
 
 // ---- T: streaming: switching away from and back to a reply that is still coming in ----
@@ -146,11 +168,11 @@ await lastTurn().getByRole('button', { name: '重新生成' }).last().click()
 await page.locator('[aria-label="停止"]').waitFor()
 await wait(1500)
 r = await switchBy(() => switcher().getByRole('button', { name: '上一个尝试' }).click())
-check('T1 switching away from a streaming reply slides', of(r, 'body')[0]?.from === -40 && r.endOverlays === 0, r.anims)
+check('T1 switching away from a streaming reply slides', slide(r) === -40 && r.endOverlays === 0, r.anims)
 const len = () => lastTurn().locator('[data-node-body]').evaluate((el) => el.textContent.length)
 r = await switchBy(() => switcher().getByRole('button', { name: '下一个尝试' }).click())
 const l0 = await len()
-check('T2 back to it: it slides in, still streaming', of(r, 'body')[0]?.from === 40 && (await page.locator('[aria-label="停止"]').count()) === 1, r.anims)
+check('T2 back to it: it slides in, still streaming', slide(r) === 40 && (await page.locator('[aria-label="停止"]').count()) === 1, r.anims)
 await waitDone(page)
 check('T2 …and its reply finishes there', (await len()) > l0 + 200, { l0, l1: await len() })
 await pickModel(page, 'mock-long', 'mock-chat')
@@ -226,7 +248,7 @@ for (let i = 0; (await onT3x()) && i < (await t2switcher.locator('button').count
 }
 // Jump to T3x (a cousin's child): fade.
 r = await switchBy(() => page.locator(`${TREE} g[role=button][aria-label*="T3x"]`).click(), 900)
-check('M1 tree map jump to a cousin: a plain fade (no sideways shift)', of(r, 'body').length === 1 && of(r, 'body')[0].from === 0 && of(r, 'overlay')[0]?.to === 0 && r.endOverlays === 0, r.anims)
+check('M1 tree map jump to a cousin: a plain fade (no sideways shift)', of(r, 'body').length === 1 && r.anims.every((a) => a.from === 0 && a.to === 0) && r.endOverlays === 0, r.anims)
 // Jump to T2's other branch (the one asked from): a sibling of the shown T2 → slides.
 const t2 = page.locator(`${TREE} g[role=button][aria-label*="T2"]`)
 const t2count = await t2.count()
@@ -235,7 +257,7 @@ for (let i = 0; i < t2count && !slid; i++) {
   const cur = await t2.nth(i).getAttribute('aria-current')
   if (cur) continue
   r = await switchBy(() => t2.nth(i).click(), 900)
-  slid = of(r, 'body')[0]?.from === -40 || of(r, 'body')[0]?.from === 40
+  slid = slide(r) === -40 || slide(r) === 40
 }
 check('M2 tree map jump to a sibling: slides sideways', slid, r.anims)
 await page.getByRole('button', { name: '树图' }).click()

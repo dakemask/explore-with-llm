@@ -95,7 +95,7 @@ export const MessageNode = memo(function MessageNode({
         onDetail={openDetail}
         busy={!!busy}
       />
-      {/* data-node-body: what a switch animates (the header stays, see lib/switchMotion). */}
+      {/* data-node-body: what a switch animates (with the frame; the header stays, see lib/switchMotion). */}
       <div data-node-body className="space-y-3">
         {editingUser && (
           <UserEditDialog
@@ -127,6 +127,7 @@ export const MessageNode = memo(function MessageNode({
                 text={content}
                 className={clsx(streaming && 'streaming-caret')}
                 anchors={streaming ? undefined : marks?.reply}
+                live={streaming}
               />
             </div>
           ) : (
@@ -172,6 +173,7 @@ export function Turn({
   return (
     <div
       data-turn={id}
+      data-framed={framed || undefined}
       style={color ? ({ '--node': color } as CSSProperties) : undefined}
       className={clsx(
         framed
@@ -277,11 +279,11 @@ function Reasoning({ view, live }: { view: ReasoningView; live: boolean }) {
       </div>
       {expanded && (
         <div className="mt-1.5 space-y-3 border-l-2 border-border pl-4">
-          {view.text && <Markdown text={view.text} className="prose-reasoning" />}
+          {view.text && <Markdown text={view.text} className="prose-reasoning" live={live} />}
           {view.summaries.map((s, i) => (
             <div key={i}>
               <div className="mb-0.5 text-[11px] font-medium text-faint">{t('msg.reasoningSummary')}</div>
-              <Markdown text={s} className="prose-reasoning" />
+              <Markdown text={s} className="prose-reasoning" live={live} />
             </div>
           ))}
         </div>
@@ -362,6 +364,7 @@ function NodeHeader({
   const main = node.kind === 'main'
   return (
     <div
+      data-node-header
       className={clsx(
         'flex h-7 items-center gap-0.5',
         main ? 'absolute top-[-15px] left-2 bg-(--sticky-bg) px-1' : '-ml-1',

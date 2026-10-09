@@ -61,6 +61,11 @@ interface UiState {
   /** Main nodes that just became branches: their switcher dot plays its arrival animation. */
   newBranches: Record<string, true>
   /**
+   * Fork selections just made (fork key → node id), shown at once: `useConversationData` lays them over the
+   * stored ones until its next read has them (the write and the re-read took ~50 ms before a switch began).
+   */
+  picked: { conversationId: string; selection: Record<string, string> } | null
+  /**
    * Switches conversation — the only way to. Clears what belongs to the conversation on screen: the detail
    * dialog and the expanded card here, the tree map and the chat's other transient state in `ChatView`
    * (reset as `conversationId` changes). Kept per conversation: side-question drafts, the input box's text.
@@ -85,6 +90,10 @@ interface UiState {
   setLeaving: (thread: string, on: boolean) => void
   /** Marks nodes as just made branches for a moment (`newBranches`). */
   markBranches: (ids: string[]) => void
+  /** Shows fork selections at once (`picked`); `selectBranch` / `selectPath` call it before writing them. */
+  pick: (conversationId: string, selection: Record<string, string>) => void
+  /** The stored selections caught up: forgets the picks they hold. */
+  settlePicks: (conversationId: string, stored: Record<string, string>) => void
 }
 
 export const useUi = create<UiState>()((set) => ({
@@ -101,7 +110,19 @@ export const useUi = create<UiState>()((set) => ({
   naming: {},
   leaving: {},
   newBranches: {},
-  setConversation: (conversationId) => set({ conversationId, panel: null, expanded: null }),
+  picked: null,
+  setConversation: (conversationId) => set({ conversationId, panel: null, expanded: null, picked: null }),
+  pick: (conversationId, selection) =>
+    set((s) => ({
+      picked: { conversationId, selection: { ...(s.picked?.conversationId === conversationId ? s.picked.selection : {}), ...selection } },
+    })),
+  settlePicks: (conversationId, stored) =>
+    set((s) => {
+      if (s.picked?.conversationId !== conversationId) return s
+      const left = Object.entries(s.picked.selection).filter(([k, v]) => stored[k] !== v)
+      if (left.length === Object.keys(s.picked.selection).length) return s
+      return { picked: left.length ? { conversationId, selection: Object.fromEntries(left) } : null }
+    }),
   openSettings: (tab = 'providers', focus = null) => set({ settingsOpen: true, settingsTab: tab, settingsFocus: focus }),
   closeSettings: () => set({ settingsOpen: false }),
   setLive: (nodeId, live) =>

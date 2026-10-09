@@ -9,8 +9,9 @@ import { siblingsOf } from './tree'
  * a picture, not interactive —; once the new version is rendered, the snapshot moves out while the new content
  * moves in: sideways between siblings (`dir` +1 = the new one comes from the right, -1 from the left), a plain
  * crossfade otherwise (`dir` 0: a tree map jump to a cousin, and always with reduced motion). The fork turn's
- * frame and header stay (the switcher animates on its own). Heights snap; only transforms and opacity animate,
- * so layout and scrolling (`useAutoScroll`) see nothing of it.
+ * frame moves with its text (owner, 2026-10-10; it used to stay), its header stays (the switcher animates on
+ * its own). Heights snap; only transforms and opacity animate, so layout and scrolling (`useAutoScroll`) see
+ * nothing of it.
  */
 export interface SwitchMotion {
   /** Call right before the switch at fork `key` that will show node `to`. */
@@ -65,8 +66,18 @@ export function useSwitchMotion(
   resetKey: unknown,
 ): SwitchMotion {
   const state = useRef({
-    pending: null as null | { key: string; to: string; dir: number; overlay: HTMLElement; top: number; timer: number },
+    pending: null as null | {
+      key: string
+      to: string
+      dir: number
+      overlay: HTMLElement
+      under: HTMLElement | null
+      top: number
+      timer: number
+    },
     overlay: null as HTMLElement | null,
+    /** The old frame of a framed fork turn (see `begin`). */
+    under: null as HTMLElement | null,
     running: [] as Animation[],
   })
 
@@ -80,6 +91,8 @@ export function useSwitchMotion(
       s.pending = null
       s.overlay?.remove()
       s.overlay = null
+      s.under?.remove()
+      s.under = null
     }
 
     /** The fork turn's body and every turn below it, plus the side column's items anchored there (top ≥ `top`). */
@@ -140,8 +153,31 @@ export function useSwitchMotion(
       }
       wrapper.append(overlay)
       for (const restore of scrolled) restore()
+      // A framed turn (main chat): its frame moves too, the header stays (owner, 2026-10-10). The old frame
+      // goes in an overlay of its own, first in the wrapper, so it passes under the header, which hides the
+      // line behind it.
+      const turn = found.fork.parentElement
+      if (turn?.dataset.framed !== undefined) {
+        const r = turn.getBoundingClientRect()
+        const frame = turn.cloneNode(false) as HTMLElement
+        for (const name of [...frame.getAttributeNames()]) if (name !== 'class') frame.removeAttribute(name)
+        Object.assign(frame.style, {
+          position: 'absolute',
+          margin: '0',
+          left: `${r.left - base.left}px`,
+          top: `${r.top - base.top}px`,
+          width: `${r.width}px`,
+          height: `${r.height}px`,
+        })
+        const under = overlay.cloneNode(false) as HTMLElement
+        under.inert = true
+        under.setAttribute('data-frame-copy', '')
+        under.append(frame)
+        wrapper.prepend(under)
+        s.under = under
+      }
       s.overlay = overlay
-      s.pending = { key, to, dir, overlay, top, timer: window.setTimeout(finish, WAIT_MS) }
+      s.pending = { key, to, dir, overlay, under: s.under, top, timer: window.setTimeout(finish, WAIT_MS) }
     }
 
     /** The new version is rendered (if it's the awaited one): animate. */
@@ -155,8 +191,31 @@ export function useSwitchMotion(
       const dx = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : p.dir * DX
       const shift = (x: number) => (x ? [{ transform: `translateX(${x}px)` }, { transform: 'none' }] : [{}, {}])
       const [from, to] = shift(dx)
+      const turn = found.fork.parentElement
+      const framed = turn?.dataset.framed !== undefined
       for (const el of found.els) {
-        s.running.push(el.animate([{ ...from, opacity: 0 }, { ...to, opacity: 1 }], { duration: IN_MS, easing: EASE }))
+        // (A framed turn's body moves with its frame.)
+        const move = framed && el.parentElement === found.fork ? [{}, {}] : [from, to]
+        s.running.push(el.animate([{ ...move[0], opacity: 0 }, { ...move[1], opacity: 1 }], { duration: IN_MS, easing: EASE }))
+      }
+      if (framed && dx) {
+        // The frame slides in; its header moves back just as much, so it stays.
+        const header = found.fork.querySelector<HTMLElement>(':scope > [data-node-header]')
+        s.running.push(turn!.animate([from, to], { duration: IN_MS, easing: EASE }))
+        if (header) s.running.push(header.animate(shift(-dx), { duration: IN_MS, easing: EASE }))
+      }
+      const under = p.under
+      if (under) {
+        const gone = under.animate([{ opacity: 1 }, { ...(dx ? { transform: `translateX(${-dx}px)` } : {}), opacity: 0 }], {
+          duration: OUT_MS,
+          easing: EASE,
+          fill: 'forwards',
+        })
+        s.running.push(gone)
+        gone.onfinish = () => {
+          under.remove()
+          if (s.under === under) s.under = null
+        }
       }
       const out = p.overlay.animate(
         [{ opacity: 1 }, { ...(dx ? { transform: `translateX(${-dx}px)` } : {}), opacity: 0 }],

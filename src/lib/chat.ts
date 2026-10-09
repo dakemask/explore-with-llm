@@ -301,13 +301,18 @@ export function resend(node: ChatNode, text: string, images: ImageFile[], provid
   })
 }
 
-/** Shows `nodeId` at its fork (see `forkKey`); descendants follow their own remembered selections. */
+/**
+ * Shows `nodeId` at its fork (see `forkKey`); descendants follow their own remembered selections. Shown at
+ * once (`useUi().pick`), before the write lands.
+ */
 export async function selectBranch(conversationId: string, key: string | null, nodeId: string) {
+  useUi.getState().pick(conversationId, { [key ?? ROOT_KEY]: nodeId })
   await db.conversations.update(conversationId, { [`selectedChild.${key ?? ROOT_KEY}`]: nodeId })
 }
 
 /** Remembers several fork selections at once (fork key → node id), in one write. */
 export async function selectPath(conversationId: string, selection: Record<string, string>) {
+  useUi.getState().pick(conversationId, selection)
   await db.conversations.update(
     conversationId,
     Object.fromEntries(Object.entries(selection).map(([key, id]) => [`selectedChild.${key}`, id])),

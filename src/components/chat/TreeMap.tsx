@@ -259,7 +259,6 @@ export function TreeMap({
   // ---- hover: the root→unit path grows in bold from the root; the shared prefix isn't redrawn ----
   const svgRef = useRef<SVGSVGElement>(null)
   const maskRef = useRef<SVGPathElement>(null)
-  const lengths = useRef(new Map<string, number>())
   const shown = useRef<string[]>([])
   const anim = useRef<Animation | null>(null)
   const clearTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -278,11 +277,6 @@ export function TreeMap({
   }
   useLayoutEffect(placeTip, [tipId])
 
-  useLayoutEffect(() => {
-    for (const el of svgRef.current?.querySelectorAll<SVGPathElement>('path[data-edge]') ?? []) {
-      lengths.current.set(el.dataset.edge!, el.getTotalLength())
-    }
-  }, [edges])
   useEffect(() => () => clearTimeout(clearTimer.current), [])
 
   const highlight = (id: string) => {
@@ -292,7 +286,9 @@ export function TreeMap({
     while (k < route.length && k < shown.current.length && route[k] === shown.current[k]) k++
     const segs = route.slice(1)
     const cum = [0]
-    for (const s of segs) cum.push(cum[cum.length - 1] + (lengths.current.get(s) ?? GX))
+    // Measured now, for the route only (measuring every line after each change slowed switching down).
+    const length = (s: string) => svgRef.current?.querySelector<SVGPathElement>(`path[data-edge="${CSS.escape(s)}"]`)?.getTotalLength() ?? GX
+    for (const s of segs) cum.push(cum[cum.length - 1] + length(s))
     const total = cum[cum.length - 1]
     const pre = cum[Math.max(0, k - 1)]
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches

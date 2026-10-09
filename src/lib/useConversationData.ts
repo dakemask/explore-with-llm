@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { db, type ChatNode, type Conversation, type Note } from '../db'
+import { useUi } from '../store/ui'
 
 export interface ConversationData {
   conversation: Conversation | undefined
@@ -14,8 +15,12 @@ export interface ConversationData {
  * conversation's data: showing nothing for a frame beats mixing one conversation's remembered selections
  * with another's nodes (which flashed wrong branches, dots and colors). The chat reads its data only here.
  *
- * Every write re-reads all three; the conversation and the notes keep their previous objects when unchanged,
- * so a streamed reply's write doesn't re-render (and rebuild the highlights of) everything that uses them.
+ * Fork selections just made (`useUi().picked`) are laid over the stored ones, so a switch shows at once,
+ * not after its write and the re-read; they're forgotten once a read has them.
+ *
+ * Every write re-reads all three; what didn't change keeps its previous object — the conversation, the notes,
+ * each node, and the nodes' array when no node changed —, so a write (a streamed reply's, a switch's) doesn't
+ * re-render (and rebuild the highlights of) everything that uses them.
  */
 export function useConversationData(id: string | null): ConversationData | undefined {
   const data = useLiveQuery(
@@ -30,16 +35,44 @@ export function useConversationData(id: string | null): ConversationData | undef
     },
     [id],
   )
+  const picked = useUi((s) => (s.picked?.conversationId === id ? s.picked.selection : null))
+  const stored = data?.id === id ? data.conversation?.selectedChild : undefined
+  useEffect(() => {
+    if (id && stored) useUi.getState().settlePicks(id, stored)
+  }, [id, stored])
+
   const prev = useRef<ConversationData | undefined>(undefined)
   return useMemo(() => {
     if (!data || data.id !== id) return undefined
     const same = <T,>(a: T, b: T | undefined) => (b !== undefined && JSON.stringify(a) === JSON.stringify(b) ? b : a)
+    let conversation = data.conversation
+    if (conversation && picked) conversation = { ...conversation, selectedChild: { ...conversation.selectedChild, ...picked } }
     const next: ConversationData = {
-      conversation: same(data.conversation, prev.current?.conversation),
-      nodes: data.nodes,
+      conversation: same(conversation, prev.current?.conversation),
+      nodes: sameNodes(data.nodes, prev.current?.nodes),
       notes: same(data.notes, prev.current?.notes),
     }
     prev.current = next
     return next
-  }, [data, id])
+  }, [data, id, picked])
+}
+
+/**
+ * The new nodes, keeping each unchanged one's previous object (and the previous array if none changed). A
+ * node's `attempt` (large: the raw request and response) is compared by what every write of it changes —
+ * `status`, `url` (the request is recorded), `finishedAt` (it ended) —; a new kind of attempt write must
+ * change one of them too.
+ */
+function sameNodes(nodes: ChatNode[], before: ChatNode[] | undefined): ChatNode[] {
+  if (!before) return nodes
+  const byId = new Map(before.map((n) => [n.id, n]))
+  const key = (n: ChatNode) => JSON.stringify({ ...n, attempt: [n.attempt.status, n.attempt.url, n.attempt.finishedAt] })
+  let changed = nodes.length !== before.length
+  const next = nodes.map((n, i) => {
+    const old = byId.get(n.id)
+    const kept = old && key(old) === key(n) ? old : n
+    changed ||= kept !== before[i]
+    return kept
+  })
+  return changed ? next : before
 }
