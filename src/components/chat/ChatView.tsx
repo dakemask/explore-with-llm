@@ -38,7 +38,7 @@ import { SystemRow } from './SystemMessage'
 import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
 import { useSiblings } from './SiblingSwitcher'
-import { TreeMapPanel } from './TreeMap'
+import { currentStore, TreeMapPanel } from './TreeMap'
 import { ConversationList } from '../layout/ConversationList'
 import { useNodeActions } from './useNodeActions'
 
@@ -244,13 +244,14 @@ export function ChatView() {
   }
   const toggleTree = () => (tree && !tree.closing ? closeTree() : setTree({}))
   // "Current" in the map, followed live while the map is open (read on scroll, when the reading line moves
-  // and whenever the path changes): the turn the reading line lies in (`lib/reading.ts`).
-  const [treeCurrent, setTreeCurrent] = useState<string | undefined>()
+  // and whenever the path changes): the turn the reading line lies in (`lib/reading.ts`). A store only the
+  // map reads: "current" moving re-renders the map, not the chat.
+  const treeCurrent = useMemo(currentStore, [])
   const treeOpen = !!tree
   useEffect(() => {
     const box = scroll.containerRef.current
     if (!treeOpen || !box) return
-    const read = () => setTreeCurrent(reading.current() ?? last?.id)
+    const read = () => treeCurrent.setState({ id: reading.current() ?? last?.id })
     read()
     let frame = 0
     const later = () => {
@@ -264,7 +265,7 @@ export function ChatView() {
       box.removeEventListener('scroll', later)
       off()
     }
-  }, [treeOpen, path, last?.id, scroll.containerRef, reading])
+  }, [treeOpen, path, last?.id, scroll.containerRef, reading, treeCurrent])
   /** Shows the clicked turn: remember the selection at every fork above it, then glide it near the top. */
   const jump = (unit: MapUnit) => {
     if (!conversation || !nodes) return
@@ -276,7 +277,7 @@ export function ChatView() {
       motion.begin(forkKey(part), to, to === target.id ? switchDir(nodes, part, to) : 0)
     }
     reading.select(target.id)
-    setTreeCurrent(target.id)
+    treeCurrent.setState({ id: target.id })
     scroll.unpin()
     setScrollTarget(target.id)
     void selectPath(conversation.id, selection)
@@ -381,7 +382,7 @@ export function ChatView() {
         <TreeMapPanel
           mapKey={conversationId ?? ''}
           nodes={conversationId ? nodes : []}
-          currentNodeId={treeCurrent}
+          current={treeCurrent}
           endNodeId={conversationId ? last?.id : undefined}
           closing={!!tree.closing}
           docked={phone}

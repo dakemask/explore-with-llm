@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import {
+  memo,
   useEffect,
   useId,
   useLayoutEffect,
@@ -8,11 +9,12 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type Ref,
   type RefObject,
 } from 'react'
+import { useStore } from 'zustand'
+import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { branchColors, colorVar } from '../../lib/colors'
@@ -34,6 +36,10 @@ const MIN_H = 140
 const EDGE = 8
 const HEADER = 56
 const DEFAULT_SIZE = { w: 440, h: 300 }
+
+/** "Current" for the map: the chat writes it, only the map reads it (so it moving re-renders just the map). */
+export type CurrentStore = StoreApi<{ id: string | undefined }>
+export const currentStore = (): CurrentStore => createStore(() => ({ id: undefined as string | undefined }))
 
 /** The window's box kept inside the viewport (shrunk first if the viewport is smaller than it). */
 function fit(box: TreeWindow): TreeWindow {
@@ -64,7 +70,7 @@ export function TreeMapPanel({
   nodes: ChatNode[] | undefined
   /** The conversation: the map restarts (centered on "current") when it changes. */
   mapKey: string
-  currentNodeId: string | undefined
+  current: CurrentStore
   /** The node the chat's path ends at (its attempts are drawn if it is one). */
   endNodeId: string | undefined
   closing: boolean
@@ -193,22 +199,24 @@ export function TreeMapPanel({
  * The tree map window's content: a tidy horizontal tree of the main line in branch colors, laid out from
  * the live data (the layout depends on the tree's shape and, for attempts, on where the chat's path ends:
  * `endNodeId` — they're drawn only while it is one of them); hovering a unit grows a bold path to it from
- * the root. `currentNodeId` = the turn the user is looking at (marked "current"; the map scrolls only to
+ * the root. `current` = the turn the user is looking at (marked "current"; the map scrolls only to
  * bring it back into view when it changes); `onJump` gets the clicked unit. Right-clicking a node edits its label. A mouse wheel scrolls sideways
  * (Shift: up / down); touchpads scroll natively. Remount it per conversation (it opens centered on "current").
+ * Units and lines are memoized parts with plain props: a change re-renders only the ones it changes.
  */
 export function TreeMap({
   nodes,
-  currentNodeId,
+  current: currentStore,
   endNodeId,
   onJump,
 }: {
   nodes: ChatNode[]
-  currentNodeId: string | undefined
+  current: CurrentStore
   endNodeId: string | undefined
   onJump: (unit: MapUnit) => void
 }) {
   const t = useT()
+  const currentNodeId = useStore(currentStore, (s) => s.id)
   const uid = 'tm' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const layout = useMemo(() => layoutTree(nodes, endNodeId), [nodes, endNodeId])
   const colors = useMemo(() => branchColors(nodes), [nodes])
@@ -254,6 +262,14 @@ export function TreeMap({
   }, [layout, colors, keys])
   const stroke = (key: string) => `url(#${gradId(key)})`
   const edgeById = useMemo(() => new Map(edges.map((e) => [e.id, e])), [edges])
+  // Made only when the lines change ("current" or a hover moving leaves them be).
+  const lines = useMemo(
+    () => ({
+      gradients: edges.map((e) => <EdgeGradient key={e.key} id={gradId(e.key)} x1={e.x1} x2={e.x2} from={e.from} to={e.to} />),
+      paths: edges.map((e) => <EdgePath key={e.key} id={e.id} k={e.key} d={e.d} stroke={stroke(e.key)} />),
+    }),
+    [edges],
+  )
   const labels = useMemo(() => new Map(nodes.flatMap((n) => (n.label ? [[n.id, n.label]] : []))), [nodes])
 
   // ---- hover: the root→unit path grows in bold from the root; the shared prefix isn't redrawn ----
@@ -405,12 +421,6 @@ export function TreeMap({
     }
   }, [])
 
-  const onKey = (e: KeyboardEvent, u: MapUnit) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onJump(u)
-    }
-  }
   const showTip = (x: number, y: number, u: MapUnit) => {
     tipAt.current = { x, y }
     if (tipId === u.id) placeTip()
@@ -427,6 +437,38 @@ export function TreeMap({
   const litIds = lit ? new Map(lit.route.map((id, i) => [id, lit.delays[i]])) : undefined
   const fresh = useUi((s) => s.newBranches)
 
+  // The units' handlers: one stable object (so they stay memoized) calling this render's functions.
+  const handlers = useRef<UnitActions>(null!)
+  useLayoutEffect(() => {
+    const unit = (id: string) => layout.byId.get(id)
+    handlers.current = {
+      jump: (id) => {
+        const u = unit(id)
+        if (u) onJump(u)
+      },
+      enter: highlight,
+      leave: unhighlight,
+      tip: (x, y, id) => {
+        const u = unit(id)
+        if (u) showTip(x, y, u)
+      },
+      relabel: (id) => {
+        const u = unit(id)
+        if (u?.type === 'node') void editLabel({ id: u.nodes[0].id, label: labels.get(u.nodes[0].id) }, t)
+      },
+    }
+  })
+  const actions = useMemo<UnitActions>(
+    () => ({
+      jump: (id) => handlers.current.jump(id),
+      enter: (id) => handlers.current.enter(id),
+      leave: () => handlers.current.leave(),
+      tip: (x, y, id) => handlers.current.tip(x, y, id),
+      relabel: (id) => handlers.current.relabel(id),
+    }),
+    [],
+  )
+
   // What was drawn last time, by key: new keys grow in from their parent, gone ones become ghosts.
   type Drawn = { x: number; y: number; color: string; d?: string }
   const drawn = useRef<Map<string, Drawn> | null>(null)
@@ -438,7 +480,7 @@ export function TreeMap({
         x: X(u),
         y: Y(u),
         color: colorVar(colors.get(u.nodes[0].id) ?? 0),
-        d: edges.find((e) => e.id === u.id)?.d,
+        d: edgeById.get(u.id)?.d,
       })
     }
     const before = drawn.current
@@ -468,7 +510,7 @@ export function TreeMap({
     }
     const gone = [...before].filter(([key]) => !now.has(key)).map(([key, g]) => ({ key, ...g }))
     if (gone.length) setGhosts((list) => [...list.filter((g) => !now.has(g.key)), ...gone])
-  }, [layout, colors, edges])
+  }, [layout, colors, edgeById])
   useEffect(() => {
     if (!ghosts.length) return
     const timer = setTimeout(() => setGhosts([]), 300)
@@ -498,12 +540,7 @@ export function TreeMap({
         className="tree-map-svg block shrink-0 font-sans"
       >
         <defs>
-          {edges.map((e) => (
-            <linearGradient key={e.key} id={gradId(e.key)} gradientUnits="userSpaceOnUse" x1={e.x1} y1={0} x2={e.x2} y2={0}>
-              <stop offset={0.1} style={{ stopColor: e.from }} />
-              <stop offset={0.9} style={{ stopColor: e.to }} />
-            </linearGradient>
-          ))}
+          {lines.gradients}
           <mask id={`${uid}-reveal`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
             <path ref={maskRef} fill="none" stroke="#fff" strokeWidth={30} strokeLinecap="round" />
           </mask>
@@ -516,20 +553,7 @@ export function TreeMap({
             </g>
           ))}
           <g>
-            {edges.map((e) => (
-              <path
-                key={e.key}
-                data-edge={e.id}
-                data-edge-key={e.key}
-                className="tree-edge"
-                d={e.d}
-                pathLength={1}
-                fill="none"
-                style={{ stroke: stroke(e.key), d: `path("${e.d}")` } as CSSProperties}
-                strokeWidth={2}
-                strokeLinecap="round"
-              />
-            ))}
+            {lines.paths}
           </g>
           <g mask={`url(#${uid}-reveal)`}>
             {litRoute.slice(1).map((id) => {
@@ -539,50 +563,22 @@ export function TreeMap({
             })}
           </g>
           <g>
-            {layout.units.map((u) => {
-              const c = colorVar(colors.get(u.nodes[0].id) ?? 0)
-              const here = u.id === current
-              const delay = litIds?.get(u.id)
-              return (
-                <g
-                  key={keyOf(u)}
-                  data-key={keyOf(u)}
-                  className={clsx('tree-node', delay !== undefined && 'lit')}
-                  style={{ '--delay': `${delay ?? 0}ms`, transform: `translate(${X(u)}px, ${Y(u)}px)` } as CSSProperties}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={label(u)}
-                  aria-current={here || undefined}
-                  onClick={() => onJump(u)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    if (u.type === 'node') void editLabel({ id: u.nodes[0].id, label: labels.get(u.nodes[0].id) }, t)
-                  }}
-                  onKeyDown={(e) => onKey(e, u)}
-                  onMouseEnter={() => highlight(u.id)}
-                  onMouseMove={(e) => showTip(e.clientX, e.clientY, u)}
-                  onMouseLeave={unhighlight}
-                  onFocus={(e) => {
-                    highlight(u.id)
-                    const r = e.currentTarget.getBoundingClientRect()
-                    showTip(r.right, r.bottom, u)
-                  }}
-                  onBlur={unhighlight}
-                >
-                  <circle className="halo" r={11} />
-                  {/* Just became a branch: the switcher's double ripple, in its color. */}
-                  {u.type === 'node' && fresh[u.nodes[0].id] && (
-                    <circle className="tree-ripple anim-branch-ring" r={5} style={{ fill: c }} />
-                  )}
-                  <circle className="core" r={5} style={{ fill: c }} />
-                  {u.type === 'stack' && (
-                    <text x={10} y={4} fontSize={10.5} style={{ fill: 'var(--c-muted)' }}>
-                      ×{u.nodes.length}
-                    </text>
-                  )}
-                </g>
-              )
-            })}
+            {layout.units.map((u) => (
+              <UnitDot
+                key={keyOf(u)}
+                id={u.id}
+                k={keyOf(u)}
+                x={X(u)}
+                y={Y(u)}
+                color={colorVar(colors.get(u.nodes[0].id) ?? 0)}
+                delay={litIds?.get(u.id)}
+                here={u.id === current}
+                fresh={u.type === 'node' && !!fresh[u.nodes[0].id]}
+                count={u.type === 'stack' ? u.nodes.length : undefined}
+                label={label(u)}
+                actions={actions}
+              />
+            ))}
           </g>
           {/* "Current": ring + label, gliding to the turn it moves to. */}
           {currentAt && (
@@ -604,6 +600,110 @@ export function TreeMap({
     </div>
   )
 }
+
+type UnitActions = {
+  jump: (id: string) => void
+  enter: (id: string) => void
+  leave: () => void
+  tip: (x: number, y: number, id: string) => void
+  relabel: (id: string) => void
+}
+
+/** One drawn unit (node or stack): its dot, halo, ripple and ×n. `delay` = hovered route's swell delay. */
+const UnitDot = memo(function UnitDot({
+  id,
+  k,
+  x,
+  y,
+  color,
+  delay,
+  here,
+  fresh,
+  count,
+  label,
+  actions,
+}: {
+  id: string
+  k: string
+  x: number
+  y: number
+  color: string
+  delay: number | undefined
+  here: boolean
+  fresh: boolean
+  count: number | undefined
+  label: string
+  actions: UnitActions
+}) {
+  return (
+    <g
+      data-key={k}
+      className={clsx('tree-node', delay !== undefined && 'lit')}
+      style={{ '--delay': `${delay ?? 0}ms`, transform: `translate(${x}px, ${y}px)` } as CSSProperties}
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      aria-current={here || undefined}
+      onClick={() => actions.jump(id)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        actions.relabel(id)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          actions.jump(id)
+        }
+      }}
+      onMouseEnter={() => actions.enter(id)}
+      onMouseMove={(e) => actions.tip(e.clientX, e.clientY, id)}
+      onMouseLeave={actions.leave}
+      onFocus={(e) => {
+        actions.enter(id)
+        const r = e.currentTarget.getBoundingClientRect()
+        actions.tip(r.right, r.bottom, id)
+      }}
+      onBlur={actions.leave}
+    >
+      <circle className="halo" r={11} />
+      {/* Just became a branch: the switcher's double ripple, in its color. */}
+      {fresh && <circle className="tree-ripple anim-branch-ring" r={5} style={{ fill: color }} />}
+      <circle className="core" r={5} style={{ fill: color }} />
+      {count !== undefined && (
+        <text x={10} y={4} fontSize={10.5} style={{ fill: 'var(--c-muted)' }}>
+          ×{count}
+        </text>
+      )}
+    </g>
+  )
+})
+
+/** A line's gradient: from the parent's color into the unit's. */
+const EdgeGradient = memo(function EdgeGradient(e: { id: string; x1: number; x2: number; from: string; to: string }) {
+  return (
+    <linearGradient id={e.id} gradientUnits="userSpaceOnUse" x1={e.x1} y1={0} x2={e.x2} y2={0}>
+      <stop offset={0.1} style={{ stopColor: e.from }} />
+      <stop offset={0.9} style={{ stopColor: e.to }} />
+    </linearGradient>
+  )
+})
+
+/** A line to a unit (`id`; `k` = its kept key), its shape gliding by the CSS `d` transition. */
+const EdgePath = memo(function EdgePath({ id, k, d, stroke }: { id: string; k: string; d: string; stroke: string }) {
+  return (
+    <path
+      data-edge={id}
+      data-edge-key={k}
+      className="tree-edge"
+      d={d}
+      pathLength={1}
+      fill="none"
+      style={{ stroke, d: `path("${d}")` } as CSSProperties}
+      strokeWidth={2}
+      strokeLinecap="round"
+    />
+  )
+})
 
 /**
  * Center of the "current" pill: above the node, unless a neighbor (node, line or ×n) is drawn there; then
