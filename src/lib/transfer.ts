@@ -14,9 +14,10 @@ export interface ConversationFile {
   /**
    * 1: before node kinds (no `branch` / `archived`; branches are derived on import). 2: before notes. 3: before labels.
    * 4: before system messages (none was sent). 5: before note titles. 6: request and raw response inside each
-   * node's `attempt` (`requestHeaders`, `requestBody`, `rawChunks`).
+   * node's `attempt` (`requestHeaders`, `requestBody`, `rawChunks`). 7: side questions only on replies (no
+   * `anchor.target`).
    */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
   exportedAt: number
   conversation: Conversation
   nodes: ChatNode[]
@@ -31,7 +32,7 @@ export interface ConversationFile {
 }
 
 const FORMAT = 'explore-with-llm/conversation'
-const VERSION = 7
+const VERSION = 8
 export const REMOVED = '[removed]'
 
 export class ImportError extends Error {}
@@ -213,7 +214,7 @@ function parseFile(text: string): ConversationFile {
     throw new ImportError('not JSON')
   }
   if (!f || f.format !== FORMAT) throw new ImportError('not an exported conversation')
-  if (![1, 2, 3, 4, 5, 6, 7].includes(f.version)) throw new ImportError(`unsupported version ${f.version}`)
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(f.version)) throw new ImportError(`unsupported version ${f.version}`)
   const c = f.conversation
   if (!c || typeof c.title !== 'string' || !isRecord(c.selectedChild) || !Array.isArray(f.nodes) || !Array.isArray(f.images))
     throw new ImportError('missing fields')
@@ -231,6 +232,7 @@ function parseFile(text: string): ConversationFile {
     if (n.label !== undefined && typeof n.label !== 'string') throw new ImportError('bad message')
     if (n.branchAt !== undefined && typeof n.branchAt !== 'number') throw new ImportError('bad message')
     if (n.system !== undefined && typeof n.system !== 'string') throw new ImportError('bad message')
+    if (isRecord(n.anchor) && n.anchor.target !== undefined && n.anchor.target !== 'user') throw new ImportError('bad message')
     nodeIds.add(n.id)
   }
   const imageIds = new Set<string>()

@@ -50,7 +50,7 @@ beforeEach(async () => {
     node('n1', null, { user: { text: LONG, images: ['img1'] }, system: 'Be brief.' }),
     node('n2', 'n1'),
     node('n3', 'n1', { edit: { from: 'n2', history: [{ content: 'a n2', at: 0 }], at: 1 }, label: '改过的版本' }),
-    node('s1', 'n1', { kind: 'side', thread: 'th', anchor: { start: 0, end: 1, text: 'a' } }),
+    node('s1', 'n1', { kind: 'side', thread: 'th', anchor: { start: 0, end: 1, text: 'q', target: 'user' } }),
     node('s2', 's1', { kind: 'side', thread: 'th' }),
   ]
   await db.nodes.bulkAdd(nodes)
@@ -127,7 +127,7 @@ describe('conversation export / import', () => {
     expect(name).toMatch(/^T-\d{8}\.json$/)
     expect(json).not.toContain(KEY)
     const f = JSON.parse(json)
-    expect(f.version).toBe(7)
+    expect(f.version).toBe(8)
     const req = (await decode(f.records[0].request)) as PackedRequest
     expect(JSON.stringify(req)).not.toContain(KEY)
     expect(req.headers).toEqual({ Authorization: REMOVED, 'X-Custom': `also ${REMOVED}`, 'Content-Type': 'application/json' })
@@ -151,6 +151,7 @@ describe('conversation export / import', () => {
     expect(path.map((n) => n.label)).toEqual([undefined, '改过的版本'])
     expect(path[0].system).toBe('Be brief.')
     const thread = nodes.find((n) => n.anchor)!.thread!
+    expect(nodes.find((n) => n.anchor)!.anchor!.target).toBe('user')
     expect(thread).not.toBe('th')
     expect(threadPath(nodes, thread, conv.selectedChild).map((n) => n.assistant.content)).toEqual(['a s1', 'a s2'])
 
@@ -206,6 +207,9 @@ describe('conversation export / import', () => {
     f.nodes[0].system = ['x']
     await expect(importConversation(JSON.stringify(f))).rejects.toThrow('bad message')
     delete f.nodes[0].system
+    f.nodes[3].anchor.target = 'reply'
+    await expect(importConversation(JSON.stringify(f))).rejects.toThrow('bad message')
+    f.nodes[3].anchor.target = 'user'
     f.nodes[1].parentId = 'missing'
     await expect(importConversation(JSON.stringify(f))).rejects.toThrow('broken message tree')
     f.nodes[1].parentId = 'n1'

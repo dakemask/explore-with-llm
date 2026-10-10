@@ -129,8 +129,8 @@ export function useSideQuestions(
 }
 
 /**
- * Highlights for each node on the path: side questions and notes on its reply, notes on its message (an
- * empty list still enables selecting text). Reused while unchanged so memoized messages don't re-render
+ * Highlights for each node on the path: side questions and notes on its reply or on its message (an empty
+ * list still enables selecting text). Reused while unchanged so memoized messages don't re-render
  * their Markdown.
  */
 function useAnchors(path: ChatNode[], items: AnyItem[], expanded: string | null, leaving: Record<string, true>) {
@@ -147,7 +147,7 @@ function useAnchors(path: ChatNode[], items: AnyItem[], expanded: string | null,
           marks[it.note.target === 'user' ? 'user' : 'reply'].push({ id: it.mark, start, end, active, note: true })
         } else {
           const anchor = it.draft?.anchor ?? it.path[0].anchor!
-          marks.reply.push({ id: it.mark, start: anchor.start, end: anchor.end, active, leaving: leaving[it.id] })
+          marks[anchor.target === 'user' ? 'user' : 'reply'].push({ id: it.mark, start: anchor.start, end: anchor.end, active, leaving: leaving[it.id] })
         }
       }
       const prev = cache.current.get(n.id)

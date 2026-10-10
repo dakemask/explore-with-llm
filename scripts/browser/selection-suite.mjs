@@ -109,7 +109,7 @@ check('P6 multi-line: two lines selected', s.first && s.last && s.last.top > s.f
 check('P6 multi-line: above the first line, centered on it', p && Math.abs(s.first.top - 8 - p.bottom) < 3 && Math.abs(p.cx - s.first.cx) < 2, { s, p })
 await page.screenshot({ path: `P6-${theme}.png` })
 
-// P7: in a user message: only 笔记.
+// P7: in an answered user message: 追问 and 笔记 (a turn without reply text: only 笔记).
 await page.mouse.click(5, 880)
 const user = page.locator(`${SC} [data-anchor-target="user"]`).last()
 await page.evaluate((sc) => {
@@ -120,7 +120,7 @@ await page.evaluate((sc) => {
 await page.waitForTimeout(300)
 await drag(user.locator('p').first(), 2, 30)
 p = await pillBox()
-check('P7 user message: only 笔记', p && !/追问/.test(p.text) && /笔记/.test(p.text), p)
+check('P7 user message: 追问 and 笔记', p && /追问/.test(p.text) && /笔记/.test(p.text), p)
 
 // P8: 追问 still opens a draft card; the selection pill goes away.
 await page.mouse.click(5, 880)

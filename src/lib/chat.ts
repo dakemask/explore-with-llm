@@ -8,7 +8,7 @@ import {
   type Protocol,
   type Provider,
   type RawChunk,
-  type SideAnchor,
+  type ThreadAnchor,
 } from '../db'
 import { translate } from '../i18n'
 import { getAdapter, modelConfig, modelParams, prepareChat, ProviderError, sendChat, type ChatMessage, type ImagePayload } from '../providers'
@@ -123,7 +123,7 @@ export async function sendMessage(opts: {
   images?: ImageFile[]
   provider: Provider
   model: string
-  side?: { thread: string; anchor?: SideAnchor }
+  side?: { thread: string; anchor?: ThreadAnchor }
   /** A new first turn's system message (empty: none); other turns use their path's first node's. */
   system?: string
 }) {

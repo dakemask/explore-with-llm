@@ -67,6 +67,11 @@ export interface SideAnchor {
   text: string
 }
 
+/** A side question's anchor: on the reply (`target` absent) or on the user message (`'user'`). */
+export interface ThreadAnchor extends SideAnchor {
+  target?: 'user'
+}
+
 export type AttemptStatus = 'streaming' | 'done' | 'error' | 'aborted'
 
 /** A piece of the response body exactly as the network delivered it. */
@@ -119,7 +124,7 @@ export interface ChatNode {
   parentId: string | null
   kind: NodeKind
   /** Only set on side-question roots. */
-  anchor?: SideAnchor
+  anchor?: ThreadAnchor
   /** Side nodes only: the side-question thread they belong to. */
   thread?: string
   /**

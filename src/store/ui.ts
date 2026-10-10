@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SideAnchor } from '../db'
+import type { ThreadAnchor } from '../db'
 import type { ImageFile } from '../lib/images'
 
 /** Live text of in-flight requests, kept in memory so streaming doesn't hammer IndexedDB. */
@@ -19,7 +19,7 @@ export type Panel = { type: 'detail'; nodeId: string }
 export interface SideDraft {
   conversationId: string
   nodeId: string
-  anchor: SideAnchor
+  anchor: ThreadAnchor
   prefill: string
   text: string
   images: ImageFile[]

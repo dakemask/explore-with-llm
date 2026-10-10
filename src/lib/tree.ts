@@ -1,4 +1,4 @@
-import { ROOT_KEY, type ChatNode, type Conversation, type Note, type SideAnchor } from '../db/types'
+import { ROOT_KEY, type ChatNode, type Conversation, type Note, type ThreadAnchor } from '../db/types'
 
 const byTime = (a: ChatNode, b: ChatNode) => a.createdAt - b.createdAt
 
@@ -56,7 +56,7 @@ export function threadPath(nodes: ChatNode[], thread: string, selectedChild: Con
 
 /** Side-question threads asked from `nodeId`, oldest first, with their anchor and roots. */
 export function sideThreads(nodes: ChatNode[], nodeId: string) {
-  const threads = new Map<string, { thread: string; anchor: SideAnchor; roots: ChatNode[] }>()
+  const threads = new Map<string, { thread: string; anchor: ThreadAnchor; roots: ChatNode[] }>()
   for (const n of nodes.filter((n) => n.parentId === nodeId && n.anchor && n.thread && !n.archived).sort(byTime)) {
     const t = threads.get(n.thread!)
     if (t) t.roots.push(n)

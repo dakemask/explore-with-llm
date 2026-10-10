@@ -88,6 +88,7 @@ function Row({
     const above = pathTo(nodes, item.parentId)
     const text = short(firstLine(above[above.length - 1]?.user.text ?? '') || t('image.only'))
     if (item.note) return t(item.note.target === 'user' ? 'archive.onUser' : 'archive.onReply', { n: above.length, text })
+    if (item.kind === 'side' && item.nodes[0].anchor?.target === 'user') return t('archive.fromUser', { n: above.length, text })
     return t(item.kind === 'side' ? 'archive.from' : 'archive.after', { n: above.length, text })
   })()
   const time = new Date(item.archived).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {

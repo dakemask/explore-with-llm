@@ -2,7 +2,7 @@ import { autoUpdate, flip, hide, inline, offset, shift, useFloating } from '@flo
 import clsx from 'clsx'
 import { MessageSquareText, MessageSquareQuote, NotebookPen } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
-import type { Note, SideAnchor } from '../../db'
+import type { Note, SideAnchor, ThreadAnchor } from '../../db'
 import { useT } from '../../i18n'
 import { rangeToSource } from '../../lib/anchor'
 import { isPhone, usePhone } from '../../lib/phone'
@@ -13,25 +13,29 @@ type Target = Note['target']
 
 /**
  * Floating "Ask" / "Note" buttons over a text selection inside one main-line message (an element with
- * `data-anchor-root`: a reply, or a user message with `data-anchor-target="user"`, which only takes notes).
- * `contentOf` returns that message's source text.
+ * `data-anchor-root`: a reply, or a user message with `data-anchor-target="user"`). `contentOf` returns that
+ * message's source text; `canAsk` says whether a side question can start there (notes always can).
  */
 export function SelectionAsk({
   containerRef,
   contentOf,
+  canAsk,
   onAsk,
   onNote,
 }: {
   containerRef: RefObject<HTMLElement | null>
   contentOf: (nodeId: string, target: Target) => string | undefined
+  canAsk: (nodeId: string, target: Target) => boolean
   /** `at` = the block the selection starts in (the passage the user is reading). */
-  onAsk: (nodeId: string, anchor: SideAnchor, at: Element | null) => void
+  onAsk: (nodeId: string, anchor: ThreadAnchor, at: Element | null) => void
   onNote: (nodeId: string, target: Target, anchor: SideAnchor, at: Element | null) => void
 }) {
   const t = useT()
-  const [hit, setHit] = useState<{ nodeId: string; target: Target; anchor: SideAnchor; range: Range } | null>(null)
-  const latest = useRef({ contentOf })
-  latest.current = { contentOf }
+  const [hit, setHit] = useState<{ nodeId: string; target: Target; anchor: SideAnchor; ask: boolean; range: Range } | null>(
+    null,
+  )
+  const latest = useRef({ contentOf, canAsk })
+  latest.current = { contentOf, canAsk }
 
   useEffect(() => {
     const container = containerRef.current
@@ -49,7 +53,8 @@ export function SelectionAsk({
       const content = latest.current.contentOf(nodeId, target)
       const span = content != null ? rangeToSource(root, range, content) : null
       if (!span || !content) return setHit(null)
-      setHit({ nodeId, target, anchor: { ...span, text: content.slice(span.start, span.end) }, range: range.cloneRange() })
+      const anchor = { ...span, text: content.slice(span.start, span.end) }
+      setHit({ nodeId, target, anchor, ask: latest.current.canAsk(nodeId, target), range: range.cloneRange() })
     }
     // Evaluate once the mouse/keyboard selection is finished; hide as soon as it collapses.
     const onUp = () => setTimeout(evaluate, 0)
@@ -136,8 +141,10 @@ export function SelectionAsk({
         isPositioned ? 'anim-pop' : 'invisible',
       )}
     >
-      {hit.target === 'assistant' &&
-        action(<MessageSquareQuote size={14} />, t('side.ask'), () => onAsk(hit.nodeId, hit.anchor, blockOf(hit.range)))}
+      {hit.ask &&
+        action(<MessageSquareQuote size={14} />, t('side.ask'), () =>
+          onAsk(hit.nodeId, hit.target === 'user' ? { ...hit.anchor, target: 'user' } : hit.anchor, blockOf(hit.range)),
+        )}
       {action(<NotebookPen size={14} />, t('note.add'), () => onNote(hit.nodeId, hit.target, hit.anchor, blockOf(hit.range)))}
     </Layer>
   )

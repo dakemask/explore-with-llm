@@ -162,6 +162,11 @@ export function ChatView() {
     const n = nodes?.find((n) => n.id === nodeId)
     return target === 'user' ? n?.user.text : n?.assistant.content
   }
+  // A side question on a user message is sent with that turn's reply as context: only once it has one.
+  const canAsk = (nodeId: string, target: 'user' | 'assistant') => {
+    const n = nodes?.find((n) => n.id === nodeId)
+    return target === 'assistant' || (!!n && n.attempt.status !== 'streaming' && !lacksReply(n))
+  }
 
   // Hover links: a highlight in the text lights up its card and bar; a card or bar deepens its highlight.
   const [hover, setHover] = useState<string[]>([])
@@ -517,6 +522,7 @@ export function ChatView() {
       <SelectionAsk
         containerRef={scroll.containerRef}
         contentOf={contentOf}
+        canAsk={canAsk}
         // The user is reading the passage they asked about: keep it in place (a collapsed column opens and
         // may narrow the chat, rewrapping the text) and stop following the end.
         onAsk={(nodeId, anchor, at) => {
