@@ -177,7 +177,7 @@ export async function sendMessage(opts: {
     if (parentId && (!side || side.anchor)) {
       const parent = await db.nodes.get(parentId)
       if (parent?.kind === 'main' && !parent.branch) {
-        await db.nodes.update(parentId, { branch: true })
+        await db.nodes.update(parentId, { branch: true, branchAt: Date.now() })
         promoted = parentId
       }
     }
@@ -326,7 +326,7 @@ export async function selectPath(conversationId: string, selection: Record<strin
 
 /** Turns an attempt into a branch (by hand). Never undone. */
 export async function makeBranch(nodeId: string) {
-  await db.nodes.update(nodeId, { branch: true })
+  await db.nodes.update(nodeId, { branch: true, branchAt: Date.now() })
   useUi.getState().markBranches([nodeId])
 }
 
@@ -355,6 +355,7 @@ export async function threadToBranch(conversationId: string, thread: string): Pr
     const members = nodes.filter((n) => n.thread === thread)
     const hasKids = new Set(members.map((n) => n.parentId))
     const title = conv.threadTitles?.[thread]
+    const now = Date.now()
     for (const n of members) {
       const branch = n.anchor ? roots.length === 1 || hasKids.has(n.id) : hasKids.has(n.id)
       if (branch && !n.archived) promoted.push(n.id)
@@ -365,7 +366,7 @@ export async function threadToBranch(conversationId: string, thread: string): Pr
           m.kind = 'main'
           delete m.thread
           delete m.anchor
-          if (branch) m.branch = true
+          if (branch) Object.assign(m, { branch: true, branchAt: now })
           if (m.id === shownRoot.id && title) m.label = title
         })
     }

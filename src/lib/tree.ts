@@ -6,6 +6,14 @@ export function childrenOf(nodes: ChatNode[], parentId: string | null, kind: Cha
   return nodes.filter((n) => n.parentId === parentId && n.kind === kind && !n.anchor && !n.archived).sort(byTime)
 }
 
+/**
+ * The branches among `kids` (a fork's children, oldest first), in the order they became branches (`branchAt`,
+ * else `createdAt`): the switcher's dots, the tree map's rows and the colors' order. Attempts stay oldest first.
+ */
+export function branchesOf(kids: ChatNode[]) {
+  return kids.filter((n) => n.branch).sort((a, b) => (a.branchAt ?? a.createdAt) - (b.branchAt ?? b.createdAt))
+}
+
 /** Versions of a side question's first message (all roots of `thread`, unless archived), oldest first. */
 export function threadRoots(nodes: ChatNode[], thread: string) {
   return nodes.filter((n) => n.thread === thread && n.anchor && !n.archived).sort(byTime)

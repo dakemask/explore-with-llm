@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, type RefObject } from 'react'
 import type { ChatNode } from '../db'
-import { siblingsOf } from './tree'
+import { branchesOf, siblingsOf } from './tree'
 
 /**
  * Switch animations (task 19, owner, 2026-10-08) for a chat scroll area (the main chat and each side card).
@@ -48,7 +48,7 @@ export function snapshot(el: HTMLElement) {
 /** The direction of a switch from `from` to its sibling `to`, by the switcher's order (branches, then attempts). */
 export function switchDir(nodes: ChatNode[], from: ChatNode, to: string) {
   const sibs = siblingsOf(nodes, from)
-  const order = from.kind === 'side' ? sibs : [...sibs.filter((s) => s.branch), ...sibs.filter((s) => !s.branch)]
+  const order = from.kind === 'side' ? sibs : [...branchesOf(sibs), ...sibs.filter((s) => !s.branch)]
   const a = order.findIndex((s) => s.id === from.id)
   const b = order.findIndex((s) => s.id === to)
   return a < 0 || b < 0 ? 0 : Math.sign(b - a)

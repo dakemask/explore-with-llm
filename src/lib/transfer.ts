@@ -229,6 +229,7 @@ function parseFile(text: string): ConversationFile {
     if ((n.branch !== undefined && n.branch !== true) || (n.archived !== undefined && typeof n.archived !== 'number'))
       throw new ImportError('bad message')
     if (n.label !== undefined && typeof n.label !== 'string') throw new ImportError('bad message')
+    if (n.branchAt !== undefined && typeof n.branchAt !== 'number') throw new ImportError('bad message')
     if (n.system !== undefined && typeof n.system !== 'string') throw new ImportError('bad message')
     nodeIds.add(n.id)
   }

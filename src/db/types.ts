@@ -128,6 +128,11 @@ export interface ChatNode {
    */
   branch?: true
   /**
+   * When the node became a branch (with `branch`; absent on branches from before = `createdAt`). Branches at
+   * a fork are ordered by it (`branchesOf`), so a new branch comes last and the others keep their colors.
+   */
+  branchAt?: number
+  /**
    * When the user archived this node (for a side thread: every root version, same time). Descendants are
    * not marked; they are hidden because an ancestor is archived (`lib/tree.ts`).
    */

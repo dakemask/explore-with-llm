@@ -5,7 +5,7 @@ import type { ChatNode } from '../../db'
 import { useT } from '../../i18n'
 import { plainLine } from '../../lib/anchor'
 import { colorVar, GREY } from '../../lib/colors'
-import { forkKey, siblingsOf } from '../../lib/tree'
+import { branchesOf, forkKey, siblingsOf } from '../../lib/tree'
 import { useUi } from '../../store/ui'
 import { IconButton, Tip } from '../ui/Button'
 
@@ -47,9 +47,7 @@ export function useSiblings(path: ChatNode[], nodes: ChatNode[] | undefined, col
         side,
         branches: side
           ? []
-          : sibs
-              .filter((s) => s.branch)
-              .map((s) => ({ id: s.id, color: colors?.get(s.id) ?? GREY, title: title(s), label: s.label })),
+          : branchesOf(sibs).map((s) => ({ id: s.id, color: colors?.get(s.id) ?? GREY, title: title(s), label: s.label })),
         attempts: sibs.filter((s) => side || !s.branch).map((s) => ({ id: s.id, title: title(s), label: s.label })),
       }
       const prev = cache.current.get(n.id)

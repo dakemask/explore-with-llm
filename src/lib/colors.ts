@@ -1,11 +1,11 @@
 import type { ChatNode } from '../db/types'
-import { childrenOf } from './tree'
+import { branchesOf, childrenOf } from './tree'
 
 /**
  * Branch colors ("rainbow flow"; rules in CLAUDE.md › Product decisions): 7 colors on a ring (red, orange, yellow, green,
  * cyan, blue, violet; CSS `--branch-0` … `--branch-6`), plus grey for attempts.
  * Colors change only below forks (≥ 2 branches): there the branches take the next colors along the ring in
- * creation order (first = parent + 1, …). A branch not at a fork keeps the parent's color. Attempts are always
+ * the order they became branches (`branchesOf`; first = parent + 1, …). A branch not at a fork keeps the parent's color. Attempts are always
  * grey, a lone one too (owner, 2026-10-07; it was the parent's color, which made a fresh reply look settled).
  * Archived nodes don't count (they are skipped by `childrenOf`).
  */
@@ -17,14 +17,10 @@ export function branchColors(nodes: ChatNode[]): Map<string, number> {
   const colors = new Map<string, number>()
   const walk = (parentId: string | null, parentColor: number) => {
     const kids = childrenOf(nodes, parentId)
-    const fork = kids.filter((n) => n.branch).length >= 2
-    let step = 0
+    const branches = branchesOf(kids)
+    const fork = branches.length >= 2
     for (const n of kids) {
-      const c = !n.branch
-        ? GREY
-        : fork
-          ? (parentColor + ++step) % BRANCH_COLORS
-          : parentColor
+      const c = !n.branch ? GREY : fork ? (parentColor + 1 + branches.indexOf(n)) % BRANCH_COLORS : parentColor
       colors.set(n.id, c)
       walk(n.id, c)
     }

@@ -47,6 +47,15 @@ describe('branch colors', () => {
     expect([c.get('b1'), c.get('b2'), c.get('b3'), c.get('t')]).toEqual([1, 2, 3, GREY])
   })
 
+  it('orders branches by when they became branches: a new one comes last, the others keep their colors', () => {
+    const nodes = [br('a', null), node('old', 'a'), br('b1', 'a', { branchAt: 100 }), br('b2', 'a', { branchAt: 200 })]
+    expect([nodes[2], nodes[3]].map((n) => branchColors(nodes).get(n.id))).toEqual([1, 2])
+    // The oldest attempt becomes a branch now: it goes after them.
+    nodes[1] = { ...nodes[1], branch: true, branchAt: 300 }
+    const c = branchColors(nodes)
+    expect([c.get('b1'), c.get('b2'), c.get('old')]).toEqual([1, 2, 3])
+  })
+
   it('continues a nested fork from the branch color and wraps around the ring', () => {
     const nodes = [br('a', null)]
     for (let i = 1; i <= 6; i++) nodes.push(br(`b${i}`, 'a'))

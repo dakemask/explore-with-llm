@@ -1,5 +1,5 @@
 import { ROOT_KEY, type ChatNode, type Conversation } from '../db/types'
-import { childrenOf, forkKey, pathTo } from './tree'
+import { branchesOf, childrenOf, forkKey, pathTo } from './tree'
 
 /**
  * The tree map of a conversation's main line. What it draws are *units*: every branch is one; a fork's
@@ -43,7 +43,7 @@ function unitsOf(nodes: ChatNode[], parentId: string | null, shown: string | und
   const kids = childrenOf(nodes, parentId)
   const attempts = kids.filter((n) => !n.branch)
   const unit = (n: ChatNode): MapUnit => ({ id: n.id, type: 'node', nodes: [n], parent: parentId, col: 0, row: 0 })
-  const units = kids.filter((n) => n.branch).map(unit)
+  const units = branchesOf(kids).map(unit)
   if (attempts.some((n) => n.id === shown)) {
     units.push(
       attempts.length === 1

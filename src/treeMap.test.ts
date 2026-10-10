@@ -33,6 +33,11 @@ const pos = (l: TreeLayout, id: string) => {
 }
 
 describe('tree map layout', () => {
+  it('puts branches in the order they became branches (a new one below the others)', () => {
+    const l = layoutTree([br('a', null), br('old', 'a', { branchAt: 300 }), br('b1', 'a', { branchAt: 100 }), br('b2', 'a', { branchAt: 200 })], 'b1')
+    expect(['b1', 'b2', 'old'].map((id) => pos(l, id)[1])).toEqual([0, 1, 2])
+  })
+
   it('lays a chain out in one row', () => {
     const l = layoutTree([br('a', null), br('b', 'a'), node('c', 'b')], 'c')
     expect(l.units.map((u) => [u.id, u.col, u.row])).toEqual([
