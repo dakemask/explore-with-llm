@@ -55,10 +55,17 @@ describe('stackCards', () => {
     expect(stackCards([0, 100, 300])).toEqual([0, 100, 300])
   })
 
-  it('pushes a card down only as far as needed, and the push carries on', () => {
+  it('centers a crowded group on its ideals, using the room above it', () => {
     const step = CARD_HEIGHT + CARD_GAP
-    expect(stackCards([100, 110, 120, 500])).toEqual([100, 100 + step, 100 + 2 * step, 500])
+    expect(stackCards([100, 110, 120, 500])).toEqual([110 - step, 110, 110 + step, 500])
     expect(stackCards([100, 100 + step + 5])).toEqual([100, 100 + step + 5])
+  })
+
+  it('merges groups that collide once centered, and never goes above 0', () => {
+    const step = CARD_HEIGHT + CARD_GAP
+    // [150, 150] centers to 150 ∓ step / 2, reaching into [100, 100]'s: all four center together.
+    expect(stackCards([100, 100, 150, 150])).toEqual([125 - 1.5 * step, 125 - 0.5 * step, 125 + 0.5 * step, 125 + 1.5 * step])
+    expect(stackCards([0, 0, 0])).toEqual([0, step, 2 * step])
   })
 })
 

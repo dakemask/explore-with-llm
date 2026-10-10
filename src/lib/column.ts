@@ -42,12 +42,30 @@ export function columnFrame(width: number, sideWidth: number): Frame {
   return { chatLeft, chatWidth, sideLeft: chatLeft + chatWidth, sideWidth }
 }
 
-/** Collapsed cards in anchor order: each at its ideal top, pushed down only where it would overlap the one above. */
+/**
+ * Collapsed cards in anchor order, at least `height + gap` apart and none above 0, placed as near their ideal
+ * tops as they can be (least total squared distance): a crowded group centers on its ideals rather than
+ * pushing down from the first, using the room above it too (owner, 2026-10-10). Groups that then collide
+ * merge and center together (pool adjacent violators, on the ideals less each card's place in the stack).
+ */
 export function stackCards(ideals: number[], height = CARD_HEIGHT, gap = CARD_GAP): number[] {
+  const step = height + gap
+  const groups: { sum: number; count: number }[] = []
+  ideals.forEach((ideal, i) => {
+    groups.push({ sum: ideal - i * step, count: 1 })
+    while (groups.length > 1) {
+      const last = groups[groups.length - 1]
+      const prev = groups[groups.length - 2]
+      if (prev.sum / prev.count < last.sum / last.count) break
+      prev.sum += last.sum
+      prev.count += last.count
+      groups.pop()
+    }
+  })
   const tops: number[] = []
-  for (const ideal of ideals) {
-    const prev = tops[tops.length - 1]
-    tops.push(prev === undefined ? ideal : Math.max(ideal, prev + height + gap))
+  for (const g of groups) {
+    const base = Math.max(0, g.sum / g.count)
+    for (let k = 0; k < g.count; k++) tops.push(base + tops.length * step)
   }
   return tops
 }

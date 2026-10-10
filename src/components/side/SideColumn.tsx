@@ -33,8 +33,8 @@ const nodeStyle = (color: string, style: CSSProperties) => ({ ...style, '--node'
 
 /**
  * The column right of the chat, inside the chat's scroll area. Collapsed cards sit level with their
- * anchors (pushed down only to avoid overlapping); the expanded one sits at its anchor and covers what it
- * overlaps; the marker strip shows every anchor's lines. Positions are measured from the highlights in
+ * anchors (crowded ones centered on them, `stackCards`); the expanded one sits at its anchor and covers what
+ * it overlaps; the marker strip has a bar beside each card (collapsed column: along each anchor's lines). Positions are measured from the highlights in
  * `content` and follow its size changes (streaming text, images, window width).
  */
 export function SideColumn({
@@ -118,10 +118,9 @@ export function SideColumn({
   useWheelInside(cardRef, open === null ? null : expanded)
   const slots = Object.fromEntries(placed.map((it, i) => [it.id, tops[i]]))
   const motion = useCardMotion(colRef, cardRef, { expanded, open, slots, leaving })
-  const hidden = new Set([
-    ...motion.returning,
-    ...(open === null ? [] : [expanded!, ...coveredCards(tops, open, open + cardHeight).map((i) => placed[i].id)]),
-  ])
+  // Cards under the expanded one (their bars, beside them, go too; the expanded card's own bar stays).
+  const covered = new Set(open === null ? [] : coveredCards(tops, open, open + cardHeight).map((i) => placed[i].id))
+  const hidden = new Set([...motion.returning, ...covered, ...(open === null ? [] : [expanded!])])
   const { lanes, count } = markerLanes(placed.map((it) => spans[it.id]))
   const laneWidth = Math.min(6, (STRIP - 4) / Math.max(1, count))
   const extent =
@@ -151,9 +150,16 @@ export function SideColumn({
               onMouseLeave={() => onHover([])}
               className={clsx(
                 'group/bar absolute flex justify-center rounded-sm transition-[top,height,opacity] duration-200 focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
-                leaving[it.id] && 'pointer-events-none opacity-0',
+                (leaving[it.id] || (!collapsed && covered.has(it.id) && it.id !== expanded)) && 'pointer-events-none opacity-0',
               )}
-              style={nodeStyle(colorOf(it.nodeId), { top: span.top, height: span.bottom - span.top, left: 2 + lanes[i] * laneWidth, width: laneWidth })}
+              // (Column open: beside its card, one card high however many lines its anchor spans — owner,
+              // 2026-10-10; collapsed: along its anchor's lines.)
+              style={nodeStyle(
+                colorOf(it.nodeId),
+                collapsed
+                  ? { top: span.top, height: span.bottom - span.top, left: 2 + lanes[i] * laneWidth, width: laneWidth }
+                  : { top: tops[i] + 8, height: CARD_HEIGHT - 16, left: 2, width: 6 },
+              )}
             >
               <span className={clsx('node-bar h-full w-[3px] rounded-full transition-colors', lit && 'lit')} />
             </button>
