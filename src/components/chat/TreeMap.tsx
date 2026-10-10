@@ -339,22 +339,11 @@ export function TreeMap({
   // scrolls just enough to bring it back (it never follows otherwise: the user may be looking elsewhere).
   const scrollRef = useRef<HTMLDivElement>(null)
   const opened = useRef(false)
-  // The tree sits centered in the map's area; the svg fills it, so a grown tree's new center glides too.
-  // 1 px short of it: clientWidth / Height are rounded, up to half a pixel over the real size under zoom /
-  // display scaling — the svg then overflowed, scrollbars came, the area shrank, they went: it shook.
-  const [area, setArea] = useState({ w: 0, h: 0 })
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const read = () => setArea({ w: el.clientWidth - 1, h: el.clientHeight - 1 })
-    read()
-    const ro = new ResizeObserver(read)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-  const SW = Math.max(W, area.w)
-  const SH = Math.max(H, area.h)
-  const offset = { x: (SW - W) / 2, y: (SH - H) / 2 }
+  // The tree sits centered in the map's area: the svg is the tree's size, stretched by CSS to fill the area
+  // (min 100%), and the tree is moved by 50% of the svg less half its own size (`transform-box: view-box`),
+  // so a grown tree's new center glides too. Nothing measured: a size read by script (rounded, and a frame
+  // late while resizing) made the svg overflow by a little — scrollbars came and went, the map shook.
+  const center = `translate(calc(50% - ${W / 2}px), calc(50% - ${H / 2}px))`
   // The centering offset glides only right after the tree changed shape (not while the window is resized).
   const shape = layout.units.map((u) => `${keyOf(u)}@${u.col},${u.row}`).join(' ')
   const [shapeShown, setShapeShown] = useState(shape)
@@ -374,9 +363,9 @@ export function TreeMap({
     if (!el || !u) return
     const svg = svgRef.current!.getBoundingClientRect()
     const box = el.getBoundingClientRect()
-    // The unit's place in the scrolled content.
-    const ux = svg.left - box.left + el.scrollLeft + offset.x + X(u)
-    const uy = svg.top - box.top + el.scrollTop + offset.y + Y(u)
+    // The unit's place in the scrolled content (the tree centered in the svg, see `center`).
+    const ux = svg.left - box.left + el.scrollLeft + (svg.width - W) / 2 + X(u)
+    const uy = svg.top - box.top + el.scrollTop + (svg.height - H) / 2 + Y(u)
     if (!opened.current) {
       opened.current = true
       el.scrollLeft = ux - el.clientWidth / 2
@@ -534,9 +523,9 @@ export function TreeMap({
     <div ref={scrollRef} className="flex min-h-0 flex-1 overflow-auto">
       <svg
         ref={svgRef}
-        width={SW}
-        height={SH}
-        viewBox={`0 0 ${SW} ${SH}`}
+        width={W}
+        height={H}
+        style={{ minWidth: '100%', minHeight: '100%' }}
         role="group"
         aria-label={t('tree.label')}
         className="tree-map-svg block shrink-0 font-sans"
@@ -547,7 +536,7 @@ export function TreeMap({
             <path ref={maskRef} fill="none" stroke="#fff" strokeWidth={30} strokeLinecap="round" />
           </mask>
         </defs>
-        <g className={clsx(glide && 'tree-glide')} style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}>
+        <g className={clsx(glide && 'tree-glide')} style={{ transform: center, transformBox: 'view-box' }}>
           {ghosts.map((g) => (
             <g key={g.key} className="tree-ghost">
               {g.d && <path d={g.d} fill="none" style={{ stroke: g.color }} strokeWidth={2} strokeLinecap="round" />}
