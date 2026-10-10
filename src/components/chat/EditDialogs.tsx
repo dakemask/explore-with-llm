@@ -156,7 +156,7 @@ function UserEditBody({
   return (
     <div ref={box} className="relative flex min-h-0 flex-col">
       <DropHint show={attachments.dragging} className="rounded-b-xl" />
-      <div className="min-h-0 overflow-y-auto px-5 pt-4">
+      <div className="min-h-0 overflow-y-auto px-5 pt-4 pb-1">
         {initialSystem !== undefined && (
           <>
             <Label>{t('system.title')}</Label>
@@ -183,7 +183,7 @@ function UserEditBody({
           className={clsx(editBox, 'min-h-24 text-[15px]')}
         />
       </div>
-      <div className="flex shrink-0 items-center gap-2 px-4 py-3.5">
+      <div className="flex shrink-0 items-center gap-2 px-4 pt-2.5 pb-3.5">
         <AttachButton onFiles={attachments.add} />
         <span className="min-w-0 flex-1 truncate text-xs text-faint">{t('msg.editHint')}</span>
         <Button size="sm" variant="ghost" onClick={onCancel}>
@@ -217,7 +217,7 @@ export function SystemEditDialog({
     <EditDialog title={t('system.title')} dirty={text !== initial} onClose={onClose} className="max-w-2xl">
       {(cancel, done) => (
         <>
-          <div className="min-h-0 overflow-y-auto px-5 pt-4">
+          <div className="min-h-0 overflow-y-auto px-5 pt-4 pb-1">
             <GrowingTextarea
               value={text}
               placeholder={t('system.placeholder')}
@@ -232,7 +232,7 @@ export function SystemEditDialog({
               className={clsx(editBox, 'min-h-24 text-[14px]')}
             />
           </div>
-          <div className="flex shrink-0 items-center gap-2 px-4 py-3.5">
+          <div className="flex shrink-0 items-center gap-2 px-4 pt-2.5 pb-3.5">
             <span className="min-w-0 flex-1 truncate pl-1 text-xs text-faint">{t('system.newHint')}</span>
             <Button size="sm" variant="ghost" onClick={cancel}>
               {t('common.cancel')}
@@ -270,7 +270,7 @@ export function AssistantEditDialog({
     <EditDialog title={t('msg.editReply')} dirty={text !== initial} onClose={onClose} className="max-w-3xl">
       {(cancel, done) => (
         <>
-          <div className="min-h-0 overflow-y-auto px-5 pt-4">
+          <div className="min-h-0 overflow-y-auto px-5 pt-4 pb-1">
             <GrowingTextarea
               value={text}
               spellCheck={false}
@@ -286,7 +286,7 @@ export function AssistantEditDialog({
               className="block min-h-24 w-full resize-none rounded-lg border border-border bg-surface px-3.5 py-2.5 font-mono text-[13.5px] leading-relaxed [font-variant-ligatures:none] [overflow-wrap:anywhere] placeholder:font-sans placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-accent/15 focus:outline-none"
             />
           </div>
-          <div className="flex shrink-0 items-center gap-2 px-4 py-3.5">
+          <div className="flex shrink-0 items-center gap-2 px-4 pt-2.5 pb-3.5">
             <span className="min-w-0 flex-1 truncate pl-1 text-xs text-faint">{t('msg.editReplyHint')}</span>
             <Button size="sm" variant="ghost" onClick={cancel}>
               {t('common.cancel')}
