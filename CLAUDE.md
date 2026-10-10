@@ -66,6 +66,8 @@ button: collapse them with `collapseCard` (lib.mjs, clicks the header).
 - Anything animating past the viewport edge (e.g. the panel's slide-in) makes Windows Chrome flash a scrollbar and jump the page; the app root has `overflow-hidden` for this — keep it. Headless tests use overlay scrollbars, so check `document.documentElement.scrollWidth` instead of eyeballing.
 - Streaming mock replies can finish before a test clicks Stop; run `DELAY=60 pnpm mock` for stop tests.
 - Headless Chrome hides scrollbars (overlay-like): pass `open({ scrollbars: true })` (lib.mjs) to see Windows' classic ones, which take width. A position read in `requestAnimationFrame` can be from before our ResizeObserver fix in that frame (not what's painted): to check painted frames, also read in a ResizeObserver created after the app's (see `layout-suite` W3).
+- KaTeX must be one copy: `rehype-katex` makes the HTML with its own dependency, `index.css` loads our stylesheet; `pnpm-workspace.yaml` overrides `katex` so they match (mismatched, `\boxed` lost its box).
+- Don't size an element to fill a scroll area from a measured `clientWidth` / `clientHeight`: they're rounded (up to 0.5 px over under zoom / display scaling) and a ResizeObserver read lands a frame late while resizing — the element overflows and scrollbars flash. Let CSS fill it (`min-width: 100%`), as the tree map does.
 - The project has no formatter config; don't run `npx prettier` (its defaults reformat whole files). Match the surrounding style by hand.
 
 ## Architecture
@@ -287,6 +289,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 33. Smoother switching (selection shown at once, Markdown cache) + the frame slides with the text. Accepted by the owner (2026-10-10).
 34. Raw records stored apart (request / merged response read by the detail dialog, raw response as a .zip download; export v7). Accepted by the owner (2026-10-10).
 35. Tree map re-renders only what changes ("当前" in a store only the map reads; memoized dots / lines). Accepted by the owner (2026-10-10).
+- Fixes (2026-10-10, owner's reports): `\boxed` formulas (one KaTeX copy), `//` drawn as one glyph in monospace text (no ligatures), the edit dialogs' focus halo cut off at the bottom, the tree map shaking / flashing scrollbars at some sizes (svg sized by CSS, not measured). Accepted by the owner (2026-10-10).
 
 ### Test log
 
