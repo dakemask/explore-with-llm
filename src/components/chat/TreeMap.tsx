@@ -340,11 +340,13 @@ export function TreeMap({
   const scrollRef = useRef<HTMLDivElement>(null)
   const opened = useRef(false)
   // The tree sits centered in the map's area; the svg fills it, so a grown tree's new center glides too.
+  // 1 px short of it: clientWidth / Height are rounded, up to half a pixel over the real size under zoom /
+  // display scaling — the svg then overflowed, scrollbars came, the area shrank, they went: it shook.
   const [area, setArea] = useState({ w: 0, h: 0 })
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const read = () => setArea({ w: el.clientWidth, h: el.clientHeight })
+    const read = () => setArea({ w: el.clientWidth - 1, h: el.clientHeight - 1 })
     read()
     const ro = new ResizeObserver(read)
     ro.observe(el)
