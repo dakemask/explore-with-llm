@@ -246,7 +246,6 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 ### Open
 
 - **Owner decides** the Open item above (success notifications, when a case comes up).
-- 34. **Built, owner to try** — raw records stored apart (owner, 2026-10-10: exported files are very large; every read of a conversation loads every request record). Rules now in Product decisions (Request detail, Export / import) and Data model; the owner's split: what's shown or needed to continue is read with the conversation, the request and the merged response when the detail dialog opens, the raw response only for a download (the first build hid the merged response too — a misread of the plan; the owner asked for it back, stored as its own part with the reply's text as pointers). On the mock: a stored merged response ~250 bytes, a stored request ~200–300 bytes, a 4-turn export 22 KB with ~35 KB raw responses each. DB v7 converts existing data the first time the new version opens (the owner's browser too).
 - 35. **todo** — tree map: only the units that change re-render (now the whole SVG re-renders when "当前" moves, ~25–50 ms in the dev build); measure with a switch probe before / after.
 - **Phone trial version — in use** (owner, 2026-10-09: a quick one to use on a train; 2026-10-10: "效果可以", it stays; tasks 25–31 refine it from here rather than redo it). Narrow screens (≤ 640 px, `lib/phone.ts`): no side column / strip / its button (cards open in `side/PhoneSheet.tsx`, a sheet from the bottom, 90%; tapping above closes; tapping a highlight opens), tree map docked across the top (45%, no drag / resize; `TreeMapPanel docked`), Enter = new line (placeholder without the Enter hint), the selection pill appears once a selection rests 400 ms and sits below it, settings stacked (tabs in a row, provider list above the form), the keyboard resizes the page (`interactive-widget=resizes-content`). Not in it: back gesture, long-press tips, swipe-down on the sheet, touch scroll tuning.
 - Phone (Product decisions › Phone), in this order, one at a time — todo:
@@ -286,6 +285,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 24. Side cards: node colors, kind icons, note titles, cards fill more of the column. Accepted by the owner (2026-10-09).
 32. Side card open / close animation (header = collapsed card, glide then unfold). Accepted by the owner (2026-10-10).
 33. Smoother switching (selection shown at once, Markdown cache) + the frame slides with the text. Accepted by the owner (2026-10-10).
+34. Raw records stored apart (request / merged response read by the detail dialog, raw response as a .zip download; export v7). Accepted by the owner (2026-10-10).
 
 ### Test log
 
