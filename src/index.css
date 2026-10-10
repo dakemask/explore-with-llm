@@ -143,6 +143,14 @@
     scrollbar-width: thin;
     scrollbar-color: var(--c-border-strong) transparent;
   }
+  /* Monospace text shows exactly what's typed: Cascadia Code (Windows) would join `//`, `->`, `!=`… into one glyph. */
+  .font-mono,
+  code,
+  pre,
+  kbd,
+  samp {
+    font-variant-ligatures: none;
+  }
   button {
     cursor: pointer;
   }
@@ -339,10 +347,6 @@
   border: 0;
   border-top: 1px solid var(--c-border);
   margin: 1.5em 0;
-}
-.prose pre,
-.prose code {
-  font-variant-ligatures: none;
 }
 .prose :not(pre) > code {
   font-family: var(--font-mono);
