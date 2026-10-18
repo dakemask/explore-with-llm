@@ -88,18 +88,19 @@ export function SideColumn({
     .filter((it) => spans[it.id])
     .sort((a, b) => spans[a.id].top - spans[b.id].top || spans[a.id].bottom - spans[b.id].bottom)
   const tops = stackCards(placed.map((it) => Math.max(0, spans[it.id].top - LIFT)))
-  // At most 75% of the window, and never taller than the scroll area, so its composer can always be seen.
-  // Every expanded card always has this height (its messages / note text scroll inside), so a growing reply
-  // or a note being typed never changes the page.
+  // The whole visible column, 16 px above and below (owner, 2026-10-19: 75% of the window left an empty
+  // strip in the column below a card whose anchor sat high). Every expanded card always has this height
+  // (its messages / note text scroll inside), so a growing reply or a note being typed never changes the page.
   const viewHeight = useHeight(scroller, null)
-  const cardLimit = Math.round(Math.min(window.innerHeight * 0.75, Math.max(240, viewHeight - 32)))
+  const cardLimit = Math.max(0, viewHeight - 32)
   // Expanding never scrolls the page (owner). A card that wouldn't fit on screen below its anchor opens
-  // shifted up by just enough (fixed once open; it then follows its anchor as content resizes).
+  // shifted up by just enough; as tall as the visible column, that puts its top 16 px below the screen's
+  // (fixed once open; it then follows its anchor as content resizes).
   const [lift, setLift] = useState<{ id: string; px: number } | null>(null)
   const anchorTop = expanded && spans[expanded] ? Math.max(0, spans[expanded].top - LIFT) : null
   useLayoutEffect(() => {
     if (!expanded) return void (lift && setLift(null))
-    if (anchorTop === null || lift?.id === expanded) return
+    if (anchorTop === null || cardLimit <= 0 || lift?.id === expanded) return
     const col = colRef.current?.getBoundingClientRect()
     const view = scroller.current?.getBoundingClientRect()
     if (!col || !view) return
