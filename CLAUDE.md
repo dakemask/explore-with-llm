@@ -67,6 +67,7 @@ Other agents / machines need none of this. Here the confined terminal has two li
   icacls "<workspace>" /setintegritylevel "(OI)(CI)L" /T /C /Q
   ```
   Permissions and labels only; contents and owners stay. `git add` / `commit` work afterwards; `pnpm test` / `build` still need the hand-off above.
+- **Web pages**: the machine's TUN proxy answers DNS with fake-ip addresses (198.18.x), which `web_fetch` refuses as non-public before it connects — `web_search` still works (it runs server-side). Read a page with Node through the proxy instead: `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7897 node -e "fetch(...)"`; `curl` fails there (`schannel: SEC_E_NO_CREDENTIALS` under the sandbox). `web_fetch` itself works again once the proxy's DNS mode is `redir-host` instead of `fake-ip` (Clash Verge › 设置 › DNS 设置), or the host is added to `fake-ip-filter`.
 
 ## Gotchas
 
