@@ -56,6 +56,18 @@ To select text by mouse drag, press on a line (e.g. the box's top + 12 px), not 
 multi-line paragraph — that can land between lines and select nothing (no pill appears). Cards have no collapse
 button: collapse them with `collapseCard` (lib.mjs, clicks the header).
 
+### Under DeepSeek Harness on Windows (DSH only — not a project rule)
+
+Other agents / machines need none of this. Here the confined terminal has two limits that make checks a hand-off:
+
+- **It cannot spawn child processes with captured output** (`spawn EPERM`: pipes need a named pipe the sandboxed token can't open). `pnpm test`, `pnpm build` and the browser suites die in vite's Windows path even when the files are writable. Code edits still work (the file tools are not confined). So **the owner runs the checks** in Claude Code or a plain PowerShell and pastes the output back; read that output — never claim a check ran because a command was started.
+- **A workspace copied in from outside carries no write grant for the sandboxed terminal.** The workspace root is granted (a per-workspace capability SID, write / delete / delete-child), its existing files are not, and the root's low integrity label was not propagated to them either — so `git` and builds cannot write despite the owner owning the files. Repair once from an unconfined PowerShell (the first line is what gives the second step the right it needs; the sandbox's own entry and low label then inherit):
+  ```
+  icacls "<workspace>" /grant "<user>:(OI)(CI)F" /T /C /Q
+  icacls "<workspace>" /setintegritylevel "(OI)(CI)L" /T /C /Q
+  ```
+  Permissions and labels only; contents and owners stay. `git add` / `commit` work afterwards; `pnpm test` / `build` still need the hand-off above.
+
 ## Gotchas
 
 - Git Bash heredocs on this machine can eat backslashes. Write files containing `\` (LaTeX, regex) with the Write tool, not heredocs. Long multi-edit Python heredocs also tend to fail to parse; use Write/Edit. Heredocs also mangle non-ASCII (Chinese) text; for scripted multi-edits, write the `.py` to the scratchpad with the Write tool and run it with `PYTHONUTF8=1`.
