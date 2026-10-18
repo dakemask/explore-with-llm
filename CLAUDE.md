@@ -248,8 +248,6 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 ### Open
 
 - **Owner decides** the Open item above (success notifications, when a case comes up).
-- 37. **Built, owner to try** — branches ordered by when they became branches (owner, 2026-10-10: making an older attempt a branch put it first and recolored every branch). A new branch comes last: right end of the switcher's dots, below the others in the tree map; the others keep their colors (the first branch excepted, when the fork forms). Stored as `branchAt` on the node; branches from before keep their current order (their creation time stands in). Rules in Product decisions › Colors / Sibling switcher.
-- 39. **Built, owner to try** — side column: crowded collapsed cards centered on their anchors (not all pushed down from the first), marker bars beside their cards, one card high (column collapsed: along the anchors' lines as before). Rules in Product decisions › Side-question column.
 - **Phone trial version — in use** (owner, 2026-10-09: a quick one to use on a train; 2026-10-10: "效果可以", it stays; tasks 25–31 refine it from here rather than redo it). Narrow screens (≤ 640 px, `lib/phone.ts`): no side column / strip / its button (cards open in `side/PhoneSheet.tsx`, a sheet from the bottom, 90%; tapping above closes; tapping a highlight opens), tree map docked across the top (45%, no drag / resize; `TreeMapPanel docked`), Enter = new line (placeholder without the Enter hint), the selection pill appears once a selection rests 400 ms and sits below it, settings stacked (tabs in a row, provider list above the form), the keyboard resizes the page (`interactive-widget=resizes-content`). Not in it: back gesture, long-press tips, swipe-down on the sheet, touch scroll tuning.
 - Phone (Product decisions › Phone), in this order, one at a time — todo:
   25. Base layout: the narrow-screen switch, header, conversation list, chat, floating input box with the keyboard (Enter = new line), dialogs and settings fitting the screen. Set up checks on the owner's real phone (USB debugging).
@@ -290,7 +288,9 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 33. Smoother switching (selection shown at once, Markdown cache) + the frame slides with the text. Accepted by the owner (2026-10-10).
 34. Raw records stored apart (request / merged response read by the detail dialog, raw response as a .zip download; export v7). Accepted by the owner (2026-10-10).
 35. Tree map re-renders only what changes ("当前" in a store only the map reads; memoized dots / lines). Accepted by the owner (2026-10-10).
+37. Branches ordered by when they became branches (`branchAt`; a new branch comes last, the others keep their colors). Accepted by the owner (2026-10-10).
 38. Side questions on user messages (context includes that turn's reply; export v8). Accepted by the owner (2026-10-10). Full run with it: all pass.
+39. Side column: crowded collapsed cards centered on their anchors, marker bars beside their cards, one card high. Accepted by the owner (2026-10-10).
 - Fixes (2026-10-10, owner's reports): `\boxed` formulas (one KaTeX copy), `//` drawn as one glyph in monospace text (no ligatures), the edit dialogs' focus halo cut off at the bottom, the tree map shaking / flashing scrollbars at some sizes (svg sized by CSS, not measured). Accepted by the owner (2026-10-10).
 
 ### Test log
