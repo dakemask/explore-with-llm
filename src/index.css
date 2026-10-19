@@ -432,6 +432,8 @@
 .tree-node .halo {
   fill: var(--c-active);
   opacity: 0;
+  /* Visual only: a later node's halo would otherwise sit over the badge under the node above it. */
+  pointer-events: none;
   transition: opacity 120ms;
 }
 .tree-node:hover .halo,
@@ -452,6 +454,20 @@
 }
 .tree-node.lit .core {
   transform: scale(1.2);
+}
+/* A node's side-question / note badge: a short dash + count under the dot in the node's color; hovering
+   it shows a small pad behind both (the node's hover halo is hidden then). */
+.tree-badge .pad {
+  fill: var(--c-hover);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.tree-badge:hover .pad {
+  opacity: 1;
+}
+.tree-badge .mark,
+.tree-badge .count {
+  fill: currentColor;
 }
 /* Changes while the map is open: places glide (units, lines, the "current" ring and label, the tree's
    centering offset while `.tree-glide`), colors fade, removed units fade out as ghosts. */
@@ -485,6 +501,7 @@
 @media (prefers-reduced-motion: reduce) {
   .tree-node,
   .tree-node .core,
+  .tree-badge .pad,
   .tree-moves,
   .tree-edge,
   .tree-map-svg stop,

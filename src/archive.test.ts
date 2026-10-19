@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db, ROOT_KEY, type ChatNode, type Note } from './db'
 import { archiveNode, archiveThread, deleteArchived, deleteConversation, resend, restoreArchived, sendMessage, threadToBranch } from './lib/chat'
-import { archiveNote, restoreNote } from './lib/notes'
+import { archiveNote, createNote, restoreNote, saveNoteText, saveNoteTitle } from './lib/notes'
 import {
   activePath,
   archivedItems,
@@ -289,6 +289,19 @@ describe('notes', () => {
     await db.conversations.add({ id: 'c', title: 'T', createdAt: 0, updatedAt: 0, selectedChild: { [ROOT_KEY]: 'a', a: 'b' } })
     await db.nodes.bulkAdd(base)
     await db.notes.bulkAdd([note('nb', 'b'), note('nd', 'd', { target: 'user' }), note('nc', 'c')])
+  })
+
+  it('a note with text or a title turns its node into a branch; an empty one does not', async () => {
+    // nd sits on d, an attempt in `base`; notes were allowed there before this rule.
+    await saveNoteText('nd', 'note nd')
+    expect(await db.nodes.get('d')).toMatchObject({ branch: true })
+    expect((await db.nodes.get('d'))!.branchAt).toBeTypeOf('number')
+
+    const empty = await createNote('c', 'c', 'assistant', { start: 0, end: 1, text: 'a' })
+    await saveNoteText(empty, '')
+    expect((await db.nodes.get('c'))!.branch).toBeUndefined()
+    await saveNoteTitle(empty, 'T')
+    expect(await db.nodes.get('c')).toMatchObject({ branch: true })
   })
 
   it('archives and restores a note; it is blocked while its node is hidden', async () => {

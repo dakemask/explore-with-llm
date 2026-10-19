@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { X } from 'lucide-react'
+import { MessageSquareText, NotebookPen, X } from 'lucide-react'
 import {
   memo,
   useEffect,
@@ -10,6 +10,7 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   type Ref,
   type RefObject,
 } from 'react'
@@ -27,8 +28,12 @@ import { HelpTip, IconButton } from '../ui/Button'
 import { editLabel } from './labels'
 
 const GX = 34
-const GY = 22
+/** Rows are far enough apart for the side-question / note badge under a node to clear the next one. */
+const GY = 28
 const PAD = 30
+
+/** One side question or note a node carries, as the badge's tip lists it. */
+export type MapItem = { id: string; kind: 'side' | 'note'; title: string }
 
 /** Window limits: smallest size, gap kept to the viewport's edges, and the header it stays below. */
 const MIN_W = 220
@@ -63,11 +68,14 @@ export function TreeMapPanel({
   opener,
   onClose,
   nodes,
+  items,
   mapKey,
   docked,
   ...map
 }: {
   nodes: ChatNode[] | undefined
+  /** Side questions / notes by the node they sit on, for the badges and their tips. */
+  items: Map<string, MapItem[]>
   /** The conversation: the map restarts (centered on "current") when it changes. */
   mapKey: string
   current: CurrentStore
@@ -178,7 +186,7 @@ export function TreeMapPanel({
       {nodes === undefined ? (
         <div className="flex-1" />
       ) : childrenOf(nodes, null).length > 0 ? (
-        <TreeMap key={mapKey} nodes={nodes} {...map} />
+        <TreeMap key={mapKey} nodes={nodes} items={items} {...map} />
       ) : (
         <div className="flex flex-1 items-center justify-center text-xs text-faint">{t('tree.empty')}</div>
       )}
@@ -206,11 +214,13 @@ export function TreeMapPanel({
  */
 export function TreeMap({
   nodes,
+  items,
   current: currentStore,
   endNodeId,
   onJump,
 }: {
   nodes: ChatNode[]
+  items: Map<string, MapItem[]>
   current: CurrentStore
   endNodeId: string | undefined
   onJump: (unit: MapUnit) => void
@@ -271,6 +281,9 @@ export function TreeMap({
     [edges],
   )
   const labels = useMemo(() => new Map(nodes.flatMap((n) => (n.label ? [[n.id, n.label]] : []))), [nodes])
+  /** Side questions + notes on a unit (a stack: on all its attempts), and how many. */
+  const itemsOf = (u: MapUnit) => u.nodes.flatMap((n) => items.get(n.id) ?? [])
+  const countOf = (u: MapUnit) => u.nodes.reduce((sum, n) => sum + (items.get(n.id)?.length ?? 0), 0)
 
   // ---- hover: the root→unit path grows in bold from the root; the shared prefix isn't redrawn ----
   const svgRef = useRef<SVGSVGElement>(null)
@@ -279,8 +292,10 @@ export function TreeMap({
   const anim = useRef<Animation | null>(null)
   const clearTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [lit, setLit] = useState<{ route: string[]; delays: number[] } | null>(null)
-  // The tip's unit is state; its position follows the pointer directly (no re-render per move).
+  // The tip's unit is state; its position follows the pointer directly (no re-render per move). `tipBadge`:
+  // the pointer is over the side-question / note badge, so the tip lists the titles instead of the turn.
   const [tipId, setTipId] = useState<string | null>(null)
+  const [tipBadge, setTipBadge] = useState(false)
   const tip = (tipId && layout.byId.get(tipId)) || null
   const tipRef = useRef<HTMLDivElement>(null)
   const tipAt = useRef({ x: 0, y: 0 })
@@ -291,7 +306,7 @@ export function TreeMap({
     el.style.left = Math.min(x + 14, innerWidth - el.offsetWidth - 8) + 'px'
     el.style.top = Math.min(y + 14, innerHeight - el.offsetHeight - 8) + 'px'
   }
-  useLayoutEffect(placeTip, [tipId])
+  useLayoutEffect(placeTip, [tipId, tipBadge])
 
   useEffect(() => () => clearTimeout(clearTimer.current), [])
 
@@ -412,16 +427,20 @@ export function TreeMap({
     }
   }, [])
 
-  const showTip = (x: number, y: number, u: MapUnit) => {
+  const showTip = (x: number, y: number, u: MapUnit, badge = false) => {
     tipAt.current = { x, y }
+    setTipBadge(badge)
     if (tipId === u.id) placeTip()
     else setTipId(u.id)
   }
   const label = (u: MapUnit) => {
     const n = u.nodes[0]
-    if (u.type === 'stack') return t('tree.stack', { n: u.col + 1, m: u.nodes.length })
-    const own = labels.get(n.id)
-    return `${own ? own + ' · ' : ''}${t('tree.turn', { n: u.col + 1 })} ${plainLine(n.user.text) || t('image.only')}`
+    const base =
+      u.type === 'stack'
+        ? t('tree.stack', { n: u.col + 1, m: u.nodes.length })
+        : `${labels.get(n.id) ? labels.get(n.id) + ' · ' : ''}${t('tree.turn', { n: u.col + 1 })} ${plainLine(n.user.text) || t('image.only')}`
+    const count = countOf(u)
+    return count ? `${base} · ${t('tree.badge', { n: count })}` : base
   }
   // (A hovered route can outlive its units for a render when the tree changes underneath.)
   const litRoute = lit?.route.filter((id) => layout.byId.has(id)) ?? []
@@ -443,6 +462,10 @@ export function TreeMap({
         const u = unit(id)
         if (u) showTip(x, y, u)
       },
+      tipBadge: (x, y, id) => {
+        const u = unit(id)
+        if (u) showTip(x, y, u, true)
+      },
       relabel: (id) => {
         const u = unit(id)
         if (u?.type === 'node') void editLabel({ id: u.nodes[0].id, label: labels.get(u.nodes[0].id) }, t)
@@ -455,6 +478,7 @@ export function TreeMap({
       enter: (id) => handlers.current.enter(id),
       leave: () => handlers.current.leave(),
       tip: (x, y, id) => handlers.current.tip(x, y, id),
+      tipBadge: (x, y, id) => handlers.current.tipBadge(x, y, id),
       relabel: (id) => handlers.current.relabel(id),
     }),
     [],
@@ -516,8 +540,8 @@ export function TreeMap({
   })()
   const pill = useMemo(() => {
     const u = current ? layout.byId.get(current) : undefined
-    return u && pillSpot(layout, u, X, Y, pillW, W, H)
-  }, [layout, current, pillW])
+    return u && pillSpot(layout, u, X, Y, pillW, W, H, (v) => countOf(v) > 0)
+  }, [layout, current, pillW, items])
 
   return (
     <div ref={scrollRef} className="flex min-h-0 flex-1 overflow-auto">
@@ -565,7 +589,8 @@ export function TreeMap({
                 delay={litIds?.get(u.id)}
                 here={u.id === current}
                 fresh={u.type === 'node' && !!fresh[u.nodes[0].id]}
-                count={u.type === 'stack' ? u.nodes.length : undefined}
+                count={countOf(u)}
+                hideHalo={tipBadge && tipId === u.id}
                 label={label(u)}
                 actions={actions}
               />
@@ -574,7 +599,7 @@ export function TreeMap({
           {/* "Current": ring + label, gliding to the turn it moves to. */}
           {currentAt && (
             <g className="tree-moves" style={{ transform: `translate(${currentAt.x}px, ${currentAt.y}px)` }} pointerEvents="none">
-              <circle r={9.5} fill="none" style={{ stroke: 'var(--c-text)' }} strokeWidth={2} />
+              <circle r={7.5} fill="none" style={{ stroke: 'var(--c-text)' }} strokeWidth={2} />
             </g>
           )}
           {pill && (
@@ -587,7 +612,7 @@ export function TreeMap({
           )}
         </g>
       </svg>
-      {tip && <TreeTip ref={tipRef} unit={tip} labels={labels} />}
+      {tip && <TreeTip ref={tipRef} unit={tip} labels={labels} items={itemsOf(tip)} badge={tipBadge} />}
     </div>
   )
 }
@@ -597,10 +622,11 @@ type UnitActions = {
   enter: (id: string) => void
   leave: () => void
   tip: (x: number, y: number, id: string) => void
+  tipBadge: (x: number, y: number, id: string) => void
   relabel: (id: string) => void
 }
 
-/** One drawn unit (node or stack): its dot, halo, ripple and ×n. `delay` = hovered route's swell delay. */
+/** One drawn unit (node or stack): its dot, halo, ripple and (when it has any) side-question / note badge. */
 const UnitDot = memo(function UnitDot({
   id,
   k,
@@ -611,6 +637,7 @@ const UnitDot = memo(function UnitDot({
   here,
   fresh,
   count,
+  hideHalo,
   label,
   actions,
 }: {
@@ -622,10 +649,15 @@ const UnitDot = memo(function UnitDot({
   delay: number | undefined
   here: boolean
   fresh: boolean
-  count: number | undefined
+  /** Side questions + notes on it; 0 draws no badge. */
+  count: number
+  /** The badge is hovered: the pointer is reading its titles, so the node's hover halo stays away. */
+  hideHalo: boolean
   label: string
   actions: UnitActions
 }) {
+  const countText = count > 99 ? '99+' : String(count)
+  const padW = 19 + countText.length * 5.5
   return (
     <g
       data-key={k}
@@ -656,14 +688,30 @@ const UnitDot = memo(function UnitDot({
       }}
       onBlur={actions.leave}
     >
-      <circle className="halo" r={11} />
+      <circle className="halo" r={11} style={hideHalo ? { opacity: 0 } : undefined} />
       {/* Just became a branch: the switcher's double ripple, in its color. */}
       {fresh && <circle className="tree-ripple anim-branch-ring" r={5} style={{ fill: color }} />}
       <circle className="core" r={5} style={{ fill: color }} />
-      {count !== undefined && (
-        <text x={10} y={4} fontSize={10.5} style={{ fill: 'var(--c-muted)' }}>
-          ×{count}
-        </text>
+      {/* Side questions + notes: a short dash centered under the dot and their count to its right, both in
+          the node's color; its titles on hover (the node's own tip stays as it was). The pad is the whole hit
+          area and appears on hover. */}
+      {count > 0 && (
+        <g
+          className="tree-badge"
+          data-badge
+          aria-hidden
+          style={{ color }}
+          onMouseMove={(e) => {
+            e.stopPropagation()
+            actions.tipBadge(e.clientX, e.clientY, id)
+          }}
+        >
+          <rect className="pad" x={-8} y={8.6} width={padW} height={9.1} rx={3} pointerEvents="all" />
+          <rect className="mark" x={-5} y={11} width={10} height={3.6} rx={1.8} />
+          <text className="count" x={8} y={16} fontSize={9.5}>
+            {countText}
+          </text>
+        </g>
       )}
     </g>
   )
@@ -697,8 +745,8 @@ const EdgePath = memo(function EdgePath({ id, k, d, stroke }: { id: string; k: s
 })
 
 /**
- * Center of the "current" pill: above the node, unless a neighbor (node, line or ×n) is drawn there; then
- * below, left, right. Above when nothing is free.
+ * Center of the "current" pill: above the node, unless a neighbor (node, line or side-question / note badge)
+ * is drawn there; then below, left, right. Above when nothing is free.
  */
 function pillSpot(
   layout: TreeLayout,
@@ -708,11 +756,12 @@ function pillSpot(
   pillW: number,
   W: number,
   H: number,
+  hasBadge: (u: MapUnit) => boolean,
 ) {
   const pts: [number, number][] = []
   for (const v of layout.units) {
     if (v !== u) pts.push([X(v), Y(v)])
-    if (v.type === 'stack') for (const dx of [12, 20, 28]) pts.push([X(v) + dx, Y(v)])
+    if (hasBadge(v)) pts.push([X(v), Y(v) + 15])
     const p = v.parent ? layout.byId.get(v.parent) : undefined
     if (!p) continue
     // Samples along the edge (same curve as drawn: horizontal tangents at both ends).
@@ -743,10 +792,23 @@ function pillSpot(
 }
 
 /**
- * Hover tip: the node's label, the turn, then the first lines of the user message and the reply. Stacks:
- * the turn and count, then the labels of the attempts that have one.
+ * Hover tip. On a node: the label, the turn, then the first lines of the user message and the reply; stacks:
+ * the turn and count, then the labels of the attempts that have one. On its side-question / note badge: the
+ * two kinds in two columns, up to 8 titles each (then "还有 n 条").
  */
-function TreeTip({ unit, labels, ref }: { unit: MapUnit; labels: Map<string, string>; ref: Ref<HTMLDivElement> }) {
+function TreeTip({
+  unit,
+  labels,
+  items,
+  badge,
+  ref,
+}: {
+  unit: MapUnit
+  labels: Map<string, string>
+  items: MapItem[]
+  badge: boolean
+  ref: Ref<HTMLDivElement>
+}) {
   const t = useT()
   const n = unit.nodes[0]
   const reply = plainLine(n.assistant.content)
@@ -754,9 +816,14 @@ function TreeTip({ unit, labels, ref }: { unit: MapUnit; labels: Map<string, str
   return (
     <div
       ref={ref}
-      className="pointer-events-none fixed z-50 max-w-80 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs leading-relaxed shadow-pop"
+      className={clsx(
+        'pointer-events-none fixed z-50 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs leading-relaxed shadow-pop',
+        badge ? 'max-w-[26rem]' : 'max-w-80',
+      )}
     >
-      {unit.type === 'stack' ? (
+      {badge ? (
+        <BadgeColumns items={items} />
+      ) : unit.type === 'stack' ? (
         <>
           <div className="font-medium">{t('tree.stack', { n: unit.col + 1, m: unit.nodes.length })}</div>
           {unit.nodes.map(
@@ -776,6 +843,37 @@ function TreeTip({ unit, labels, ref }: { unit: MapUnit; labels: Map<string, str
           {reply && <div className="truncate text-muted">{reply}</div>}
         </>
       )}
+    </div>
+  )
+}
+
+/** The badge tip's columns: side questions first, then notes; an empty kind is left out. */
+function BadgeColumns({ items }: { items: MapItem[] }) {
+  const t = useT()
+  const sides = items.filter((i) => i.kind === 'side')
+  const notes = items.filter((i) => i.kind === 'note')
+  return (
+    <div className="flex gap-4">
+      {sides.length > 0 && <TipColumn icon={<MessageSquareText size={12} />} title={t('tree.sides')} items={sides} />}
+      {notes.length > 0 && <TipColumn icon={<NotebookPen size={12} />} title={t('tree.notes')} items={notes} />}
+    </div>
+  )
+}
+
+function TipColumn({ icon, title, items }: { icon: ReactNode; title: string; items: MapItem[] }) {
+  const t = useT()
+  return (
+    <div className="w-44 min-w-0">
+      <div className="mb-1 flex items-center gap-1 text-[11px] text-muted">
+        <span className="shrink-0">{icon}</span>
+        <span className="min-w-0 truncate font-medium">{title}</span>
+      </div>
+      {items.slice(0, 8).map((it) => (
+        <div key={it.id} className="truncate">
+          {it.title}
+        </div>
+      ))}
+      {items.length > 8 && <div className="text-faint">{t('tree.more', { n: items.length - 8 })}</div>}
     </div>
   )
 }

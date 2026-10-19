@@ -184,7 +184,13 @@ await page.evaluate((sc) => document.querySelector(sc).scrollTo(0, 1e6), SC)
 await wait(1500)
 await page.locator('[aria-label="重新生成"]').last().click()
 await waitDone(page)
-check('R1 a retry at the end shows as a ×2 stack at once', (await page.locator(`${TREE} text`).filter({ hasText: '×2' }).count()) === 1)
+const stackLabels = await page.locator(`${TREE} g[role=button]`).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
+check(
+  'R1 a retry at the end shows as one stack dot at once, no count drawn',
+  stackLabels.filter((l) => /个尝试/.test(l)).length === 1 &&
+    (await page.locator(`${TREE} text`).filter({ hasText: '×' }).count()) === 0,
+  stackLabels,
+)
 const keysBefore = await page.locator(`${TREE} g[data-key]`).evaluateAll((els) => els.map((e) => e.dataset.key))
 await page.locator('main > [data-main-composer] textarea').fill('追一轮')
 await page.locator('main > [data-main-composer] textarea').press('Enter')

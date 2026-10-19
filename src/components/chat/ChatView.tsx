@@ -12,10 +12,11 @@ import { CHAT_MIN, columnFrame, sideWidth } from '../../lib/column'
 import { PANE_DEFAULT, PANE_MAX, PANE_MIN } from '../../lib/panes'
 import { focusComposer } from '../../lib/focus'
 import { usePhone } from '../../lib/phone'
-import { activePath, busyIds, forkKey, isHidden } from '../../lib/tree'
+import { activePath, busyIds, forkKey, isHidden, sideThreads } from '../../lib/tree'
 import { switchDir, useSwitchMotion } from '../../lib/switchMotion'
 import { jumpSelection, type MapUnit } from '../../lib/treeMap'
 import { archiveNote, createNote, noteTitle } from '../../lib/notes'
+import { sideFallbackTitle } from '../../lib/naming'
 import { marginTop, ScrollHold, useAutoScroll } from '../../lib/hooks'
 import { jumpOffset, LAST, useReadingLine } from '../../lib/reading'
 import { useConversationData } from '../../lib/useConversationData'
@@ -38,7 +39,7 @@ import { SystemRow } from './SystemMessage'
 import { DRAFT_PREFIX, MessageNode, Turn } from './MessageNode'
 import { ModelControls, useCurrentModel } from './ModelPicker'
 import { useSiblings } from './SiblingSwitcher'
-import { currentStore, TreeMapPanel } from './TreeMap'
+import { currentStore, TreeMapPanel, type MapItem } from './TreeMap'
 import { ConversationList } from '../layout/ConversationList'
 import { useNodeActions } from './useNodeActions'
 
@@ -63,6 +64,7 @@ export function ChatView() {
   const conversation = data?.conversation
   const nodes = data?.nodes
   const loading = !data
+
   const path = useMemo(
     () => (nodes && conversation ? activePath(nodes, conversation.selectedChild) : []),
     [nodes, conversation],
@@ -253,6 +255,32 @@ export function ChatView() {
   // map reads: "current" moving re-renders the map, not the chat.
   const treeCurrent = useMemo(currentStore, [])
   const treeOpen = !!tree
+  // What a node's tree-map badge counts, and the titles its hover tip lists: every non-archived side-question
+  // thread (one per thread, however many versions) and note on a main node, in the order the cards show them.
+  // Only while the map is open (its badge needs it); no live query of its own.
+  const treeItems = useMemo(() => {
+    const map = new Map<string, MapItem[]>()
+    if (!treeOpen || !nodes) return map
+    const add = (nodeId: string, item: MapItem) => {
+      const list = map.get(nodeId)
+      if (list) list.push(item)
+      else map.set(nodeId, [item])
+    }
+    for (const n of nodes) {
+      if (n.kind !== 'main') continue
+      for (const th of sideThreads(nodes, n.id)) {
+        add(n.id, {
+          id: th.thread,
+          kind: 'side',
+          title: conversation?.threadTitles?.[th.thread] ?? (sideFallbackTitle(th.roots[0], th.anchor.text) || t('image.only')),
+        })
+      }
+    }
+    for (const note of [...(data?.notes ?? [])].sort((a, b) => a.createdAt - b.createdAt)) {
+      if (!note.archived) add(note.nodeId, { id: note.id, kind: 'note', title: noteTitle(note) || t('note.new') })
+    }
+    return map
+  }, [treeOpen, nodes, data?.notes, conversation, t])
   useEffect(() => {
     const box = scroll.containerRef.current
     if (!treeOpen || !box) return
@@ -387,6 +415,7 @@ export function ChatView() {
         <TreeMapPanel
           mapKey={conversationId ?? ''}
           nodes={conversationId ? nodes : []}
+          items={treeItems}
           current={treeCurrent}
           endNodeId={conversationId ? last?.id : undefined}
           closing={!!tree.closing}
