@@ -135,6 +135,109 @@ export const PRESET_DATA: ModelPreset[] = [
     "echoReasoning": false,
     "notes": "1M 上下文，最大输出 384K，不支持图片。"
   },
+  // Sources: https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3,
+  // https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash,
+  // https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode,
+  // https://docs.z.ai/api-reference/llm/chat-completion (checked 2026-10-21).
+  // Preserved thinking is enabled here explicitly; the standard API clears it by default.
+  {
+    "id": "openai-chat/glm-5.3",
+    "protocol": "openai-chat",
+    "vendor": "智谱",
+    "label": "GLM-5.3",
+    "series": "GLM",
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "low",
+          "high",
+          "max"
+        ],
+        "default": "max",
+        "help": "思考始终开启。low 最快最省，high 增强思考，max 思考最充分，也是接口默认值。"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1024,
+        "max": 131072,
+        "step": 1024,
+        "default": 131072,
+        "toggle": true,
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则不发送此参数。"
+      },
+      {
+        "type": "silent",
+        "body": {
+          "thinking": {
+            "type": "enabled",
+            "clear_thinking": false
+          }
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "echoFields": ["reasoning_content"],
+    "notes": "1M 上下文，最大输出 128K，仅支持文本。保留并回传历史思考，会占用后续上下文并计入输入用量。"
+  },
+  {
+    "id": "openai-chat/glm-5.3-flash",
+    "protocol": "openai-chat",
+    "vendor": "智谱",
+    "label": "GLM-5.3-Flash",
+    "series": "GLM",
+    "params": [
+      {
+        "name": "思考强度",
+        "type": "choice",
+        "body": {
+          "reasoning_effort": "EFFORT"
+        },
+        "options": [
+          "low",
+          "high",
+          "max"
+        ],
+        "default": "max",
+        "help": "思考始终开启。low 最快最省，high 增强思考，max 思考最充分，也是接口默认值。"
+      },
+      {
+        "name": "最大输出",
+        "type": "range",
+        "body": {
+          "max_tokens": "VALUE"
+        },
+        "min": 1024,
+        "max": 131072,
+        "step": 1024,
+        "default": 131072,
+        "toggle": true,
+        "defaultOn": true,
+        "help": "回复（含思考）最多生成多少 token。只是上限，按实际生成计费。关闭则不发送此参数。"
+      },
+      {
+        "type": "silent",
+        "body": {
+          "thinking": {
+            "type": "enabled",
+            "clear_thinking": false
+          }
+        }
+      }
+    ],
+    "echoReasoning": true,
+    "echoFields": ["reasoning_content"],
+    "notes": "1M 上下文，最大输出 128K，支持图片。保留并回传历史思考，会占用后续上下文并计入输入用量。"
+  },
   {
     "id": "openai-chat/gpt-5.6-sol",
     "protocol": "openai-chat",
