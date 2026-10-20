@@ -120,7 +120,7 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
             onChange={(useRelay) => save({ useRelay })} label={t('relay.use')} />
         </div>
         <button onClick={() => useUi.getState().openSettings('relay')} className="mt-1.5 text-xs text-muted underline underline-offset-2 hover:text-text">
-          {t(relayConfigured ? 'relay.configure' : 'relay.configureFirst')}
+          {t('relay.configure')}
         </button>
       </div>
 
