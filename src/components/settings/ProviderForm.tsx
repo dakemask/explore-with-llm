@@ -3,6 +3,7 @@ import { Check, Eye, EyeOff, Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } fro
 import { useEffect, useRef, useState } from 'react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
+import { useSettings } from '../../store/settings'
 import { useUi } from '../../store/ui'
 import { addModels } from '../../lib/models'
 import { getAdapter, listModels, PROTOCOLS, ProviderError } from '../../providers'
@@ -22,6 +23,7 @@ import { ModelList } from './ModelList'
  */
 export function ProviderForm({ provider: stored, initialModel }: { provider: Provider; initialModel?: string }) {
   const t = useT()
+  const relayConfigured = useSettings((s) => !!s.relayUrl.trim() && !!s.relayPassword.trim())
   // The model whose config dialog is open: a name, null for a new model, undefined for none.
   const [editing, setEditing] = useState<string | null | undefined>(
     initialModel && stored.models.includes(initialModel) ? initialModel : undefined,
@@ -114,10 +116,11 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
       <div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[13px] font-medium">{t('relay.use')}</span>
-          <Switch checked={!!provider.useRelay} onChange={(useRelay) => save({ useRelay })} label={t('relay.use')} />
+          <Switch checked={!!provider.useRelay} disabled={!relayConfigured && !provider.useRelay}
+            onChange={(useRelay) => save({ useRelay })} label={t('relay.use')} />
         </div>
         <button onClick={() => useUi.getState().openSettings('relay')} className="mt-1.5 text-xs text-muted underline underline-offset-2 hover:text-text">
-          {t('relay.configure')}
+          {t(relayConfigured ? 'relay.configure' : 'relay.configureFirst')}
         </button>
       </div>
 
