@@ -1,10 +1,10 @@
 # Built-in presets: sources and reasons
 
-The presets live in `src/lib/presetData.ts` (26 presets); `src/presets.test.ts` checks that every one parses and resolves to a sendable body. A preset is one protocol + model + channel (so far only the vendors' official APIs) and holds only a model config: parameters, echo-back, headers. It has no model id or base URL, so it also works on third-party channels that serve the model with the official parameters.
+The presets live in `src/lib/presetData.ts` (28 presets); `src/presets.test.ts` checks that every one parses and resolves to a sendable body. A preset is one protocol + model + channel (so far only the vendors' official APIs) and holds only a model config: parameters, echo-back, headers. It has no model id or base URL, so it also works on third-party channels that serve the model with the official parameters.
 
 Sections: per vendor, the sources and the notes each preset needs (about the sources: an inferred rule, an alias; about what a parameter does). Then the open points, then the reasons shared by all presets. When adding presets for newer models, add a section here.
 
-Checked against the vendors' docs on 2026-10-04 (Anthropic re-checked 2026-10-08).
+Checked against the vendors' docs on 2026-10-04 (Anthropic re-checked 2026-10-08; GLM checked 2026-10-21).
 
 ## DeepSeek (OpenAI Chat Completions, `https://api.deepseek.com`)
 
@@ -24,6 +24,21 @@ Parameters:
 - `top_p` only takes effect in thinking mode and only between 0.95 and 1, so it isn't offered.
 - Silent: `stream_options.include_usage`.
 - Echo off: the docs say that without tools `reasoning_content` "does not need to be passed back; even if passed to the API, it will be ignored".
+
+## 智谱 / GLM (OpenAI Chat Completions, `https://open.bigmodel.cn/api/paas/v4`)
+
+Presets: `glm-5.3`, `glm-5.3-flash`.
+
+Sources: https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3, https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash, https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode, https://docs.z.ai/api-reference/llm/chat-completion
+
+About the sources:
+- Both have a 1M context and output up to 128K = 131,072 tokens. GLM-5.3 is text-only; GLM-5.3-Flash supports images. The Flash page explicitly shares GLM-5.3's text parameters.
+- Preserved thinking is off by default on the standard API, on for Coding Plan. These presets enable it explicitly; that is a preset choice, not the standard API's default.
+
+Parameters:
+- 思考强度: `reasoning_effort` `low` / `high` / `max`, default `max` (as the API). Thinking is always on for both models, so there is no thinking switch.
+- 最大输出: `max_tokens`, 1024–131,072 in steps of 1024, on by default at 131,072. Off = omit the parameter.
+- Silent: `thinking: { type: "enabled", clear_thinking: false }`. Echo on, explicitly using `reasoning_content`: preserved thinking requires previous reasoning to be passed back complete, unchanged and in order. It occupies later context and counts toward input usage.
 
 ## OpenAI (`https://api.openai.com/v1`)
 
@@ -94,12 +109,12 @@ Parameters:
 
 ## Reasons shared by all presets
 
-- Only what the vendor documents for that model, with the API's defaults, except where noted above (thinking on for Claude 4.x, reasoning text requested where the API hides it by default).
+- Only what the vendor documents for that model, with the API's defaults, except where noted above (thinking on for Claude 4.x, preserved thinking on for GLM, reasoning text requested where the API hides it by default).
 - **Reasoning visible:** where the API returns no reasoning text unless asked (Anthropic 4.7+ `display`, Responses `reasoning.summary`), the preset asks for summaries by default, since the app's reasoning display is a main feature.
-- **最大输出 on, at the model's maximum** (owner, 2026-10-08): it's only a cap — billing counts the tokens actually produced — and a low cap cuts off long thinking or replies. DeepSeek and GPT keep the switch (off = the API's own default). Claude has no switch because Anthropic's official API requires `max_tokens`; the protocol itself doesn't (other vendors serving the Anthropic protocol may not), and the app checks no required fields, so this lives in the preset.
+- **最大输出 on, at the model's maximum** (owner, 2026-10-08): it's only a cap — billing counts the tokens actually produced — and a low cap cuts off long thinking or replies. DeepSeek, GLM and GPT keep the switch (off = the API's own default). Claude has no switch because Anthropic's official API requires `max_tokens`; the protocol itself doesn't (other vendors serving the Anthropic protocol may not), and the app checks no required fields, so this lives in the preset.
 - **Impossible combinations can't be sent:** dependencies (`requires`) grey out a parameter whose condition fails — e.g. 思考强度 only while DeepSeek thinking is on, Pro only with effort ≠ `none`, Claude's 关闭思考 only at efforts where the API allows it, 思考显示 only while thinking is on.
-- **Silent items** are fields the user needn't control, always sent: `stream_options.include_usage` (Chat Completions: token usage at the end of the stream, visible in the request details) and `store: false` + `include` (Responses: stateless, with encrypted reasoning for echo). The app itself adds no optional fields; a preset may, since applying it is the user's choice.
-- **Echo** is on where the vendor returns reasoning and recommends replaying it (Responses, Anthropic), off where it's ignored (DeepSeek without tools) or not returned (Chat Completions on OpenAI).
+- **Silent items** are fields the user needn't control, always sent: `stream_options.include_usage` (DeepSeek and OpenAI Chat Completions: token usage at the end of the stream, visible in the request details), `thinking` (GLM: thinking enabled and preserved) and `store: false` + `include` (Responses: stateless, with encrypted reasoning for echo). The app itself adds no optional fields; a preset may, since applying it is the user's choice.
+- **Echo** is on where the vendor returns reasoning and recommends or requires replaying it for the selected mode (GLM with preserved thinking, Responses, Anthropic), off where it's ignored (DeepSeek without tools) or not returned (Chat Completions on OpenAI).
 - **No temperature control** (owner): fading out on reasoning models, and its rules are too vendor-specific.
 - **Headers** only where a documented feature needs a beta header.
 - Parameter names are Chinese and shown in the composer as they are.
