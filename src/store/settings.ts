@@ -10,6 +10,9 @@ export type Pane = 'column'
 interface SettingsState {
   lang: Lang
   theme: Theme
+  relayUrl: string
+  relayPassword: string
+  setRelay: (patch: Partial<{ relayUrl: string; relayPassword: string }>) => void
   /** Last used provider/model, used as the default for new messages. */
   providerId: string | null
   model: string | null
@@ -58,6 +61,9 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       lang: defaultLang,
       theme: 'system',
+      relayUrl: '',
+      relayPassword: '',
+      setRelay: (patch) => set(patch),
       providerId: null,
       model: null,
       paramChoices: {},

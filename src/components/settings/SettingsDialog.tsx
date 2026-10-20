@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, ChevronDown, Globe, Plug, Plus } from 'lucide-react'
+import { Check, ChevronDown, Globe, Network, Plug, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { nanoid } from 'nanoid'
 import { db, type Provider } from '../../db'
@@ -12,6 +12,7 @@ import { Dialog } from '../ui/Dialog'
 import { Label, Segmented, Textarea } from '../ui/Field'
 import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/Menu'
 import { ProviderForm } from './ProviderForm'
+import { RelaySettings } from './RelaySettings'
 
 export function SettingsDialog() {
   const t = useT()
@@ -35,8 +36,11 @@ export function SettingsDialog() {
           <TabButton active={tab === 'general'} onClick={() => openTab('general')} icon={<Globe size={15} />}>
             {t('settings.general')}
           </TabButton>
+          <TabButton active={tab === 'relay'} onClick={() => openTab('relay')} icon={<Network size={15} />}>
+            {t('relay.title')}
+          </TabButton>
         </nav>
-        <div className="min-h-0 min-w-0 flex-1">{tab === 'providers' ? <ProvidersTab /> : <GeneralTab />}</div>
+        <div className="min-h-0 min-w-0 flex-1">{tab === 'providers' ? <ProvidersTab /> : tab === 'relay' ? <RelaySettings /> : <GeneralTab />}</div>
       </div>
     </Dialog>
   )

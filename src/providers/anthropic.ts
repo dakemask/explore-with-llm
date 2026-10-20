@@ -130,6 +130,6 @@ export const anthropic: ProtocolAdapter = {
   },
 
   listModels(provider, headers, signal) {
-    return fetchModelList(joinUrl(provider.baseUrl, '/v1/models'), mergeHeaders(baseHeaders(provider.apiKey), headers), signal)
+    return fetchModelList(joinUrl(provider.baseUrl, '/v1/models'), mergeHeaders(baseHeaders(provider.apiKey), headers), signal, provider)
   },
 }

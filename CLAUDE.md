@@ -1,6 +1,6 @@
 # Explore with LLM
 
-Pure-frontend branching chat app. Users bring their own provider + API key; all data lives in the browser (IndexedDB). Deployed as a static site to GitHub Pages (`.github/workflows/deploy.yml`). No backend, no proxy.
+Pure-frontend branching chat app. Users bring their own provider + API key; all data lives in the browser (IndexedDB). Deployed as a static site to GitHub Pages (`.github/workflows/deploy.yml`). No shared backend. Optional user-hosted relay: settings, Cloudflare Pages ZIP and standalone Node.js downloads (`docs/relay.md`).
 
 The owner is not a programmer. Claude decides *how* things are built (code, libraries, architecture); the owner decides *what* users see and do. A technical choice that changes behavior the user notices, costs, or is hard to undo is explained in plain words and put to the owner (see Engineering principles › Before building). Requirements are disclosed incrementally — record each new decision in "Product decisions".
 
@@ -273,6 +273,7 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
   31. Tree map fixed to the top half.
 - 41. Tree map: no ×n beside a stack of attempts — one grey dot, as a lone attempt (the hover tip still says how many; the switcher's own ×n is unchanged). Built, owner to try.
 - 42. Tree map: a short-dash badge with the count of a node's side questions and notes under each node (hover feedback + two-column title tip; rows 28 px); a note with text or a title turns its node into a branch. Built, owner to try.
+- 43. Network relay (owner, 2026-10-21): global URL + manually entered password, saved locally; per-provider opt-in for chat/naming/model listing; downloads use the current password (no automatic rotation). Cloudflare Pages receives a ZIP with root `_worker.js`; Node.js receives one `relay.mjs`. Connection test verifies the relay/password without calling a model. Built, owner to try. Implementation: `lib/relay.ts`, `lib/relayDownload.ts`, shared `relay/runtime.js` and `relay/node.mjs`; usage in `docs/relay.md`.
 
 ### Done
 
@@ -311,6 +312,8 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 - Fixes (2026-10-10, owner's reports): `\boxed` formulas (one KaTeX copy), `//` drawn as one glyph in monospace text (no ligatures), the edit dialogs' focus halo cut off at the bottom, the tree map shaking / flashing scrollbars at some sizes (svg sized by CSS, not measured). Accepted by the owner (2026-10-10).
 
 ### Test log
+
+- 2026-10-21, task 43 — `pnpm test --maxWorkers=1` (211 pass; TEMP/TMP/TMPDIR set to the workspace `temp` directory to avoid sandbox temp-file ENOENT), `pnpm test:relay` (5 pass), `pnpm build`, `git diff --check`. Browser: actual Node/Cloudflare downloads, saved settings/provider opt-in, authenticated connection test, model listing and streamed chat. HTTP integration: all three protocols stream, original upstream errors, denied password/origin/target, cancellation. App: found Node fetch replaying a streamed upload on HTTP 401; fixed with native HTTP streaming and added the standalone regression check (also gzip and upstream cancellation). Tests: first integration assertion wrongly searched the SSE wire text for a contiguous answer; fixed to assemble event deltas. Existing full browser suites not rerun; live Cloudflare deployment remains for the owner to try.
 
 One line per check run, newest last (kept from 2026-10-09; earlier runs are noted in Done).
 

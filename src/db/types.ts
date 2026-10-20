@@ -6,6 +6,8 @@ export interface Provider {
   protocol: Protocol
   baseUrl: string
   apiKey: string
+  /** Uses the global relay address/password; absent on older providers means direct. */
+  useRelay?: boolean
   /** Model names, in the order shown. */
   models: string[]
   /** Per-model settings, keyed by model name. A model without an entry has none. */

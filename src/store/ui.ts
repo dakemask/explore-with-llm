@@ -50,7 +50,7 @@ interface UiState {
    */
   systemDrafts: Record<string, string>
   settingsOpen: boolean
-  settingsTab: 'providers' | 'general'
+  settingsTab: 'providers' | 'general' | 'relay'
   /** Provider (and model) the providers tab should show when it opens. */
   settingsFocus: { providerId: string; model?: string } | null
   live: Record<string, LiveStream>

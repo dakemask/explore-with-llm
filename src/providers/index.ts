@@ -1,4 +1,5 @@
 import type { ModelConfig, Protocol, Provider } from '../db/types'
+import { providerFetch, RelayError } from '../lib/relay'
 import {
   mergeHeaders,
   parseHeaders,
@@ -102,7 +103,7 @@ export async function sendChat(
 ): Promise<AsyncGenerator<StreamEvent>> {
   let res: Response
   try {
-    res = await fetch(req.url, {
+    res = await providerFetch(provider, req.url, {
       method: 'POST',
       headers: req.headers,
       body: JSON.stringify(req.body),
@@ -110,6 +111,7 @@ export async function sendChat(
     })
   } catch (e) {
     if (signal.aborted) throw e
+    if (e instanceof RelayError) throw new ProviderError(e.message)
     // Browsers report CORS rejections and offline errors identically as TypeError.
     throw new ProviderError((e as Error).message, undefined, undefined, 'network')
   }

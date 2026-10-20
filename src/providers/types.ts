@@ -1,4 +1,5 @@
 import type { Protocol, Provider } from '../db/types'
+import { providerFetch, RelayError } from '../lib/relay'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -96,12 +97,13 @@ export function joinUrl(base: string, path: string) {
 }
 
 /** Model ids from a `{ data: [{ id }] }` (or bare array) model list. */
-export async function fetchModelList(url: string, headers: Record<string, string>, signal?: AbortSignal) {
+export async function fetchModelList(url: string, headers: Record<string, string>, signal?: AbortSignal, provider?: Provider) {
   let res: Response
   try {
-    res = await fetch(url, { headers, signal })
+    res = await providerFetch(provider, url, { headers, signal })
   } catch (e) {
     if (signal?.aborted) throw e
+    if (e instanceof RelayError) throw new ProviderError(e.message)
     throw new ProviderError((e as Error).message, undefined, undefined, 'network')
   }
   const text = await res.text()

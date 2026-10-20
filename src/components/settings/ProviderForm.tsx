@@ -3,6 +3,7 @@ import { Check, Eye, EyeOff, Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } fro
 import { useEffect, useRef, useState } from 'react'
 import { db, type Provider } from '../../db'
 import { useT } from '../../i18n'
+import { useUi } from '../../store/ui'
 import { addModels } from '../../lib/models'
 import { getAdapter, listModels, PROTOCOLS, ProviderError } from '../../providers'
 import { joinUrl } from '../../providers/types'
@@ -10,6 +11,7 @@ import { Button } from '../ui/Button'
 import { confirmDialog } from '../ui/Dialog'
 import { notifyError } from '../ui/Toast'
 import { Input, Label } from '../ui/Field'
+import { Switch } from '../ui/Switch'
 import { FetchedModels, PICK_THRESHOLD } from './FetchedModels'
 import { ModelConfigDialog } from './ModelConfigDialog'
 import { ModelList } from './ModelList'
@@ -110,6 +112,16 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
       </div>
 
       <div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[13px] font-medium">{t('relay.use')}</span>
+          <Switch checked={!!provider.useRelay} onChange={(useRelay) => save({ useRelay })} label={t('relay.use')} />
+        </div>
+        <button onClick={() => useUi.getState().openSettings('relay')} className="mt-1.5 text-xs text-muted underline underline-offset-2 hover:text-text">
+          {t('relay.configure')}
+        </button>
+      </div>
+
+      <div>
         <Label>{t('provider.apiKey')}</Label>
         <div className="relative">
           <Input
@@ -131,7 +143,7 @@ export function ProviderForm({ provider: stored, initialModel }: { provider: Pro
         </div>
         <div className="mt-2 flex items-start gap-1.5 text-xs text-faint">
           <ShieldCheck size={13} className="mt-px shrink-0" />
-          {t('provider.keyNote')}
+          {t(provider.useRelay ? 'relay.keyNote' : 'provider.keyNote')}
         </div>
       </div>
 

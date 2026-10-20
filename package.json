@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "test:relay": "node --test scripts/relay/check-node.mjs",
     "mock": "node scripts/mock/server.mjs"
   },
   "dependencies": {
