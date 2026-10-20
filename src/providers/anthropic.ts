@@ -129,7 +129,7 @@ export const anthropic: ProtocolAdapter = {
     return isObj(aggregated) && Array.isArray(aggregated.content) ? aggregated : undefined
   },
 
-  listModels(provider, headers, signal) {
-    return fetchModelList(joinUrl(provider.baseUrl, '/v1/models'), mergeHeaders(baseHeaders(provider.apiKey), headers), signal, provider)
+  listModels(provider, headers, signal, request) {
+    return fetchModelList(joinUrl(provider.baseUrl, '/v1/models'), mergeHeaders(baseHeaders(provider.apiKey), headers), signal, request)
   },
 }

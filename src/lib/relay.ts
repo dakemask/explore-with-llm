@@ -1,61 +1,54 @@
-import type { Provider } from '../db/types'
-import { translate } from '../i18n'
-import { useSettings } from '../store/settings'
+import { httpError } from '../providers/types'
 
 export const RELAY_SERVICE = 'explore-with-llm-relay'
-export class RelayError extends Error {}
-
-function message(key: 'relay.urlInvalid' | 'relay.passwordMissing' | 'relay.incompatible' | 'relay.unauthorized' | 'relay.network') {
-  return translate(useSettings.getState().lang, key)
+export class RelayError extends Error {
+  constructor(readonly key: 'urlInvalid' | 'passwordMissing' | 'incompatible' | 'network') {
+    super(key)
+  }
 }
 
-/** HTTPS in public; HTTP is only allowed for a local relay (browser permissions still apply). */
 export function relayBase(value: string): string {
   try {
     const url = new URL(value.trim())
-    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) || url.username || url.password || url.search || url.hash)
-      throw new Error()
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error()
     return url.href.replace(/\/+$/, '')
   } catch {
-    throw new RelayError(message('relay.urlInvalid'))
+    throw new RelayError('urlInvalid')
   }
 }
 
-/** UTF-8 passwords work in an HTTP header too. This encoding is not encryption; public relays require HTTPS. */
+/** Encodes UTF-8 passwords for an HTTP header. */
 export function relayToken(password: string): string {
-  if (!password.trim()) throw new RelayError(message('relay.passwordMissing'))
+  if (!password.trim()) throw new RelayError('passwordMissing')
   return btoa(Array.from(new TextEncoder().encode(password), (b) => String.fromCharCode(b)).join(''))
 }
 
-/** Routing happens only at the network boundary: provider request records never contain the relay password. */
-export function providerFetch(provider: Provider | undefined, url: string, init: RequestInit = {}): Promise<Response> {
-  if (!provider?.useRelay) return fetch(url, init)
-  const { relayUrl, relayPassword } = useSettings.getState()
-  const base = relayBase(relayUrl)
+interface RelayConfig {
+  url: string
+  password: string
+}
+
+function fetchRelay(config: RelayConfig, path: string, init: RequestInit = {}): Promise<Response> {
+  const endpoint = new URL(relayBase(config.url))
+  endpoint.pathname = endpoint.pathname.replace(/\/+$/, '') + path
+  endpoint.hash = ''
   const headers = new Headers(init.headers)
-  headers.set('X-EWL-Target', new URL(url).href)
-  headers.set('X-EWL-Token', relayToken(relayPassword))
-  return fetch(`${base}/relay`, { ...init, headers, credentials: 'omit', cache: 'no-store', redirect: 'error' }).catch((error) => {
+  headers.set('X-EWL-Token', relayToken(config.password))
+  return fetch(endpoint.href, { ...init, headers, credentials: 'omit', cache: 'no-store', redirect: 'error' }).catch((error) => {
     if (init.signal?.aborted) throw error
-    throw new RelayError(message('relay.network'))
+    throw new RelayError('network')
   })
 }
 
+export function relayFetch(config: RelayConfig, target: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers)
+  headers.set('X-EWL-Target', new URL(target).href)
+  return fetchRelay(config, '/relay', { ...init, headers })
+}
+
 export async function testRelay(url: string, password: string, signal?: AbortSignal): Promise<void> {
-  const base = relayBase(url)
-  const token = relayToken(password)
-  let response: Response
-  try {
-    response = await fetch(`${base}/health`, {
-      headers: { 'X-EWL-Token': token }, credentials: 'omit', cache: 'no-store', redirect: 'error', signal,
-    })
-  } catch (error) {
-    if (signal?.aborted) throw error
-    throw new RelayError(message('relay.network'))
-  }
-  if (response.status === 401) throw new RelayError(message('relay.unauthorized'))
-  if (!response.ok) throw new RelayError(`HTTP ${response.status}`)
+  const response = await fetchRelay({ url, password }, '/health', { signal })
+  if (!response.ok) throw await httpError(response)
   const data = await response.json().catch(() => null)
-  if (data?.service !== RELAY_SERVICE || data.version !== 1) throw new RelayError(message('relay.incompatible'))
+  if (data?.service !== RELAY_SERVICE || data.version !== 1) throw new RelayError('incompatible')
 }

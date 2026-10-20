@@ -1,11 +1,7 @@
 // Shared by the Pages download and the standalone Node.js download. No dependencies.
 function createRelay(config, fetchUpstream = fetch) {
-  const allowedOrigins = new Set(config.origins)
-  const allowedTargets = new Set(config.targets)
   const token = btoa(Array.from(new TextEncoder().encode(config.password), (b) => String.fromCharCode(b)).join(''))
   const hopHeaders = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'host', 'content-length'])
-  let windowStart = 0
-  let requests = 0
 
   function cleanHeaders(source, response = false) {
     const headers = new Headers(source)
@@ -20,50 +16,36 @@ function createRelay(config, fetchUpstream = fetch) {
   }
 
   return async function handle(request) {
-    const origin = request.headers.get('origin')
-    const cors = new Headers({ 'Cache-Control': 'no-store', 'Vary': 'Origin' })
-    if (origin && allowedOrigins.has(origin)) {
-      cors.set('Access-Control-Allow-Origin', origin)
-      cors.set('Access-Control-Expose-Headers', '*')
-    }
+    const cors = new Headers({ 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': '*' })
     const json = (status, data) => new Response(JSON.stringify(data), {
       status, headers: new Headers([...cors, ['Content-Type', 'application/json; charset=utf-8']]),
     })
     const error = (status, message) => json(status, { error: { message } })
-    if (origin && !allowedOrigins.has(origin)) return error(403, 'Relay: this website origin is not allowed. Download and deploy a script from this app address.')
     const path = new URL(request.url).pathname
-    if (!path.endsWith('/health') && !path.endsWith('/relay')) return error(404, 'Relay: use the app connection test, or the /health and /relay endpoints.')
+    if (!path.endsWith('/health') && !path.endsWith('/relay')) return error(404, 'Relay endpoint not found.')
 
     // Browser preflights carry no password and must never contact the upstream.
     if (request.method === 'OPTIONS') {
       cors.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-      const names = request.headers.get('access-control-request-headers') ?? ''
-      if (names.length > 8192 || !/^[a-zA-Z0-9!#$%&'*+.^_`|~,\s-]*$/.test(names)) return error(400, 'Relay: invalid preflight headers.')
-      cors.set('Access-Control-Allow-Headers', names)
+      cors.set('Access-Control-Allow-Headers', request.headers.get('access-control-request-headers') ?? '*')
       cors.set('Access-Control-Max-Age', '600')
       return new Response(null, { status: 204, headers: cors })
     }
-    if (!config.password.trim()) return error(503, 'Relay: a nonempty password is required. Download a new script.')
+    if (!config.password.trim()) return error(503, 'Relay password is missing.')
     const supplied = request.headers.get('x-ewl-token') ?? ''
-    let mismatch = supplied.length ^ token.length
-    for (let i = 0; i < token.length; i++) mismatch |= token.charCodeAt(i) ^ (supplied.charCodeAt(i) || 0)
-    if (mismatch !== 0) return error(401, 'Relay: incorrect password / 转发密码不正确。')
+    if (supplied !== token) return error(401, 'Incorrect relay password.')
     if (path.endsWith('/health')) {
-      if (request.method !== 'GET') return error(405, 'Relay: health checks require GET.')
+      if (request.method !== 'GET') return error(405, 'Method not supported.')
       return json(200, { service: 'explore-with-llm-relay', version: 1 })
     }
-    if (!['GET', 'POST'].includes(request.method)) return error(405, 'Relay: only GET and POST are supported.')
+    if (!['GET', 'POST'].includes(request.method)) return error(405, 'Method not supported.')
     let target
     try {
       target = new URL(request.headers.get('x-ewl-target') ?? '')
-      if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password || target.hash || !allowedTargets.has(target.origin)) throw new Error()
+      if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) throw new Error()
     } catch {
-      return error(403, 'Relay: provider address is not allowed. Download and deploy a new script after changing provider addresses. / 供应商地址不在允许列表中，请重新下载并部署脚本。')
+      return error(400, 'Invalid provider URL.')
     }
-    // A small per-instance limit, not a distributed DDoS protection service.
-    const now = Date.now()
-    if (now - windowStart >= 60000) { windowStart = now; requests = 0 }
-    if (++requests > 120) return error(429, 'Relay: too many requests. Try again in a minute.')
     const headers = cleanHeaders(request.headers)
     headers.set('Accept-Encoding', 'identity')
     try {
@@ -72,19 +54,17 @@ function createRelay(config, fetchUpstream = fetch) {
         body: request.method === 'POST' ? request.body : undefined,
         signal: request.signal, redirect: 'manual', credentials: 'omit',
       })
-      // Never follow redirects with provider credentials, including redirects into a private network.
       if (upstream.status >= 300 && upstream.status < 400) {
         await upstream.body?.cancel()
-        return error(502, 'Relay: upstream redirected the request. Set the provider API address to its final URL.')
+        return error(502, 'Provider redirected the request. Check the API URL.')
       }
       const resultHeaders = cleanHeaders(upstream.headers, true)
       for (const [name, value] of cors) resultHeaders.set(name, value)
-      resultHeaders.set('Vary', [upstream.headers.get('vary'), 'Origin'].filter(Boolean).join(', '))
       // Pass through the stream, HTTP status, and upstream error body without parsing the model payload.
       return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: resultHeaders })
     } catch {
       if (request.signal.aborted) throw new DOMException('Aborted', 'AbortError')
-      return error(502, 'Relay: could not reach the provider. Check its API address and network availability. / 转发服务无法连接供应商，请检查接口地址与网络。')
+      return error(502, 'Could not connect to the provider.')
     }
   }
 }

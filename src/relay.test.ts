@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { strFromU8, unzipSync } from 'fflate'
 import type { Protocol, Provider } from './db/types'
-import { providerFetch, relayBase, RelayError, relayToken, testRelay } from './lib/relay'
-import { relayFile, relayScript, relayTargets } from './lib/relayDownload'
-import { listModels, prepareChat, sendChat } from './providers'
+import { relayBase, relayToken, testRelay } from './lib/relay'
+import { relayFile, relayScript } from './lib/relayDownload'
+import { listModels, prepareChat, providerFetch, ProviderError, sendChat } from './providers'
 import runtime from './relay/runtime.js?raw'
 import { useSettings } from './store/settings'
 
@@ -11,9 +11,9 @@ const origin = 'https://app.example'
 const target = 'https://api.example'
 const password = 'a long 密码 " \\ $&\nwith unicode 🐈'
 type Handler = (request: Request) => Promise<Response>
-type Config = { password: string; origins: string[]; targets: string[] }
+type Config = { password: string }
 const makeRelay = new Function('config', 'upstream', `${runtime}\nreturn createRelay(config, upstream)`) as (config: Config, upstream: (url: string, init: RequestInit) => Promise<Response>) => Handler
-const config = { password, origins: [origin], targets: [target] }
+const config = { password }
 const provider = (protocol: Protocol = 'openai-chat', useRelay = true): Provider => ({
   id: 'p', name: 'P', protocol, baseUrl: `${target}/v1`, apiKey: 'sk-provider-key', models: ['m'], createdAt: 0, useRelay,
 })
@@ -27,15 +27,15 @@ const request = (path = '/relay', options: RequestInit = {}) => new Request(`htt
 beforeEach(() => useSettings.setState({ lang: 'en', relayUrl: 'https://relay.example/prefix/', relayPassword: password }))
 afterEach(() => vi.unstubAllGlobals())
 
-describe('relay contract and security', () => {
-  it('authenticates health, rejects wrong passwords and origins, and handles preflight without forwarding', async () => {
+describe('relay contract', () => {
+  it('authenticates health from any app origin and handles preflight without forwarding', async () => {
     const upstream = vi.fn()
     const handle = makeRelay(config, upstream)
     const health = await handle(request('/health'))
     expect(await health.json()).toEqual({ service: 'explore-with-llm-relay', version: 1 })
-    expect(health.headers.get('access-control-allow-origin')).toBe(origin)
+    expect(health.headers.get('access-control-allow-origin')).toBe('*')
     expect((await handle(request('/health', { headers: { 'X-EWL-Token': 'wrong' } }))).status).toBe(401)
-    expect((await handle(request('/health', { headers: { Origin: 'https://evil.example' } }))).headers.has('access-control-allow-origin')).toBe(false)
+    expect((await handle(request('/health', { headers: { Origin: 'https://another-app.example' } }))).status).toBe(200)
     expect((await handle(request('/relay', { method: 'DELETE' }))).status).toBe(405)
     const preflight = await handle(request('/relay', { method: 'OPTIONS', headers: {
       'X-EWL-Token': '', 'Access-Control-Request-Headers': 'authorization,x-api-key,x-ewl-token,x-ewl-target,content-type',
@@ -46,11 +46,11 @@ describe('relay contract and security', () => {
     expect((await makeRelay({ ...config, password: '' }, upstream)(request('/health'))).status).toBe(503)
   })
 
-  it('rejects unapproved origins, credentials in URLs and redirects without forwarding provider secrets elsewhere', async () => {
+  it('rejects invalid target URLs and upstream redirects', async () => {
     const upstream = vi.fn().mockResolvedValue(new Response(null, { status: 302, headers: { Location: 'http://127.0.0.1/admin' } }))
     const handle = makeRelay(config, upstream)
-    for (const url of ['https://api.example.evil.test/v1', 'http://127.0.0.1/admin', 'https://user:pass@api.example/v1', 'file:///etc/passwd']) {
-      expect((await handle(request('/relay', { headers: { 'X-EWL-Target': url } }))).status).toBe(403)
+    for (const url of ['not a url', 'https://user:pass@api.example/v1', 'file:///etc/passwd']) {
+      expect((await handle(request('/relay', { headers: { 'X-EWL-Target': url } }))).status).toBe(400)
     }
     expect(upstream).not.toHaveBeenCalled()
     expect((await handle(request())).status).toBe(502)
@@ -80,11 +80,11 @@ describe('relay contract and security', () => {
     expect(await response.text()).toContain('upstream denied')
     expect(response.headers.get('x-request-id')).toBe('upstream-id')
     expect(response.headers.has('set-cookie')).toBe(false)
-    expect(response.headers.get('access-control-allow-origin')).toBe(origin)
+    expect(response.headers.get('access-control-allow-origin')).toBe('*')
     expect(upstream.mock.calls[0][1].signal).toBe(req.signal)
   })
 
-  it('returns the first stream bytes before the upstream finishes, and bounds authenticated request frequency', async () => {
+  it('returns the first stream bytes before the upstream finishes', async () => {
     let finish!: () => void
     const stream = new ReadableStream({ start(controller) {
       controller.enqueue(new TextEncoder().encode('first'))
@@ -97,11 +97,6 @@ describe('relay contract and security', () => {
     finish()
     expect(new TextDecoder().decode((await reader.read()).value)).toBe('last')
     expect((await reader.read()).done).toBe(true)
-    const upstream = vi.fn().mockImplementation(() => new Response('ok'))
-    const limited = makeRelay(config, upstream)
-    for (let i = 0; i < 120; i++) await limited(request())
-    expect((await limited(request())).status).toBe(429)
-    expect(upstream).toHaveBeenCalledTimes(120)
   })
 })
 
@@ -112,9 +107,9 @@ describe('app routing and downloads', () => {
     useSettings.setState({ relayUrl: '', relayPassword: '' })
     await providerFetch(provider('openai-chat', false), `${target}/models`)
     expect(network.mock.calls[0][0]).toBe(`${target}/models`)
-    expect(() => providerFetch(provider(), `${target}/models`)).toThrow(RelayError)
+    await expect(providerFetch(provider(), `${target}/models`)).rejects.toThrow(ProviderError)
     expect(network).toHaveBeenCalledOnce()
-    for (const url of ['http://public.example', 'https://user:pass@relay.example', 'https://relay.example?q=secret', 'file:///relay']) expect(() => relayBase(url)).toThrow()
+    for (const url of ['not a url', 'file:///relay']) expect(() => relayBase(url)).toThrow()
     expect(relayBase(' http://127.0.0.1:8787/ ')).toBe('http://127.0.0.1:8787')
     expect(relayBase('http://[::1]:8787')).toBe('http://[::1]:8787')
     useSettings.setState({ relayUrl: 'https://relay.example', relayPassword: password })
@@ -161,13 +156,11 @@ describe('app routing and downloads', () => {
     await expect(testRelay('https://relay.example', 'wrong')).rejects.toThrow('Incorrect relay password')
     expect(upstream).not.toHaveBeenCalled()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>wrong site</html>')))
-    await expect(testRelay('https://wrong.example', password)).rejects.toThrow('not a compatible relay')
+    await expect(testRelay('https://wrong.example', password)).rejects.toThrow('incompatible')
   })
 
   it('downloads a Pages ZIP with a root worker, executable safe password literals and no provider API keys', async () => {
-    const targets = relayTargets([provider(), { baseUrl: 'https://api.example/another' }, { baseUrl: 'not a url' }])
-    expect(targets).toEqual([target])
-    const file = await relayFile('cloudflare', password, origin, targets)
+    const file = await relayFile('cloudflare', password)
     const files = unzipSync(new Uint8Array(await file.blob.arrayBuffer()))
     expect(file.name).toBe('cloudflare-relay.zip')
     expect(Object.keys(files)).toEqual(['_worker.js'])
@@ -176,8 +169,8 @@ describe('app routing and downloads', () => {
     const worker = new Function(source.replace('export default', 'return'))() as { fetch: Handler }
     expect((await worker.fetch(request('/health'))).status).toBe(200)
     expect((await worker.fetch(request('/health', { headers: { 'X-EWL-Token': 'wrong' } }))).status).toBe(401)
-    expect(relayScript('cloudflare', password, origin, targets)).toBe(source)
-    const node = await relayFile('node', password, origin, targets)
+    expect(relayScript('cloudflare', password)).toBe(source)
+    const node = await relayFile('node', password)
     expect(node.name).toBe('relay.mjs')
     expect(await node.blob.text()).toContain("from 'node:http'")
   })

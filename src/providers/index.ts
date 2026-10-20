@@ -1,5 +1,7 @@
 import type { ModelConfig, Protocol, Provider } from '../db/types'
-import { providerFetch, RelayError } from '../lib/relay'
+import { relayFetch, RelayError } from '../lib/relay'
+import { translate } from '../i18n'
+import { useSettings } from '../store/settings'
 import {
   mergeHeaders,
   parseHeaders,
@@ -16,6 +18,7 @@ import { openaiChat } from './openaiChat'
 import { openaiResponses } from './openaiResponses'
 import {
   ProviderError,
+  httpError,
   type ChatMessage,
   type ImagePayload,
   type PreparedRequest,
@@ -79,7 +82,19 @@ export function customHeaders(provider: Provider, model: string): Record<string,
 
 /** Model listing isn't tied to a model, so it goes out with the protocol's own headers only. */
 export function listModels(provider: Provider, signal?: AbortSignal) {
-  return getAdapter(provider.protocol).listModels(provider, {}, signal)
+  return getAdapter(provider.protocol).listModels(provider, {}, signal, (url, init) => providerFetch(provider, url, init))
+}
+
+/** Applies the app's relay choice at the network boundary. */
+export async function providerFetch(provider: Provider, url: string, init: RequestInit = {}): Promise<Response> {
+  if (!provider.useRelay) return fetch(url, init)
+  const { relayUrl, relayPassword, lang } = useSettings.getState()
+  try {
+    return await relayFetch({ url: relayUrl, password: relayPassword }, url, init)
+  } catch (error) {
+    if (error instanceof RelayError) throw new ProviderError(translate(lang, `relay.${error.key}`))
+    throw error
+  }
 }
 
 /** The non-streamed equivalent of a streamed response, rebuilt from its SSE data payloads. */
@@ -111,7 +126,7 @@ export async function sendChat(
     })
   } catch (e) {
     if (signal.aborted) throw e
-    if (e instanceof RelayError) throw new ProviderError(e.message)
+    if (e instanceof ProviderError) throw e
     // Browsers report CORS rejections and offline errors identically as TypeError.
     throw new ProviderError((e as Error).message, undefined, undefined, 'network')
   }
@@ -119,8 +134,7 @@ export async function sendChat(
   res.headers.forEach((v, k) => (headers[k] = v))
   tap?.onResponse({ status: res.status, statusText: res.statusText, headers })
   if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => '')
-    throw new ProviderError(extractErrorMessage(text) ?? `HTTP ${res.status}`, res.status, text)
+    throw await httpError(res)
   }
   return getAdapter(provider.protocol).parseStream(tap ? tapBody(res.body, tap.onChunk) : res.body)
 }
@@ -141,15 +155,6 @@ function tapBody(body: ReadableStream<Uint8Array>, onChunk: (text: string) => vo
       },
     }),
   )
-}
-
-function extractErrorMessage(text: string): string | undefined {
-  try {
-    const j = JSON.parse(text)
-    return j.error?.message ?? j.message ?? undefined
-  } catch {
-    return undefined
-  }
 }
 
 export { ProviderError }

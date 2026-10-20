@@ -36,7 +36,7 @@ test('standalone Node relay preserves HTTP errors, compressed data, streaming an
   t.after(() => { upstream.closeAllConnections(); upstream.close() })
   const target = `http://127.0.0.1:${upstream.address().port}`
   const password = 'integration-password-测试'
-  const config = { password, origins: ['https://app.example'], targets: [target] }
+  const config = { password }
   const runtime = await readFile(new URL('../../src/relay/runtime.js', import.meta.url), 'utf8')
   const adapter = await readFile(new URL('../../src/relay/node.mjs', import.meta.url), 'utf8')
   const child = spawn(process.execPath, ['--input-type=module', '-'], {
@@ -67,7 +67,7 @@ test('standalone Node relay preserves HTTP errors, compressed data, streaming an
     const response = await fetch(`${base}/relay`, { headers: headers('/models') })
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), { data: [{ id: 'test-model' }] })
-    assert.equal(response.headers.get('access-control-allow-origin'), 'https://app.example')
+    assert.equal(response.headers.get('access-control-allow-origin'), '*')
   })
   await t.test('POST HTTP 401 keeps its original status, headers and body', async () => {
     const response = await fetch(`${base}/relay`, { method: 'POST', headers: headers('/auth'), body: '{"hello":"world"}' })

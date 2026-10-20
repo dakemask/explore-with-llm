@@ -1,5 +1,4 @@
 import type { Protocol, Provider } from '../db/types'
-import { providerFetch, RelayError } from '../lib/relay'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -28,6 +27,8 @@ export interface PreparedRequest {
   headers: Record<string, string>
   body: unknown
 }
+
+export type RequestFetch = (url: string, init?: RequestInit) => Promise<Response>
 
 export interface ProtocolAdapter {
   protocol: Protocol
@@ -59,7 +60,7 @@ export interface ProtocolAdapter {
   aggregate(payloads: unknown[]): unknown
   /** The reply inside an aggregated response, in native shape (what `echo` and reasoning display read). */
   replyMessage(aggregated: unknown): Record<string, unknown> | undefined
-  listModels(provider: Provider, headers: Record<string, string>, signal?: AbortSignal): Promise<string[]>
+  listModels(provider: Provider, headers: Record<string, string>, signal?: AbortSignal, request?: RequestFetch): Promise<string[]>
 }
 
 /** `network`: the request got no response; `interrupted`: the connection broke while the reply streamed. */
@@ -97,21 +98,32 @@ export function joinUrl(base: string, path: string) {
 }
 
 /** Model ids from a `{ data: [{ id }] }` (or bare array) model list. */
-export async function fetchModelList(url: string, headers: Record<string, string>, signal?: AbortSignal, provider?: Provider) {
+export async function fetchModelList(url: string, headers: Record<string, string>, signal?: AbortSignal, request: RequestFetch = fetch) {
   let res: Response
   try {
-    res = await providerFetch(provider, url, { headers, signal })
+    res = await request(url, { headers, signal })
   } catch (e) {
     if (signal?.aborted) throw e
-    if (e instanceof RelayError) throw new ProviderError(e.message)
+    if (e instanceof ProviderError) throw e
     throw new ProviderError((e as Error).message, undefined, undefined, 'network')
   }
+  if (!res.ok) throw await httpError(res)
   const text = await res.text()
-  if (!res.ok) throw new ProviderError(`HTTP ${res.status}`, res.status, text)
   const json = JSON.parse(text)
   const list: unknown[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : []
   return list
     .map((m) => (typeof m === 'string' ? m : (m as { id?: string }).id))
     .filter((id): id is string => !!id)
     .sort()
+}
+
+/** Shared by chat, model listing and relay connection checks. */
+export async function httpError(response: Response): Promise<ProviderError> {
+  const text = await response.text().catch(() => '')
+  let message: unknown
+  try {
+    const data = JSON.parse(text)
+    message = data?.error?.message ?? data?.message
+  } catch { /* Non-JSON responses use the HTTP status. */ }
+  return new ProviderError(typeof message === 'string' && message ? message : `HTTP ${response.status}`, response.status, text)
 }

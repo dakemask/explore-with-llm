@@ -46,7 +46,7 @@ const server = createServer(async (incoming, outgoing) => {
     if (outgoing.headersSent || abort.signal.aborted) outgoing.destroy()
     else {
       outgoing.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-      outgoing.end(JSON.stringify({ error: { message: 'Relay: request failed.' } }))
+      outgoing.end(JSON.stringify({ error: { message: 'Relay request failed.' } }))
     }
   }
 })

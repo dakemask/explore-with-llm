@@ -103,8 +103,8 @@ export const openaiChat: ProtocolAdapter = {
     return isObj(msg) ? msg : undefined
   },
 
-  listModels(provider, headers, signal) {
+  listModels(provider, headers, signal, request) {
     const auth = { Authorization: `Bearer ${provider.apiKey}` }
-    return fetchModelList(joinUrl(provider.baseUrl, '/models'), mergeHeaders(auth, headers), signal, provider)
+    return fetchModelList(joinUrl(provider.baseUrl, '/models'), mergeHeaders(auth, headers), signal, request)
   },
 }

@@ -142,8 +142,8 @@ export const openaiResponses: ProtocolAdapter = {
     return isObj(aggregated) && Array.isArray(aggregated.output) ? { output: aggregated.output } : undefined
   },
 
-  listModels(provider, headers, signal) {
+  listModels(provider, headers, signal, request) {
     const auth = { Authorization: `Bearer ${provider.apiKey}` }
-    return fetchModelList(joinUrl(provider.baseUrl, '/models'), mergeHeaders(auth, headers), signal, provider)
+    return fetchModelList(joinUrl(provider.baseUrl, '/models'), mergeHeaders(auth, headers), signal, request)
   },
 }

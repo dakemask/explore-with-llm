@@ -218,6 +218,7 @@ What users see and can do, and why. These rules are deliberate: don't change one
 
 ### Providers, models and parameters
 
+- Network relay: optional per provider, using the global URL and manually entered password saved in this browser. Downloads embed the current password: a Cloudflare Pages ZIP with root `_worker.js`, or one Node.js `relay.mjs`. Chat, naming, model listing and connection checks show HTTP error messages through the existing UI. Usage: `docs/relay.md`.
 - Protocols: OpenAI Chat Completions (base URL incl. `/v1`, → `/chat/completions`), OpenAI Responses (→ `/responses`), Anthropic Messages (base URL **without** `/v1`, as in Anthropic's SDKs, → `/v1/messages`; sends `x-api-key`, `anthropic-version`, `anthropic-dangerous-direct-browser-access`). Settings show the resulting request URL. No check for fields an API requires (e.g. Anthropic `max_tokens`): the API's own error shows in the chat (other vendors now speak the Anthropic protocol too, such rules won't last).
 - Providers: **no defaults.** "Add provider" makes a blank form. The app adapts per *protocol*, never per vendor, and adds no optional request fields itself (not even `stream_options`); the request body is only the protocol's required fields + the model's parameter config (a preset may put optional fields there — the user chose it).
 - Models: settings show the provider's models as a list (no text box). Clicking a row (anywhere but its delete ✕) or its gear opens that model's config dialog; "添加模型" opens the same dialog for a new model. The dialog edits a draft: Cancel (asks if changed) / Save; nothing is validated while typing, Save checks name, parameter JSON and header lines and lists every problem in one error notification. "从接口获取" adds new names, never removes; if the deduplicated list has ≥ 12 models it instead opens a dialog listing them all (search, an add button per row; already-added ones greyed). "Copy from another model" copies a whole config.
@@ -273,7 +274,6 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
   31. Tree map fixed to the top half.
 - 41. Tree map: no ×n beside a stack of attempts — one grey dot, as a lone attempt (the hover tip still says how many; the switcher's own ×n is unchanged). Built, owner to try.
 - 42. Tree map: a short-dash badge with the count of a node's side questions and notes under each node (hover feedback + two-column title tip; rows 28 px); a note with text or a title turns its node into a branch. Built, owner to try.
-- 43. Network relay (owner, 2026-10-21): global URL + manually entered password, saved locally; per-provider opt-in for chat/naming/model listing; downloads use the current password (no automatic rotation). Cloudflare Pages receives a ZIP with root `_worker.js`; Node.js receives one `relay.mjs`. Connection test verifies the relay/password without calling a model. Built, owner to try. Implementation: `lib/relay.ts`, `lib/relayDownload.ts`, shared `relay/runtime.js` and `relay/node.mjs`; usage in `docs/relay.md`.
 
 ### Done
 
@@ -309,11 +309,10 @@ Status: **todo** / **built, owner to try** / **accepted**. Once accepted, a task
 38. Side questions on user messages (context includes that turn's reply; export v8). Accepted by the owner (2026-10-10). Full run with it: all pass.
 39. Side column: crowded collapsed cards centered on their anchors, marker bars beside their cards, one card high. Accepted by the owner (2026-10-10).
 40. Side column: the expanded card fills the visible column's height (scroll area − 32 px, 16 px above and below; was min(75vh, …)), still at its anchor and scrolling with the chat. Accepted by the owner (2026-10-19).
+43. Optional network relay, global URL/password, per-provider switch, Cloudflare Pages ZIP and Node.js downloads. Accepted by the owner (2026-10-21).
 - Fixes (2026-10-10, owner's reports): `\boxed` formulas (one KaTeX copy), `//` drawn as one glyph in monospace text (no ligatures), the edit dialogs' focus halo cut off at the bottom, the tree map shaking / flashing scrollbars at some sizes (svg sized by CSS, not measured). Accepted by the owner (2026-10-10).
 
 ### Test log
-
-- 2026-10-21, task 43 — `pnpm test --maxWorkers=1` (211 pass; TEMP/TMP/TMPDIR set to the workspace `temp` directory to avoid sandbox temp-file ENOENT), `pnpm test:relay` (5 pass), `pnpm build`, `git diff --check`. Browser: actual Node/Cloudflare downloads, saved settings/provider opt-in, authenticated connection test, model listing and streamed chat. HTTP integration: all three protocols stream, original upstream errors, denied password/origin/target, cancellation. App: found Node fetch replaying a streamed upload on HTTP 401; fixed with native HTTP streaming and added the standalone regression check (also gzip and upstream cancellation). Tests: first integration assertion wrongly searched the SSE wire text for a contiguous answer; fixed to assemble event deltas. Existing full browser suites not rerun; live Cloudflare deployment remains for the owner to try.
 
 One line per check run, newest last (kept from 2026-10-09; earlier runs are noted in Done).
 
@@ -360,3 +359,5 @@ OpenAI's official API is deliberately left unverified (owner: they hardly use it
 - 2026-10-10, task 39 — `pnpm test` (197; new: groups center, collide and merge, never above 0) + `pnpm build`, suites `layout`, `scroll-cards`, `layers`. App: none. Tests: 1 of my own new unit cases didn't actually collide (wrong numbers), fixed before the run; the suites first failed to start (playwright-core not yet installed in this session's scratchpad).
 - 2026-10-19, task 40 — in this DSH session only `tsc` (typecheck) ran: exit 0; `pnpm test` / `pnpm build` can't run here (`spawn EPERM`), and the owner's own run wasn't pasted before they OK'd it. App: the empty strip in the column the owner reported. Tests: none (no test asserted the height; `layout` W3 and `scroll-cards` C1 / NC only check the card fits on screen, which still holds).
 - 2026-10-20, tasks 41–42 — `pnpm test` + `pnpm build` (the owner ran them; both pass). App: none reported. Tests: none (the new note-promotion test is in `archive.test.ts`; the `tree` suite's R1 was updated with task 41 and hasn't been run — the full `run-all.mjs` is due after four tasks since task 38).
+- 2026-10-21, task 43 (`61ac01e`) — unit tests (211), standalone relay checks (5), production build and browser checks passed. Owner verified deployment.
+- 2026-10-21, task 43 — checks not run at the owner's request.
