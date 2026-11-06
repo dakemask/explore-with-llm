@@ -2,7 +2,7 @@
  * Mapping between rendered Markdown and offsets in its source text, for side-question and note anchors.
  *
  * Offsets are always into the original text (assistant content; a user message for notes). The renderer
- * rewrites `\( \)` / `\[ \]` math before parsing, so `normalizeMathMapped` keeps a map from the rewritten text back to the original.
+ * normalizes math delimiters before parsing, so `normalizeMathMapped` maps the rewritten text back to the original.
  * `rehypeAnchors` wraps every rendered text run in an element carrying its source range (`data-s`/`data-e`)
  * and highlights anchored ranges; `rangeToSource` turns a DOM selection back into a source range.
  */
@@ -16,7 +16,7 @@ export interface Normalized {
   map: number[]
 }
 
-/** Models often emit \( \) and \[ \] delimiters; remark-math only understands $ / $$. Code is left untouched. */
+/** Normalize model math delimiters to the syntax remark-math expects. */
 export function normalizeMathMapped(src: string): Normalized {
   let text = ''
   const map: number[] = []
@@ -29,15 +29,15 @@ export function normalizeMathMapped(src: string): Normalized {
     for (let i = 0; i < s.length; i++) map.push(at)
   }
   /**
-   * `\[ … \]` → `$$` fences on their own lines. Lines it adds repeat the container prefix (`> ` of a
+   * Put display math fences on their own lines. Added lines repeat the container prefix (`> ` of a
    * blockquote, list indentation) of the line the math starts on, so the math stays inside it.
    */
-  const displayMath = (open: number, close: number) => {
+  const displayMath = (open: number, close: number, dollarPrefix?: string) => {
     const lineStart = src.lastIndexOf('\n', open - 1) + 1
     const before = src.slice(lineStart, open)
-    const prefix = /^[ \t>]*/.exec(before)![0]
+    const prefix = dollarPrefix ?? /^[ \t>]*/.exec(before)![0]
     const nl = '\n' + prefix
-    insert(before === prefix ? '$$' : nl + '$$', open)
+    insert(dollarPrefix !== undefined || before === prefix ? '$$' : nl + '$$', open)
     let a = open + 2
     let b = close - 1
     const body = src.slice(a, b)
@@ -54,15 +54,28 @@ export function normalizeMathMapped(src: string): Normalized {
     const rest = src.slice(close + 1).split('\n')[0]
     if (rest.trim()) insert(nl, close)
   }
-  const mathRe = /\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)/g
-  const codeRe = /```[\s\S]*?(?:```|$)|`[^`\n]*`/g
+  // Match line-leading $$, allowing up to three spaces before a fence or container marker.
+  const mathRe = /\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|^( {0,3}(?:> ? {0,3})*)(?:([-+*]|\d{1,9}[.)])( {1,4}))?\$\$(?!\$)([\s\S]*?)(?<![\\$])\$\$(?!\$)/gm
+  const codeRe = /```[\s\S]*?(?:```|$)|(?<=^|\n)[ \t>]*~~~[\s\S]*?(?:(?<=\n)[ \t>]*~~~|$)|`[^`\n]*`/g
   let pos = 0
   const prose = (end: number) => {
     mathRe.lastIndex = pos
     for (let m = mathRe.exec(src); m && m.index < end; m = mathRe.exec(src)) {
       if (m.index + m[0].length > end) break
-      const open = m.index
       const close = m.index + m[0].length - 1 // last char of the closing delimiter
+      const dollarBody = m[6]
+      if (dollarBody !== undefined) {
+        // A closing fence already on its own line is valid block syntax.
+        if (!dollarBody.trim() || /\n[ \t>]*$/.test(dollarBody)) continue
+        const marker = m[4] ?? ''
+        const spacing = m[5] ?? ''
+        const open = m.index + m[3].length + marker.length + spacing.length
+        copy(pos, open)
+        displayMath(open, close, m[3] + ' '.repeat(marker.length) + spacing)
+        pos = close + 1
+        continue
+      }
+      const open = m.index
       copy(pos, open)
       if (m[1] !== undefined) displayMath(open, close)
       else {

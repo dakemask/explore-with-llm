@@ -60,6 +60,20 @@ describe('display math in containers', () => {
   })
 })
 
+it('renders attached dollar fences without consuming the following Markdown', () => {
+  const first = '$$3A^{-1}-2A^{*}\n=-A^{-1}.$$'
+  const src = `${first}\n\n### 第三步：取行列式\n\n**关键易错点**\n$$|kA|=k^{n}|A|.$$`
+  const html = renderToStaticMarkup(<Markdown text={src} />)
+  expect(html.match(/class="katex-display"/g)).toHaveLength(2)
+  expect(html).toContain('<h3>第三步：取行列式</h3>')
+  expect(html).toContain('<strong>关键易错点</strong>')
+  expect(html).not.toContain('katex-error')
+
+  const { text, map } = normalizeMathMapped(src)
+  expect(map[text.indexOf('=-A')]).toBe(src.indexOf('=-A'))
+  expect(map[text.indexOf('###')]).toBe(src.indexOf('###'))
+})
+
 describe('rehypeAnchors', () => {
   it('records the source range of each rendered run', () => {
     const r = runs('Hi **bo&amp;ld** a\\*b `code` end')
